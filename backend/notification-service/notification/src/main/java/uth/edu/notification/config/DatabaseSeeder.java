@@ -22,7 +22,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         }
 
         Notification sample = new Notification();
-        sample.setUserId(UUID.fromString("1"));
+        sample.setUserId(UUID.fromString("11111111-1111-1111-1111-111111111111"));
         sample.setTitle("Welcome");
         sample.setMessage("Notification service is ready.");
         sample.setIsRead(false);
