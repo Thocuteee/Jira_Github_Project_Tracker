@@ -7,7 +7,6 @@ import uth.edu.auth.dto.RegisterRequest;
 import uth.edu.auth.model.User;
 import uth.edu.auth.service.IAuthService;
 import java.util.UUID;
-
 @RestController
 @RequestMapping("/api/auth") 
 public class AuthController {
