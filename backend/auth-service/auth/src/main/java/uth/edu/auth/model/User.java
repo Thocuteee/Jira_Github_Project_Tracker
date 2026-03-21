@@ -2,6 +2,8 @@ package uth.edu.auth.model;
 
 import jakarta.persistence.*;
 import java.util.UUID;
+import java.util.Set;
+import java.util.HashSet;
 import java.time.LocalDateTime;
 
 import lombok.Getter;
@@ -26,6 +28,14 @@ public class User {
 
     @Column(nullable = false)
     private String email;
+
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+        name = "user_roles", 
+        joinColumns = @JoinColumn(name = "user_id"), 
+        inverseJoinColumns = @JoinColumn(name = "role_id") 
+    )
+    private Set<Role> roles = new HashSet<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
