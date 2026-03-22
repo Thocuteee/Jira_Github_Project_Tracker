@@ -26,6 +26,7 @@ public class RequirementController {
     public ResponseEntity<?> getRequirementById(@PathVariable UUID id) {
         return ResponseEntity.ok(requirementService.getRequirementById(id));
     }
+    // Lấy Requirement theo Project ID
 
     @GetMapping("/project/{projectId}")
     public ResponseEntity<?> getRequirementsByProjectId(@PathVariable UUID projectId) {
