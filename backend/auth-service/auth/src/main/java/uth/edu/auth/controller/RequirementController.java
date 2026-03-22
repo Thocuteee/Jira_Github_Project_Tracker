@@ -58,4 +58,5 @@ public class RequirementController {
         requirementService.deleteRequirement(id);
         return ResponseEntity.ok("Đã xóa Requirement thành công!");
     }
+    // Các endpoint khác như cập nhật trạng thái, thêm comment... có thể được thêm vào sau
 }
