@@ -20,6 +20,7 @@ public class RequirementController {
     public ResponseEntity<?> getAllRequirements() {
         return ResponseEntity.ok(requirementService.getAllRequirements());
     }
+    // Lấy Requirement theo ID
 
     @GetMapping("/{id}")
     public ResponseEntity<?> getRequirementById(@PathVariable UUID id) {
