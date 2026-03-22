@@ -9,12 +9,12 @@ import uth.edu.task.model.Attachment;
 @Mapper(componentModel = "spring")
 public interface AttachmentMapper {
 
-    // 1. Chuyển từ Request sang Entity
+    // Chuyển từ Request sang Entity
     Attachment toEntity(AttachmentRequest attachmentRequest);
 
-    // 2. Chuyển từ Entity sang Response
+    // Chuyển từ Entity sang Response
     AttachmentResponse toResponse(Attachment attachment);
 
-    // 3. Cập nhật dữ liệu từ Request vào Entity có sẵn
+    // Cập nhật dữ liệu từ Request vào Entity có sẵn
     void updateEntityFromRequest(AttachmentRequest request, @MappingTarget Attachment attachment);
 }

@@ -1,6 +1,6 @@
 package uth.edu.task.model;
 
-public enum TaskPriority {
+public enum ETaskPriority {
     LOW,
     MEDIUM,
     HIGH

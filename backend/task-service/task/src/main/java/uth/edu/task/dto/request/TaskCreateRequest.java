@@ -6,7 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import uth.edu.task.model.TaskPriority;
+import uth.edu.task.model.ETaskPriority;
 
 import java.time.LocalDate;
 import java.util.UUID;
@@ -15,7 +15,7 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class TaskRequest {
+public class TaskCreateRequest {
     @NotNull(message = "ID của Requirement không được để trống")
     private UUID requirementId;
 
@@ -25,7 +25,7 @@ public class TaskRequest {
     private String description;
 
     @NotNull(message = "Mức độ ưu tiên không được để trống")
-    private TaskPriority priority;
+    private ETaskPriority priority;
 
     private UUID assignedTo;
 

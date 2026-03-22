@@ -4,8 +4,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import uth.edu.task.model.TaskPriority;
-import uth.edu.task.model.TaskStatus;
+import uth.edu.task.model.ETaskPriority;
+import uth.edu.task.model.ETaskStatus;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -20,8 +20,8 @@ public class TaskResponse {
     private UUID requirementId;
     private String title;
     private String description;
-    private TaskStatus status;
-    private TaskPriority priority;
+    private ETaskStatus status;
+    private ETaskPriority priority;
     private UUID assignedTo;
     private LocalDate dueDate;
     private LocalDateTime createdAt;

@@ -33,11 +33,11 @@ public class Task {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private TaskStatus status;
+    private ETaskStatus status;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private TaskPriority priority;
+    private ETaskPriority priority;
 
     @Column(name = "assigned_to")
     private UUID assignedTo;
