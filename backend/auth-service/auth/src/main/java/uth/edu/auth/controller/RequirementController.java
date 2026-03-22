@@ -32,6 +32,7 @@ public class RequirementController {
     public ResponseEntity<?> getRequirementsByProjectId(@PathVariable UUID projectId) {
         return ResponseEntity.ok(requirementService.getRequirementsByProjectId(projectId));
     }
+    // Tạo mới Requirement
 
     @PostMapping
     public ResponseEntity<?> createRequirement(@RequestBody RequirementRequest request) {
