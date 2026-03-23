@@ -24,7 +24,7 @@ public class Attachment {
     private Task task;
 
     @Column(name = "uploaded_by", nullable = false)
-    private UUID uploadedBy;
+    private String uploadedBy;
 
     @Column(name = "file_name", nullable = false)
     private String fileName;

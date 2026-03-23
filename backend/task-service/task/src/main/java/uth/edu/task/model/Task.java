@@ -23,7 +23,7 @@ public class Task {
     private UUID taskId;
 
     @Column(name = "requirement_id", nullable = false)
-    private UUID requirementId;
+    private String requirementId;
 
     @Column(nullable = false)
     private String title;
@@ -40,7 +40,7 @@ public class Task {
     private ETaskPriority priority;
 
     @Column(name = "assigned_to")
-    private UUID assignedTo;
+    private String assignedTo;
 
     @Column(name = "due_date")
     private LocalDate dueDate;
@@ -50,6 +50,6 @@ public class Task {
     private LocalDateTime createdAt;
 
     @Column(name = "created_by")
-    private UUID createdBy;
+    private String createdBy;
 
 }

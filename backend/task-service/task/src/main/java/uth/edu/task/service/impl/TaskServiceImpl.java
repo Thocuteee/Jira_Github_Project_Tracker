@@ -5,7 +5,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import uth.edu.task.config.UserContextHolder;
+import uth.edu.task.dto.request.TaskAssignRequest;
 import uth.edu.task.dto.request.TaskCreateRequest;
+import uth.edu.task.dto.request.TaskStatusUpdateRequest;
 import uth.edu.task.dto.request.TaskUpdateRequest;
 import uth.edu.task.dto.response.TaskResponse;
 import uth.edu.task.mapper.TaskMapper;
@@ -19,6 +21,7 @@ import uth.edu.task.repository.TaskRepository;
 import uth.edu.task.service.TaskService;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -37,7 +40,7 @@ public class TaskServiceImpl implements TaskService {
     @Transactional
     public TaskResponse createTask(TaskCreateRequest request) {
         String role = UserContextHolder.getUserRole();
-        String userIdStr = UserContextHolder.getUserId();
+        String currentUserId = UserContextHolder.getUserId();
 
         // Kiểm tra quyền: Chỉ Leader mới được tạo Task
         if (!"TEAM_LEADER".equals(role)) {
@@ -46,12 +49,11 @@ public class TaskServiceImpl implements TaskService {
 
         Task task = taskMapper.toEntity(request);
         task.setStatus(ETaskStatus.TODO);
-        task.setCreatedBy(UUID.fromString(userIdStr));
+        task.setCreatedBy(currentUserId);
 
         Task savedTask = taskRepository.save(task);
 
-        // Ghi lịch sử tạo Task
-        saveTaskHistory(savedTask, UUID.fromString(userIdStr), "CREATE", "None", "Task Created");
+        saveTaskHistory(savedTask, currentUserId, "CREATE", "None", "Task Created");
 
         return taskMapper.toResponse(savedTask);
     }
@@ -64,7 +66,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
-    public List<TaskResponse> getTasksByRequirementId(UUID requirementId) {
+    public List<TaskResponse> getTasksByRequirementId(String requirementId) {
         List<Task> tasks = taskRepository.findByRequirementId(requirementId);
         return tasks.stream()
                 .map(taskMapper::toResponse)
@@ -75,7 +77,7 @@ public class TaskServiceImpl implements TaskService {
     @Transactional
     public TaskResponse updateTask(UUID taskId, TaskUpdateRequest request) {
         String role = UserContextHolder.getUserRole();
-        UUID currentUserId = UUID.fromString(UserContextHolder.getUserId());
+        String currentUserId = UserContextHolder.getUserId();
 
         Task existingTask = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy Task với ID: " + taskId));
@@ -87,10 +89,9 @@ public class TaskServiceImpl implements TaskService {
                 throw new RuntimeException("Bạn không có quyền chỉnh sửa Task của người khác!");
             }
 
-            // CHẶN: Nếu Member cố tình gửi lên các trường cấm sửa
-            if (request.getTitle() != null || request.getPriority() != null ||
-                    request.getAssignedTo() != null || request.getDueDate() != null) {
-                throw new RuntimeException("Lỗi phân quyền: Bạn chỉ được phép cập nhật Trạng thái (Status) và Mô tả (Description)!");
+            // Nếu Member cố tình gửi lên các trường cấm sửa
+            if (request.getTitle() != null || request.getPriority() != null || request.getDueDate() != null) {
+                throw new RuntimeException("Lỗi phân quyền: Bạn không có quyền chỉnh sửa các trường này!");
             }
         } else if (!"TEAM_LEADER".equals(role)) {
             throw new RuntimeException("Bạn không có quyền chỉnh sửa Task!");
@@ -102,7 +103,7 @@ public class TaskServiceImpl implements TaskService {
         }
 
         if (request.getDescription() != null && !request.getDescription().equals(existingTask.getDescription())) {
-            String oldDesc = existingTask.getDescription() != null ? existingTask.getDescription() : "Không có";
+            String oldDesc = existingTask.getDescription() != null ? existingTask.getDescription() : "null";
             saveTaskHistory(existingTask, currentUserId, "DESCRIPTION", oldDesc, request.getDescription());
         }
 
@@ -110,25 +111,64 @@ public class TaskServiceImpl implements TaskService {
             saveTaskHistory(existingTask, currentUserId, "PRIORITY", existingTask.getPriority().name(), request.getPriority().name());
         }
 
-        if (request.getAssignedTo() != null && !request.getAssignedTo().equals(existingTask.getAssignedTo())) {
-            String oldAssignee = existingTask.getAssignedTo() != null ? existingTask.getAssignedTo().toString() : "Chưa giao";
-            saveTaskHistory(existingTask, currentUserId, "ASSIGNED_TO", oldAssignee, request.getAssignedTo().toString());
-        }
-
         if (request.getDueDate() != null && !request.getDueDate().equals(existingTask.getDueDate())) {
-            String oldDate = existingTask.getDueDate() != null ? existingTask.getDueDate().toString() : "Không có";
+            String oldDate = existingTask.getDueDate() != null ? existingTask.getDueDate().toString() : "null";
             saveTaskHistory(existingTask, currentUserId, "DUE_DATE", oldDate, request.getDueDate().toString());
         }
 
-        if (request.getStatus() != null && existingTask.getStatus() != request.getStatus()) {
-            saveTaskHistory(existingTask, currentUserId, "STATUS", existingTask.getStatus().name(), request.getStatus().name());
-        }
-
-        // Map dữ liệu mới vào existingTask
         taskMapper.updateEntityFromRequest(request, existingTask);
 
         Task updatedTask = taskRepository.save(existingTask);
         return taskMapper.toResponse(updatedTask);
+    }
+
+    @Override
+    @Transactional
+    public TaskResponse assignTask(UUID taskId, TaskAssignRequest request) {
+        String role = UserContextHolder.getUserRole();
+        String currentUserId = UserContextHolder.getUserId();
+
+        // Chỉ Leader mới được giao việc
+        if (!"TEAM_LEADER".equals(role)) {
+            throw new RuntimeException("Lỗi phân quyền: Chỉ Team Leader mới có quyền giao Task!");
+        }
+
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy Task!"));
+
+        if (!Objects.equals(task.getAssignedTo(), request.getAssignedTo())) {
+            String oldAssign = task.getAssignedTo() != null ? task.getAssignedTo() : "null";
+
+            saveTaskHistory(task, currentUserId, "ASSIGN_TO", oldAssign, request.getAssignedTo());
+        }
+        task.setAssignedTo(request.getAssignedTo());
+
+        Task updatedTask = taskRepository.save(task);
+        return taskMapper.toResponse(updatedTask);
+    }
+
+    @Override
+    @Transactional
+    public TaskResponse changeTaskStatus(UUID taskId, TaskStatusUpdateRequest request) {
+        String currentUserId = UserContextHolder.getUserId();
+        Task task = taskRepository.findById(taskId).orElseThrow(
+                ()-> new RuntimeException("Không tìm thấy Task!"));
+
+        // Chỉ người đang được giao Task và Leader mới được đổi Status
+        boolean isAssignee = currentUserId.equals(task.getAssignedTo());
+        boolean isLeader = "TEAM_LEADER".equals(UserContextHolder.getUserRole());
+
+        if (!isAssignee && !isLeader) {
+            throw new RuntimeException("Bạn không có quyền đổi trạng thái Task này!");
+        }
+
+        if (!Objects.equals(task.getStatus(), request.getStatus())) {
+            saveTaskHistory(task, currentUserId, "STATUS", task.getStatus().toString(), request.getStatus().toString());
+        }
+
+        task.setStatus(request.getStatus());
+
+        return taskMapper.toResponse(taskRepository.save(task));
     }
 
     @Override
@@ -151,7 +191,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     // Hàm phụ trợ
-    private void saveTaskHistory(Task task, UUID changedBy, String field, String oldVal, String newVal) {
+    private void saveTaskHistory(Task task, String changedBy, String field, String oldVal, String newVal) {
         TaskHistory history = TaskHistory.builder()
                 .task(task)
                 .changedBy(changedBy)

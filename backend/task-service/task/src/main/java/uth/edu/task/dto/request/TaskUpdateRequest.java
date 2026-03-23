@@ -13,7 +13,5 @@ public class TaskUpdateRequest {
     private String title;
     private String description;
     private ETaskPriority priority;
-    private UUID assignedTo;
     private LocalDate dueDate;
-    private ETaskStatus status;
 }

@@ -24,7 +24,7 @@ public class TaskComment {
     private Task task;
 
     @Column(name = "user_id", nullable = false)
-    private UUID userId;
+    private String userId;
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;

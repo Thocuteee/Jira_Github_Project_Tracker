@@ -17,7 +17,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class TaskCreateRequest {
     @NotNull(message = "ID của Requirement không được để trống")
-    private UUID requirementId;
+    private String requirementId;
 
     @NotBlank(message = "Tiêu đề Task không được để trống")
     private String title;
@@ -27,7 +27,7 @@ public class TaskCreateRequest {
     @NotNull(message = "Mức độ ưu tiên không được để trống")
     private ETaskPriority priority;
 
-    private UUID assignedTo;
+    private String assignedTo;
 
     private LocalDate dueDate;
 }

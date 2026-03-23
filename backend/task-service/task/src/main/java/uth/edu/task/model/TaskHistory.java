@@ -24,7 +24,7 @@ public class TaskHistory {
     private Task task;
 
     @Column(name = "changed_by", nullable = false)
-    private UUID changedBy;
+    private String changedBy;
 
     @Column(name = "field_changed", length = 100)
     private String fieldChanged;

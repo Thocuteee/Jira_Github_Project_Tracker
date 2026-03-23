@@ -5,7 +5,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import uth.edu.task.dto.request.TaskAssignRequest;
 import uth.edu.task.dto.request.TaskCreateRequest;
+import uth.edu.task.dto.request.TaskStatusUpdateRequest;
 import uth.edu.task.dto.request.TaskUpdateRequest;
 import uth.edu.task.dto.response.TaskResponse;
 import uth.edu.task.service.TaskService;
@@ -21,7 +23,7 @@ public class TaskController {
     private final TaskService taskService;
 
     // Tạo Task mới
-    // API POST: /api/tasks/
+    // URL POST: /api/tasks/
     @PostMapping
     public ResponseEntity<TaskResponse> createTask(@Valid @RequestBody TaskCreateRequest request){
         TaskResponse response = taskService.createTask(request);
@@ -31,7 +33,7 @@ public class TaskController {
 
 
     // Lấy chi tiết một Task theo ID
-    // API GET: /api/tasks/{taskId}
+    // URL GET: /api/tasks/{taskId}
     @GetMapping("/{taskId}")
     public ResponseEntity<TaskResponse> getTaskById(@PathVariable UUID taskId){
         TaskResponse response = taskService.getTaskById(taskId);
@@ -41,9 +43,9 @@ public class TaskController {
 
 
     // Lấy danh sách Task của một Requirement
-    // API GET: /api/tasks/requirement/{requirementId}
+    // URL GET: /api/tasks/requirement/{requirementId}
     @GetMapping("/requirement/{requirementId}")
-    public ResponseEntity<List<TaskResponse>> getTaskByRequirementId(@PathVariable UUID requirementId){
+    public ResponseEntity<List<TaskResponse>> getTaskByRequirementId(@PathVariable String requirementId){
         List<TaskResponse> responses = taskService.getTasksByRequirementId(requirementId);
 
         return ResponseEntity.ok(responses);
@@ -51,17 +53,40 @@ public class TaskController {
 
 
     // Cập nhật một Task
-    // API PATCH: /api/tasks/{taskId}
+    // URL PATCH: /api/tasks/{taskId}
     @PatchMapping("/{taskId}")
-    public ResponseEntity<TaskResponse> updateTask(@PathVariable UUID taskId, @Valid @RequestBody TaskUpdateRequest request){
+    public ResponseEntity<TaskResponse> updateTask(@PathVariable UUID taskId,
+                                                   @Valid @RequestBody TaskUpdateRequest request){
         TaskResponse response = taskService.updateTask(taskId, request);
 
         return ResponseEntity.ok(response);
     }
 
 
+    // Giao Task cho Member
+    // URL PATCH: /api/tasks/{taskId}/assign
+    @PatchMapping("/{taskId}/assign")
+    public ResponseEntity<TaskResponse> assignTask(@PathVariable UUID taskId,
+                                                   @Valid @RequestBody TaskAssignRequest request) {
+        TaskResponse response = taskService.assignTask(taskId, request);
+
+        return ResponseEntity.ok(response);
+    }
+
+
+    // Thay đổi Status của một Task
+    // URL PATCH: /api/tasks/{taskId}/status
+    @PatchMapping("/{taskId}/status")
+    public ResponseEntity<TaskResponse> changeTaskStatus(@PathVariable UUID taskId,
+                                                         @Valid @RequestBody TaskStatusUpdateRequest request){
+        TaskResponse response = taskService.changeTaskStatus(taskId, request);
+
+        return ResponseEntity.ok(response);
+    }
+
+
     // Xoá một Task
-    // API DELETE: /api/tasks/{taskId}
+    // URL DELETE: /api/tasks/{taskId}
     @DeleteMapping("/{taskId}")
     public ResponseEntity<Void> deleteTask(@PathVariable UUID taskId){
         taskService.deleteTask(taskId);

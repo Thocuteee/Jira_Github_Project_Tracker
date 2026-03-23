@@ -11,7 +11,7 @@ import java.util.UUID;
 public class AttachmentResponse {
     private UUID attachmentId;
     private UUID taskId;
-    private UUID uploadedBy;
+    private String uploadedBy;
     private String fileName;
     private String fileUrl;
     private LocalDateTime uploadedAt;

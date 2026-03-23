@@ -17,13 +17,13 @@ import java.util.UUID;
 @AllArgsConstructor
 public class TaskResponse {
     private UUID taskId;
-    private UUID requirementId;
+    private String requirementId;
     private String title;
     private String description;
     private ETaskStatus status;
     private ETaskPriority priority;
-    private UUID assignedTo;
+    private String assignedTo;
     private LocalDate dueDate;
     private LocalDateTime createdAt;
-    private UUID createdBy;
+    private String createdBy;
 }

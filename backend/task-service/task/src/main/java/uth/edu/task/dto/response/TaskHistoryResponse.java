@@ -11,7 +11,7 @@ import java.util.UUID;
 public class TaskHistoryResponse {
     private UUID historyId;
     private UUID taskId;
-    private UUID changedBy;
+    private String changedBy;
     private String fieldChanged;
     private String oldValue;
     private String newValue;
