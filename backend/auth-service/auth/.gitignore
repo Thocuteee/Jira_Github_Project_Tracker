@@ -31,4 +31,5 @@ build/
 
 ### VS Code ###
 .vscode/
-backend/auth-service/auth/src/main/resources/application.properties
+**/application.properties
+**/application-localhost.properties
