@@ -3,10 +3,14 @@ package uth.edu.auth.controller;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import uth.edu.auth.dto.JwtResponse;
+import uth.edu.auth.dto.LoginRequest;
 import uth.edu.auth.dto.RegisterRequest;
 import uth.edu.auth.model.User;
 import uth.edu.auth.service.IAuthService;
 import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/auth") 
 public class AuthController {
@@ -55,4 +59,17 @@ public class AuthController {
     public ResponseEntity<?> updateUser(@PathVariable UUID id, @RequestBody RegisterRequest request) {
         return ResponseEntity.ok(authService.updateUser(id, request));
     }
+
+    //6. Dang Nhap
+    @PostMapping("/login")
+    public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest) {
+        try {
+            JwtResponse jwtResponse = authService.login(loginRequest);
+            return ResponseEntity.ok(jwtResponse);
+            
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+    
 }
