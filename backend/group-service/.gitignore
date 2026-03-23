@@ -34,5 +34,6 @@ build/
 
 
 # local config
-application-localhost.properties
-
+**/application.properties
+**/application-localhost.properties
+**/application*.properties
