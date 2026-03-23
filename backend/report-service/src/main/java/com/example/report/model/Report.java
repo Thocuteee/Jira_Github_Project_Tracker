@@ -19,13 +19,14 @@ public class Report {
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "report_id", columnDefinition = "UUID")
     private UUID reportId;
-    
-    @Column(name = "group_id", nullable = false)
-    private UUID groupId;
-    
-    @Column(name = "user_id", nullable = false)
-    private UUID userId;
-    
+    @ManyToOne
+@JoinColumn(name = "user_id", nullable = false)
+private User user;
+
+@ManyToOne
+@JoinColumn(name = "group_id", nullable = false)
+private Group group;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "report_type", nullable = false)
     private ReportType reportType;

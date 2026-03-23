@@ -13,9 +13,8 @@ import java.util.UUID;
 @Repository
 public interface ReportRepository extends JpaRepository<Report, UUID> {
     
-    List<Report> findByUserId(UUID userId);
-    
-    List<Report> findByGroupId(UUID groupId);
+    List<Report> findByUser_UserId(UUID userId);
+    List<Report> findByGroup_GroupId(UUID groupId);
     
     List<Report> findByReportType(ReportType reportType);
     

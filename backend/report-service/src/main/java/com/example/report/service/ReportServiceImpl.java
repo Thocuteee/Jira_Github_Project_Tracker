@@ -18,14 +18,22 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional
 public class ReportServiceImpl implements ReportService {
+    private final UserRepository userRepository;
+private final GroupRepository groupRepository;
     
     private final ReportRepository reportRepository;
     
     @Override
     public ReportResponse createReport(ReportRequest request) {
-        Report report = new Report();
-        report.setGroupId(request.getGroupId());
-        report.setUserId(request.getUserId());
+        User user = userRepository.findById(request.getUserId())
+    .orElseThrow(() -> new RuntimeException("User not found"));
+
+Group group = groupRepository.findById(request.getGroupId())
+    .orElseThrow(() -> new RuntimeException("Group not found"));
+
+Report report = new Report();
+report.setUser(user);
+report.setGroup(group);
         report.setReportType(request.getReportType());
         report.setGeneratedBy(request.getGeneratedBy());
         
@@ -80,8 +88,14 @@ public class ReportServiceImpl implements ReportService {
         Report report = reportRepository.findById(reportId)
             .orElseThrow(() -> new ReportNotFoundException("Report not found with id: " + reportId));
         
-        report.setGroupId(request.getGroupId());
-        report.setUserId(request.getUserId());
+       User user = userRepository.findById(request.getUserId())
+    .orElseThrow(() -> new RuntimeException("User not found"));
+
+Group group = groupRepository.findById(request.getGroupId())
+    .orElseThrow(() -> new RuntimeException("Group not found"));
+
+report.setUser(user);
+report.setGroup(group);
         report.setReportType(request.getReportType());
         report.setGeneratedBy(request.getGeneratedBy());
         
@@ -105,8 +119,8 @@ public class ReportServiceImpl implements ReportService {
     private ReportResponse mapToResponse(Report report) {
         ReportResponse response = new ReportResponse();
         response.setReportId(report.getReportId());
-        response.setGroupId(report.getGroupId());
-        response.setUserId(report.getUserId());
+        response.setUserId(report.getUser().getUserId());
+response.setGroupId(report.getGroup().getGroupId());
         response.setReportType(report.getReportType());
         response.setGeneratedBy(report.getGeneratedBy());
         response.setCreatedAt(report.getCreatedAt());
