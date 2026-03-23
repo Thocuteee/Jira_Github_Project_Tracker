@@ -17,5 +17,8 @@ target
 # env
 .env
 
+# Spring Boot local secrets (copy from *.example)
+**/application-local.properties
+
 # mac
 .DS_Store
