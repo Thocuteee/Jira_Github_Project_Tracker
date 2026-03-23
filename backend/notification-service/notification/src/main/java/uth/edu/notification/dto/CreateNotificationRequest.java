@@ -17,4 +17,8 @@ public class CreateNotificationRequest {
 
     @NotBlank
     private String message;
+
+    // Optional: Firebase token (FCM) của thiết bị/client.
+    // Nếu null/trống hoặc cấu hình Firebase thiếu thì notification vẫn được lưu DB bình thường.
+    private String fcmToken;
 }
