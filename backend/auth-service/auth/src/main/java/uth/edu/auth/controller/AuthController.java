@@ -3,6 +3,9 @@ package uth.edu.auth.controller;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import uth.edu.auth.dto.JwtResponse;
+import uth.edu.auth.dto.LoginRequest;
 import uth.edu.auth.dto.RegisterRequest;
 import uth.edu.auth.model.User;
 import uth.edu.auth.service.IAuthService;
@@ -28,13 +31,14 @@ public class AuthController {
     }
 
     //3. Đăng ký user
-    @PostMapping("/register")
+    @PostMapping("/register-user")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
         try {
             // Chuyển từ DTO sang Entity để Service xử lý
             User user = new User();
             user.setName(request.getName());
             user.setEmail(request.getEmail());
+            user.setPassword(request.getPassword());
 
             User registeredUser = authService.registerUser(user, request.getRoleName());
             
@@ -56,4 +60,17 @@ public class AuthController {
     public ResponseEntity<?> updateUser(@PathVariable UUID id, @RequestBody RegisterRequest request) {
         return ResponseEntity.ok(authService.updateUser(id, request));
     }
+
+    //6. Dang Nhap
+    @PostMapping("/login-user")
+    public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest) {
+        try {
+            JwtResponse jwtResponse = authService.login(loginRequest);
+            return ResponseEntity.ok(jwtResponse);
+            
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+    
 }
