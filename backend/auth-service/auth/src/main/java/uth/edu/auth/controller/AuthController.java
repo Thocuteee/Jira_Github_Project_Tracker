@@ -31,13 +31,14 @@ public class AuthController {
     }
 
     //3. Đăng ký user
-    @PostMapping("/register")
+    @PostMapping("/register-user")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
         try {
             // Chuyển từ DTO sang Entity để Service xử lý
             User user = new User();
             user.setName(request.getName());
             user.setEmail(request.getEmail());
+            user.setPassword(request.getPassword());
 
             User registeredUser = authService.registerUser(user, request.getRoleName());
             
@@ -61,7 +62,7 @@ public class AuthController {
     }
 
     //6. Dang Nhap
-    @PostMapping("/login")
+    @PostMapping("/login-user")
     public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest) {
         try {
             JwtResponse jwtResponse = authService.login(loginRequest);

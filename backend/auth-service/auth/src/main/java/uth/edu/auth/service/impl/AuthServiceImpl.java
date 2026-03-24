@@ -1,6 +1,7 @@
 package uth.edu.auth.service.impl;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import uth.edu.auth.model.User;
 import uth.edu.auth.model.Role;
@@ -27,6 +28,9 @@ public class AuthServiceImpl implements IAuthService {
 
     @Autowired
     private JwtProvider jwtProvider;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @Override
     public List<User> getAllUsers() {
@@ -58,6 +62,16 @@ public class AuthServiceImpl implements IAuthService {
             throw new RuntimeException("Lỗi: Email đã được sử dụng!");
         }
 
+        if (user.getPassword() == null) {
+            throw new RuntimeException("Lỗi: Mật khẩu không được để trống!");
+        }
+        //Hash Pass
+        String encodedPassword = passwordEncoder.encode(user.getPassword());
+        user.setPassword(encodedPassword);
+        System.out.println("Mật khẩu sau khi Hash: " + encodedPassword);
+
+        
+
         // 2. Thiết lập thời gian tạo
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
@@ -77,6 +91,7 @@ public class AuthServiceImpl implements IAuthService {
         user.setRoles(roles);
 
         return userRepository.save(user);
+        
     }
 
     // Dang nhap
@@ -86,7 +101,7 @@ public class AuthServiceImpl implements IAuthService {
         User user = userRepository.findByEmail(loginRequest.getEmail()).orElseThrow(() -> new RuntimeException("Error: Không tìm thấy User!"));
 
         // 2. Kiểm tra mật khẩu 
-        if (!user.getPassword().equals(loginRequest.getPassword())) {
+        if (!passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
             throw new RuntimeException("Error: Sai mật khẩu!");
         }
 
