@@ -1,20 +1,22 @@
 package uth.edu.task.mapper;
 
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
-import uth.edu.task.dto.request.AttachmentRequest;
+import uth.edu.task.dto.request.AttachmentCreateRequest;
 import uth.edu.task.dto.response.AttachmentResponse;
 import uth.edu.task.model.Attachment;
 
 @Mapper(componentModel = "spring")
 public interface AttachmentMapper {
 
-    // Chuyển từ Request sang Entity
-    Attachment toEntity(AttachmentRequest attachmentRequest);
+    @Mapping(target = "attachmentId", ignore = true)
+    @Mapping(target = "task", ignore = true)
+    @Mapping(target = "uploadedBy", ignore = true)
+    @Mapping(target = "uploadedAt", ignore = true)
+    Attachment toEntity(AttachmentCreateRequest request);
 
-    // Chuyển từ Entity sang Response
+    @Mapping(source = "task.taskId", target = "taskId")
     AttachmentResponse toResponse(Attachment attachment);
 
-    // Cập nhật dữ liệu từ Request vào Entity có sẵn
-    void updateEntityFromRequest(AttachmentRequest request, @MappingTarget Attachment attachment);
 }

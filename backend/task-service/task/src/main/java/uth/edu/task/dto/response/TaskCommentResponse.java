@@ -15,7 +15,7 @@ import java.util.UUID;
 public class TaskCommentResponse {
     private UUID commentId;
     private UUID taskId;
-    private String userId;
+    private UUID userId;
     private String content;
     private LocalDateTime createdAt;
 }

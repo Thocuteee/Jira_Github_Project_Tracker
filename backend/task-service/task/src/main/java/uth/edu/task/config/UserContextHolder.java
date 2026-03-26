@@ -1,14 +1,16 @@
 package uth.edu.task.config;
 
+import java.util.UUID;
+
 public class UserContextHolder {
-    private static final ThreadLocal<String> currentUserId = new ThreadLocal<>();
+    private static final ThreadLocal<UUID> currentUserId = new ThreadLocal<>();
     private static final ThreadLocal<String> currentUserRole = new ThreadLocal<>();
 
-    public static void setUserId(String userId) {
+    public static void setUserId(UUID userId) {
         currentUserId.set(userId);
     }
 
-    public static String getUserId() {
+    public static UUID getUserId() {
         return currentUserId.get();
     }
 

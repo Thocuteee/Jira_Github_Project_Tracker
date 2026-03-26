@@ -27,7 +27,7 @@ public class TaskCommentServiceImpl implements TaskCommentService {
 
     @Override
     public TaskCommentResponse addComment(UUID taskId, TaskCommentRequest request) {
-        String currentUserId = UserContextHolder.getUserId();
+        UUID currentUserId = UserContextHolder.getUserId();
 
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy Task để bình luận!"));
@@ -41,7 +41,7 @@ public class TaskCommentServiceImpl implements TaskCommentService {
     }
 
     @Override
-    public List<TaskCommentResponse> getCommentsByTaskId(UUID taskId) {
+    public List<TaskCommentResponse> getAllCommentsByTaskId(UUID taskId) {
         if (!taskRepository.existsById(taskId)) {
             throw new RuntimeException("Không tìm thấy Task!");
         }
@@ -55,7 +55,7 @@ public class TaskCommentServiceImpl implements TaskCommentService {
 
     @Override
     public TaskCommentResponse updateComment(UUID commentId, TaskCommentRequest request) {
-        String currentUserId = UserContextHolder.getUserId();
+        UUID currentUserId = UserContextHolder.getUserId();
 
         TaskComment existingComment = taskCommentRepository.findById(commentId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy bình luận!"));
@@ -73,7 +73,7 @@ public class TaskCommentServiceImpl implements TaskCommentService {
 
     @Override
     public void deleteComment(UUID commentId) {
-        String currentUserId = UserContextHolder.getUserId();
+        UUID currentUserId = UserContextHolder.getUserId();
         String role = UserContextHolder.getUserRole();
 
         TaskComment existingComment = taskCommentRepository.findById(commentId)

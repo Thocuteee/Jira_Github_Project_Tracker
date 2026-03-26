@@ -1,17 +1,21 @@
 package uth.edu.task.dto.response;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class TaskHistoryResponse {
     private UUID historyId;
     private UUID taskId;
-    private String changedBy;
+    private UUID changedBy;
     private String fieldChanged;
     private String oldValue;
     private String newValue;
