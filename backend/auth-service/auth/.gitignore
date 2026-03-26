@@ -31,5 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
-**/application.properties
-**/application-localhost.properties
+
+# local config
+application-localhost.properties
