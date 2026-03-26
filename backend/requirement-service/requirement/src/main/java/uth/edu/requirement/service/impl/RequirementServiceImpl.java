@@ -7,8 +7,6 @@ import uth.edu.requirement.dto.RequirementResponse;
 import uth.edu.requirement.model.ERequirementPriority;
 import uth.edu.requirement.model.ERequirementStatus;
 import uth.edu.requirement.model.Requirement;
-import uth.edu.requirement.model.RequirementGroup;
-import uth.edu.requirement.repository.RequirementGroupRepository;
 import uth.edu.requirement.repository.RequirementRepository;
 import uth.edu.requirement.service.IRequirementService;
 
@@ -20,9 +18,6 @@ public class RequirementServiceImpl implements IRequirementService {
 
     @Autowired
     private RequirementRepository requirementRepository;
-
-    @Autowired
-    private RequirementGroupRepository requirementGroupRepository;
 
     @Override
     public List<RequirementResponse> getAllRequirements() {
@@ -39,7 +34,7 @@ public class RequirementServiceImpl implements IRequirementService {
 
     @Override
     public List<RequirementResponse> getRequirementsByGroupId(UUID groupId) {
-        return requirementRepository.findByGroup_GroupId(groupId)
+        return requirementRepository.findByGroupId(groupId)
                 .stream()
                 .map(this::mapToResponse)
                 .toList();
@@ -47,11 +42,9 @@ public class RequirementServiceImpl implements IRequirementService {
 
     @Override
     public RequirementResponse createRequirement(RequirementRequest request) {
-        RequirementGroup group = requirementGroupRepository.findById(UUID.fromString(request.getGroupId()))
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy Requirement Group!"));
-
         Requirement requirement = new Requirement();
-        requirement.setGroup(group);
+
+        requirement.setGroupId(UUID.fromString(request.getGroupId()));
         requirement.setTitle(request.getTitle());
         requirement.setDescription(request.getDescription());
         requirement.setCreatedBy(UUID.fromString(request.getCreatedBy()));
@@ -72,9 +65,7 @@ public class RequirementServiceImpl implements IRequirementService {
         Requirement requirement = findRequirementById(id);
 
         if (request.getGroupId() != null && !request.getGroupId().isBlank()) {
-            RequirementGroup group = requirementGroupRepository.findById(UUID.fromString(request.getGroupId()))
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy Requirement Group!"));
-            requirement.setGroup(group);
+            requirement.setGroupId(UUID.fromString(request.getGroupId()));
         }
 
         if (request.getTitle() != null) {
@@ -114,7 +105,7 @@ public class RequirementServiceImpl implements IRequirementService {
     private RequirementResponse mapToResponse(Requirement requirement) {
         return RequirementResponse.builder()
                 .requirementId(requirement.getRequirementId().toString())
-                .groupId(requirement.getGroup().getGroupId().toString())
+                .groupId(requirement.getGroupId().toString())
                 .title(requirement.getTitle())
                 .description(requirement.getDescription())
                 .createdBy(requirement.getCreatedBy().toString())
