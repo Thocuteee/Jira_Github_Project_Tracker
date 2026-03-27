@@ -4,15 +4,21 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
+import jakarta.validation.Valid;
 
+import uth.edu.auth.security.JwtProvider;
 import uth.edu.auth.dto.JwtResponse;
 import uth.edu.auth.dto.LoginRequest;
 import uth.edu.auth.dto.RegisterRequest;
+import uth.edu.auth.dto.TokenRefreshRequest;
+import uth.edu.auth.dto.TokenRefreshResponse;
 import uth.edu.auth.model.User;
 import uth.edu.auth.model.*;
 import uth.edu.auth.service.IAuthService;
 import uth.edu.auth.repository.UserRepository;
 import uth.edu.auth.repository.RoleRepository;
+import uth.edu.auth.repository.RefreshTokenRepository;
+import uth.edu.auth.service.RefreshTokenService;
 import java.util.UUID;
 
 @RestController
@@ -27,6 +33,12 @@ public class AuthController {
 
     @Autowired 
     private RoleRepository roleRepository;
+
+    @Autowired
+    private RefreshTokenService refreshTokenService;
+
+    @Autowired
+    private JwtProvider jwtProvider;
 
     // 1. Lấy danh sách tất cả User
     @GetMapping("/users")
@@ -100,6 +112,20 @@ public class AuthController {
         userRepository.save(user);
         
         return ResponseEntity.ok("Nâng cấp thành công lên " + roleName);
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refreshToken(@Valid @RequestBody TokenRefreshRequest request) {
+        String requestRefreshToken = request.getRefreshToken();
+
+        return refreshTokenService.findByToken(requestRefreshToken)
+                .map(refreshTokenService::verifyExpiration)
+                .map(RefreshToken::getUser)
+                .map(user -> {
+                    String token = jwtProvider.generateJwtToken(user.getEmail());
+                    return ResponseEntity.ok(new TokenRefreshResponse(token, requestRefreshToken));
+                })
+                .orElseThrow(() -> new RuntimeException("Refresh token không lưu trong database!"));
     }
     
 }
