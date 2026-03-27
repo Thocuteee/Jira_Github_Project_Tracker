@@ -56,42 +56,28 @@ public class AuthServiceImpl implements IAuthService {
 
     // Dang Ky tai khoan
     @Override
-    public User registerUser(User user, String roleName) {
+    public User registerUser(User user) { // Bỏ roleName ở đây để an toàn
         // 1. Kiểm tra email tồn tại
         if (userRepository.existsByEmail(user.getEmail())) {
             throw new RuntimeException("Lỗi: Email đã được sử dụng!");
         }
 
-        if (user.getPassword() == null) {
-            throw new RuntimeException("Lỗi: Mật khẩu không được để trống!");
-        }
-        //Hash Pass
-        String encodedPassword = passwordEncoder.encode(user.getPassword());
-        user.setPassword(encodedPassword);
-        System.out.println("Mật khẩu sau khi Hash: " + encodedPassword);
+        // Hash Password
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
 
-        
-
-        // 2. Thiết lập thời gian tạo
+        // 2. Thiết lập thời gian
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
 
-        // 3. Xử lý gán Role
+        // 3. ÉP BUỘC ROLE LÀ MEMBER
+        Role memberRole = roleRepository.findByName(ERole.ROLE_TEAM_MEMBER)
+                .orElseThrow(() -> new RuntimeException("Lỗi: Không tìm thấy Role mặc định trong hệ thống."));
+        
         Set<Role> roles = new HashSet<>();
-
-        ERole eRole = switch (roleName.toUpperCase()) {
-            case "ADMIN" -> ERole.ROLE_ADMIN;
-            case "LECTURER" -> ERole.ROLE_LECTURER;
-            case "LEADER" -> ERole.ROLE_TEAM_LEADER;
-            default -> ERole.ROLE_TEAM_MEMBER;
-        };
-
-        Role userRole = roleRepository.findByName(eRole).orElseThrow(() -> new RuntimeException("Lỗi: Không tìm thấy Role này."));
-        roles.add(userRole);
+        roles.add(memberRole);
         user.setRoles(roles);
 
         return userRepository.save(user);
-        
     }
 
     // Dang nhap
