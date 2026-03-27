@@ -24,6 +24,28 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Autowired
     private UserDetailsService userDetailsService;
 
+    /**
+     * Không parse JWT cho login/register/refresh — tránh lỗi khi client vẫn gửi access token hết hạn
+     * cùng request refresh, và đảm bảo các URL alias (/refreshtoken) luôn được xử lý giống /refresh.
+     */
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        String context = request.getContextPath();
+        if (context != null && !context.isEmpty() && uri.startsWith(context)) {
+            uri = uri.substring(context.length());
+        }
+        if (!uri.startsWith("/")) {
+            uri = "/" + uri;
+        }
+        if (uri.length() > 1 && uri.endsWith("/")) {
+            uri = uri.substring(0, uri.length() - 1);
+        }
+        return uri.equals("/api/auth/login-user")
+                || uri.equals("/api/auth/register-user")
+                || uri.equals("/api/auth/refreshtoken");
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {

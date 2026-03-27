@@ -17,7 +17,6 @@ import uth.edu.auth.model.*;
 import uth.edu.auth.service.IAuthService;
 import uth.edu.auth.repository.UserRepository;
 import uth.edu.auth.repository.RoleRepository;
-import uth.edu.auth.repository.RefreshTokenRepository;
 import uth.edu.auth.service.RefreshTokenService;
 import java.util.UUID;
 
@@ -114,7 +113,7 @@ public class AuthController {
         return ResponseEntity.ok("Nâng cấp thành công lên " + roleName);
     }
 
-    @PostMapping("/refresh")
+    @PostMapping("/refreshtoken")
     public ResponseEntity<?> refreshToken(@Valid @RequestBody TokenRefreshRequest request) {
         String requestRefreshToken = request.getRefreshToken();
 
