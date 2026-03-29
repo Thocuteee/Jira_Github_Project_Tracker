@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  requirement-db:
+    image: postgres:15
+    container_name: requirement-db
+    restart: always
+    environment:
+      POSTGRES_DB: requirement_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123456
+    ports:
+      - "5433:5432"
+    volumes:
+      - requirement_data:/var/lib/postgresql/data
+
+  requirement-service:
+    build: .
+    container_name: requirement-service
+    restart: always
+    depends_on:
+      - requirement-db
+    environment:
+      DB_URL: jdbc:postgresql://requirement-db:5432/requirement_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: 123456
+    ports:
+      - "8083:8083"
+
+volumes:
+  requirement_data:
