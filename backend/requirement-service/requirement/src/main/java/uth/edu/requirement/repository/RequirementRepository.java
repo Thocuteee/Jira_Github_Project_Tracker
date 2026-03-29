@@ -10,5 +10,5 @@ import java.util.UUID;
 
 @Repository
 public interface RequirementRepository extends JpaRepository<Requirement, UUID> {
-    List<Requirement> findByGroup_GroupId(UUID groupId);
+    List<Requirement> findByGroupId(UUID groupId);
 }

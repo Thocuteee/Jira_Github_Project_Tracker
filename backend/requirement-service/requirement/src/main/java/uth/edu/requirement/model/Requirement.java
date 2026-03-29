@@ -22,15 +22,9 @@ public class Requirement {
     @Column(name = "requirement_id", nullable = false, updatable = false)
     private UUID requirementId;
 
-    // FK thật tới bảng requirement_groups
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(
-            name = "group_id",
-            referencedColumnName = "group_id",
-            nullable = false,
-            foreignKey = @ForeignKey(name = "fk_requirement_group")
-    )
-    private RequirementGroup group;
+    // FK logic sang group-service, không map entity RequirementGroup nữa
+    @Column(name = "group_id", nullable = false)
+    private UUID groupId;
 
     @Column(name = "title", nullable = false, length = 255)
     private String title;
@@ -38,7 +32,7 @@ public class Requirement {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
-    // logical FK tới user service, nếu cùng DB có thể map @ManyToOne
+    // FK logic sang auth-service
     @Column(name = "created_by", nullable = false)
     private UUID createdBy;
 
