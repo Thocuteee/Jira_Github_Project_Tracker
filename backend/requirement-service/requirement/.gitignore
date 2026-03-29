@@ -1,24 +1,13 @@
-# ===== BUILD =====
+HELP.md
+
 target/
 build/
 *.log
 
-# ===== ENV / SECRET =====
-.env
-.env.*
-application-local.properties
-application-secret.properties
-
-# ===== MAVEN =====
 .mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
 
-# ===== IDE =====
-.idea/
-*.iws
-*.iml
-*.ipr
-
-# ===== STS =====
 .apt_generated
 .classpath
 .factorypath
@@ -27,16 +16,30 @@ application-secret.properties
 .springBeans
 .sts4-cache
 
-# ===== NETBEANS =====
+.idea/
+*.iws
+*.iml
+*.ipr
+
 /nbproject/private/
 /nbbuild/
 /dist/
 /nbdist/
 /.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
 
-# ===== VSCODE =====
+
 .vscode/
 
-# ===== OS =====
 .DS_Store
 Thumbs.db
+
+.env
+.env.*
+
+application-local.properties
+application-secret.properties
+application-dev.properties
+application-prod.properties
