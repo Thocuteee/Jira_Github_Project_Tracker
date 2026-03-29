@@ -24,26 +24,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Autowired
     private UserDetailsService userDetailsService;
 
-    /**
-     * Không parse JWT cho login/register/refresh — tránh lỗi khi client vẫn gửi access token hết hạn
-     * cùng request refresh, và đảm bảo các URL alias (/refreshtoken) luôn được xử lý giống /refresh.
-     */
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        String uri = request.getRequestURI();
-        String context = request.getContextPath();
-        if (context != null && !context.isEmpty() && uri.startsWith(context)) {
-            uri = uri.substring(context.length());
+        String p = request.getServletPath();
+        if (p == null || p.isEmpty()) {
+            p = request.getRequestURI();
+            String ctx = request.getContextPath();
+            if (ctx != null && !ctx.isEmpty() && p.startsWith(ctx)) {
+                p = p.substring(ctx.length());
+            }
         }
-        if (!uri.startsWith("/")) {
-            uri = "/" + uri;
+        if (p.length() > 1 && p.endsWith("/")) {
+            p = p.substring(0, p.length() - 1);
         }
-        if (uri.length() > 1 && uri.endsWith("/")) {
-            uri = uri.substring(0, uri.length() - 1);
-        }
-        return uri.equals("/api/auth/login-user")
-                || uri.equals("/api/auth/register-user")
-                || uri.equals("/api/auth/refreshtoken");
+        return "/api/auth/login-user".equals(p)
+                || "/api/auth/register-user".equals(p)
+                || "/api/auth/refreshtoken".equals(p);
     }
 
     @Override

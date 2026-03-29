@@ -1,6 +1,7 @@
 package uth.edu.auth.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -117,14 +118,15 @@ public class AuthController {
     public ResponseEntity<?> refreshToken(@Valid @RequestBody TokenRefreshRequest request) {
         String requestRefreshToken = request.getRefreshToken();
 
-        return refreshTokenService.findByToken(requestRefreshToken)
-                .map(refreshTokenService::verifyExpiration)
-                .map(RefreshToken::getUser)
-                .map(user -> {
-                    String token = jwtProvider.generateJwtToken(user.getEmail());
-                    return ResponseEntity.ok(new TokenRefreshResponse(token, requestRefreshToken));
-                })
-                .orElseThrow(() -> new RuntimeException("Refresh token không lưu trong database!"));
+        var verified = refreshTokenService.findByToken(requestRefreshToken)
+                .map(refreshTokenService::verifyExpiration);
+        if (verified.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Refresh token không lưu trong database!");
+        }
+        var user = verified.get().getUser();
+        String token = jwtProvider.generateJwtToken(user.getEmail());
+        return ResponseEntity.ok(new TokenRefreshResponse(token, requestRefreshToken));
     }
     
 }
