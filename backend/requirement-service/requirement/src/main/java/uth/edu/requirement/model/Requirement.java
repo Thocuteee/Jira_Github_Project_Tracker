@@ -22,7 +22,6 @@ public class Requirement {
     @Column(name = "requirement_id", nullable = false, updatable = false)
     private UUID requirementId;
 
-    // FK logic sang group-service, không map entity RequirementGroup nữa
     @Column(name = "group_id", nullable = false)
     private UUID groupId;
 
@@ -32,7 +31,6 @@ public class Requirement {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
-    // FK logic sang auth-service
     @Column(name = "created_by", nullable = false)
     private UUID createdBy;
 
