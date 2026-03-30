@@ -42,5 +42,18 @@ services:
       JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-604800000}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
 
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "5173:5173"
+    environment:
+      # SPA chạy trong trình duyệt → gọi API qua localhost (port đã publish của auth-service)
+      VITE_AUTH_SERVICE_URL: http://localhost:8081
+    depends_on:
+      - auth-service
+
 volumes:
   auth_db_data:

@@ -1,43 +1,86 @@
 import type { ReactNode } from 'react';
-import { LayoutDashboard, Users, CheckSquare, Settings, Search, Bell } from 'lucide-react';
+import {
+    LayoutDashboard,
+    Users,
+    FileText,
+    GitBranch,
+    FileDown,
+    Plug,
+    Search,
+    Bell,
+    RefreshCw,
+    Settings,
+} from 'lucide-react';
 
 export default function MainLayout({ children }: { children: ReactNode }) {
     return (
-        <div className="flex h-screen bg-[#f7f8f9] text-[#171c28]">
-        {/* Sidebar */}
-        <aside className="w-64 border-r border-gray-200 bg-white flex flex-col p-4">
-            <div className="font-bold text-lg mb-8 px-2">Project Tracker</div>
-            <nav className="space-y-1 flex-1">
-            <NavItem icon={<LayoutDashboard size={18}/>} label="Dashboard" active />
-            <NavItem icon={<Users size={18}/>} label="Groups" />
-            <NavItem icon={<CheckSquare size={18}/>} label="My Tasks" />
-            </nav>
-            <div className="border-t pt-4">
-            <NavItem icon={<Settings size={18}/>} label="Settings" />
-            </div>
-        </aside>
-
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col">
-            {/* Header */}
-            <header className="h-14 border-b border-gray-200 bg-white flex items-center justify-between px-6">
-            <div className="flex items-center bg-gray-100 px-3 py-1.5 rounded-md w-80">
-                <Search size={16} className="text-gray-400 mr-2" />
-                <input type="text" placeholder="Search..." className="bg-transparent outline-none text-sm w-full" />
-            </div>
-            <div className="flex items-center gap-4">
-                <Bell size={18} className="text-gray-500" />
-                <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold">
-                AD
+        <div className="flex h-screen min-h-0 w-full bg-[#eef0f4] text-[#171c28]">
+            <aside className="flex w-64 shrink-0 flex-col bg-[#111827] px-3 py-5 text-slate-200">
+                <div className="mb-8 flex items-center gap-3 px-2">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-sm font-bold text-white">
+                        S
+                    </div>
+                    <span className="text-lg font-semibold tracking-tight text-white">SEOOP Tracker</span>
                 </div>
-            </div>
-            </header>
+                <nav className="flex flex-1 flex-col gap-0.5">
+                    <NavItem icon={<LayoutDashboard size={18} />} label="Overview" active />
+                    <NavItem icon={<Users size={18} />} label="Group Management" />
+                    <NavItem icon={<FileText size={18} />} label="Jira Requirements" />
+                    <NavItem icon={<GitBranch size={18} />} label="GitHub Analytics" />
+                    <NavItem icon={<FileDown size={18} />} label="Export SRS Document" />
+                    <NavItem icon={<Plug size={18} />} label="Integration Settings" />
+                </nav>
+                <div className="mt-auto border-t border-slate-700/80 pt-4">
+                    <NavItem icon={<Settings size={18} />} label="Settings" />
+                </div>
+            </aside>
 
-            {/* Content */}
-            <main className="p-8 overflow-y-auto">
-            {children}
-            </main>
-        </div>
+            <div className="flex min-w-0 flex-1 flex-col">
+                <header className="flex h-[60px] shrink-0 items-center justify-between gap-6 border-b border-slate-200/80 bg-white px-6 shadow-sm">
+                    <div className="flex min-w-0 flex-1 items-center">
+                        <div className="flex max-w-2xl flex-1 items-center gap-2.5 rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5">
+                            <Search size={18} className="shrink-0 text-slate-400" />
+                            <input
+                                type="search"
+                                placeholder="Search groups, tasks, commits..."
+                                className="min-w-0 flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
+                            />
+                        </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-5">
+                        <div className="hidden items-center gap-2 sm:flex">
+                            <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500 ring-2 ring-emerald-500/30" />
+                            <span className="text-sm text-slate-600">Real-time Syncing</span>
+                            <button
+                                type="button"
+                                className="rounded-full p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+                                aria-label="Refresh sync"
+                            >
+                                <RefreshCw size={18} />
+                            </button>
+                        </div>
+                        <button
+                            type="button"
+                            className="relative rounded-full p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+                            aria-label="Notifications"
+                        >
+                            <Bell size={20} />
+                            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+                        </button>
+                        <div className="flex items-center gap-3 border-l border-slate-200 pl-5">
+                            <div className="hidden text-right sm:block">
+                                <div className="text-sm font-semibold text-slate-900">Dr. Nguyen</div>
+                                <div className="text-xs text-slate-500">Lecturer</div>
+                            </div>
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white">
+                                DN
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                <main className="min-h-0 flex-1 overflow-y-auto p-6 md:p-8">{children}</main>
+            </div>
         </div>
     );
 }
@@ -46,8 +89,15 @@ type NavItemProps = { icon: ReactNode; label: string; active?: boolean };
 
 function NavItem({ icon, label, active = false }: NavItemProps) {
     return (
-        <div className={`flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer text-sm font-medium ${active ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'}`}>
-        {icon} {label}
+        <div
+            className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                active
+                    ? 'bg-white/10 text-white'
+                    : 'text-slate-400 hover:bg-white/5 hover:text-slate-100'
+            }`}
+        >
+            <span className="shrink-0 opacity-90">{icon}</span>
+            {label}
         </div>
     );
 }
