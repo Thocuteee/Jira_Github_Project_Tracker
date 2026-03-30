@@ -1,43 +1,22 @@
-version: '3.8'
+version: "3.8"
 services:
-  # Database cho Auth Service
-  auth-db:
+  # Database cho Export Service
+  export-db:
     image: postgres:15
-    container_name: auth-db
+    container_name: export-db
     ports:
-      - "5433:5432"
+      - "5434:5432"
     environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-      POSTGRES_DB: auth_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_DB: export_db
     volumes:
-    - auth_db_data:/var/lib/postgresql/data
+      - export_db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d auth_db"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d export_db"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  # Auth Service
-  auth-service:
-    build: 
-      context: ./auth-service/auth # Thư mục chứa Dockerfile
-      dockerfile: Dockerfile
-    container_name: auth-service
-    restart: always # Thêm dòng này
-    ports:
-      - "8081:8081"
-    depends_on:
-        auth-db:
-          condition: service_healthy
-    environment:
-      SERVER_PORT: 8081
-      SPRING_DATASOURCE_URL: jdbc:postgresql://auth-db:5432/auth_db
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
-      JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
-      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
-
 volumes:
-  auth_db_data:
+  export_db_data:
