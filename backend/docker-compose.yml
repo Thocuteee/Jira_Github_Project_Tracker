@@ -39,5 +39,45 @@ services:
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
 
+  # Database cho Notification Service
+  notification-db:
+    image: postgres:15
+    container_name: notification-db
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: notification_db
+    volumes:
+      - notification_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d notification_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Notification Service
+  notification-service:
+    build:
+      context: ./notification-service/notification # Thư mục chứa Dockerfile
+      dockerfile: Dockerfile
+    container_name: notification-service
+    restart: always
+    ports:
+      - "8086:8086"
+    depends_on:
+      notification-db:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8086
+      SPRING_DATASOURCE_URL: jdbc:postgresql://notification-db:5432/notification_db
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      # Optional FCM sending (FCM disabled nếu không set FIREBASE_CREDENTIALS_PATH)
+      # FIREBASE_CREDENTIALS_PATH: /app/firebase/serviceAccountKey.json
+
 volumes:
   auth_db_data:
+  notification_db_data:
