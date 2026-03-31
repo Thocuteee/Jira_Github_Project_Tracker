@@ -2,14 +2,14 @@
 import axiosClient from './authClient';
 
 export interface LoginRequest {
-    username?: string;
-    password?: string;
+    email: string;
+    password: string;
 }
 
 export interface AuthResponse {
-    accessToken: string;
-    refreshToken: string;
-    username: string;
+    token: string;
+    type: string;
+    email: string;
     roles: string[];
 }
 
@@ -23,7 +23,7 @@ export interface UserProfile {
 
 const authService = {
     login: (data: LoginRequest): Promise<AuthResponse> => {
-        return axiosClient.post('/api/auth/signin', data);
+        return axiosClient.post('/api/auth/login-user', data);
     },
 
     getProfile: (): Promise<UserProfile> => {

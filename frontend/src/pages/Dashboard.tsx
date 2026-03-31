@@ -1,6 +1,7 @@
 import MainLayout from '@/components/layout/MainLayout';
 import { ArrowRight, Clock3, Users, FileText, GitBranch, RefreshCw } from 'lucide-react';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import authService, { type UserProfile } from '@/api/auth.service';
 
 const summaryStats = [
     { label: 'Active Groups', value: '5', icon: Users, iconBg: 'bg-blue-100 text-blue-600' },
@@ -20,20 +21,29 @@ export default function Dashboard() {
         document.title = "Dashboard | Project Tracker";
     }, []);
 
-    const roles = useMemo(() => {
+    const [roles, setRoles] = useState<string[]>(() => {
         try {
-            const raw = localStorage.getItem('mockRoles');
-            if (!raw) return ['ROLE_USER', 'ROLE_VIEWER'];
+            const raw = localStorage.getItem('userRoles');
+            if (!raw) return [];
             const parsed = JSON.parse(raw);
-            return Array.isArray(parsed) ? parsed.map(String) : ['ROLE_USER', 'ROLE_VIEWER'];
+            return Array.isArray(parsed) ? parsed.map(String) : [];
         } catch {
-            return ['ROLE_USER', 'ROLE_VIEWER'];
+            return [];
         }
-    }, []);
+    });
+
+    useEffect(() => {
+        if (roles.length) return;
+
+        authService
+            .getProfile()
+            .then((profile: UserProfile) => setRoles(profile.roles ?? []))
+            .catch(() => setRoles([]));
+    }, [roles.length]);
 
     const userName = useMemo(() => {
         try {
-            return localStorage.getItem('mockUserName') || 'User';
+            return localStorage.getItem('userName') || localStorage.getItem('userEmail') || 'User';
         } catch {
             return 'User';
         }

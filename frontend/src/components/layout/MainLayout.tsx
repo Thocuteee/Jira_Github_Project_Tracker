@@ -11,8 +11,47 @@ import {
     RefreshCw,
     Settings,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export default function MainLayout({ children }: { children: ReactNode }) {
+    const authed = (() => {
+        try {
+            return Boolean(
+                localStorage.getItem('accessToken') &&
+                    (localStorage.getItem('userEmail') || localStorage.getItem('userName'))
+            );
+        } catch {
+            return false;
+        }
+    })();
+
+    const userName = (() => {
+        try {
+            return (
+                localStorage.getItem('userName') ||
+                localStorage.getItem('userEmail') ||
+                'User'
+            );
+        } catch {
+            return 'User';
+        }
+    })();
+
+    const userSubtitle = (() => {
+        try {
+            return localStorage.getItem('userSubtitle') || 'Role';
+        } catch {
+            return 'Role';
+        }
+    })();
+
+    const initials = userName
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase())
+        .join('');
+
     return (
         <div className="flex h-screen min-h-0 w-full bg-[#eef0f4] text-[#171c28]">
             <aside className="flex w-64 shrink-0 flex-col bg-[#111827] px-3 py-5 text-slate-200">
@@ -67,15 +106,26 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                             <Bell size={20} />
                             <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
                         </button>
-                        <div className="flex items-center gap-3 border-l border-slate-200 pl-5">
-                            <div className="hidden text-right sm:block">
-                                <div className="text-sm font-semibold text-slate-900">Dr. Nguyen</div>
-                                <div className="text-xs text-slate-500">Lecturer</div>
+                        {authed ? (
+                            <div className="flex items-center gap-3 border-l border-slate-200 pl-5">
+                                <div className="hidden text-right sm:block">
+                                    <div className="text-sm font-semibold text-slate-900">{userName}</div>
+                                    <div className="text-xs text-slate-500">{userSubtitle}</div>
+                                </div>
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white">
+                                    {initials || 'U'}
+                                </div>
                             </div>
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white">
-                                DN
+                        ) : (
+                            <div className="flex items-center gap-3 border-l border-slate-200 pl-5">
+                                <Link
+                                    to="/login"
+                                    className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+                                >
+                                    Đăng nhập
+                                </Link>
                             </div>
-                        </div>
+                        )}
                     </div>
                 </header>
 

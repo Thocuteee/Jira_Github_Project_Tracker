@@ -1,29 +1,40 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Globe, GitBranch, LogIn } from 'lucide-react'
-
-function setMockAuth(payload: { userName: string; roles: string[] }) {
-    localStorage.setItem('mockAccessToken', 'mock-token')
-    localStorage.setItem('mockUserName', payload.userName)
-    localStorage.setItem('mockUserSubtitle', 'Demo user')
-    localStorage.setItem('mockRoles', JSON.stringify(payload.roles))
-}
+import authService from '@/api/auth.service'
 
 export default function Login() {
-    const [username, setUsername] = useState('')
+    const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
+    const [submitting, setSubmitting] = useState(false)
     const navigate = useNavigate()
 
     useEffect(() => {
         document.title = 'Login | Project Tracker'
     }, [])
 
-    const submitMock = (e: React.FormEvent, roleSet: string[]) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
+        setSubmitting(true)
+        try {
+        const response = await authService.login({ email, password })
 
-        const name = username.trim() ? username.trim() : 'Demo User'
-        setMockAuth({ userName: name, roles: roleSet })
+        localStorage.setItem('accessToken', response.token)
+        localStorage.setItem('userEmail', response.email)
+        localStorage.setItem('userName', response.email.split('@')[0] || response.email)
+        localStorage.setItem('userSubtitle', response.roles?.[0] || 'Role')
+        localStorage.setItem('userRoles', JSON.stringify(response.roles ?? []))
+
         navigate('/', { replace: true })
+        } catch {
+        alert('Đăng nhập thất bại. Vui lòng kiểm tra lại!')
+        } finally {
+        setSubmitting(false)
+        }
+    }
+
+    const handleOAuth = (provider: string) => {
+        alert(`OAuth (${provider}) chưa tích hợp vào BE hiện tại.`)
     }
 
     return (
@@ -34,23 +45,18 @@ export default function Login() {
                 <LogIn size={24} />
             </div>
             <h2 className="text-2xl font-bold text-slate-800">Sign in to your workspace</h2>
-            <p className="text-slate-500 text-sm mt-1">Demo only (không gọi backend).</p>
+            <p className="text-slate-500 text-sm mt-1">Đăng nhập bằng tài khoản (BE).</p>
             </div>
 
-            <form
-            onSubmit={(e) =>
-                submitMock(e, ['ROLE_USER', 'ROLE_PROJECT_MANAGER', 'ROLE_VIEWER'])
-            }
-            className="space-y-4"
-            >
+            <form onSubmit={handleLogin} className="space-y-4">
             <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Username</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
                 <input
-                type="text"
+                type="email"
                 className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                placeholder="Nhập username..."
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
                 />
             </div>
@@ -69,9 +75,10 @@ export default function Login() {
 
             <button
                 type="submit"
-                className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
+                disabled={submitting}
+                className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200 disabled:opacity-70"
             >
-                Đăng nhập
+                {submitting ? 'Đang đăng nhập...' : 'Đăng nhập'}
             </button>
             </form>
 
@@ -87,14 +94,7 @@ export default function Login() {
             <div className="grid grid-cols-2 gap-4">
             <button
                 type="button"
-                onClick={(e) => {
-                e.preventDefault()
-                setMockAuth({
-                    userName: 'Google User',
-                    roles: ['ROLE_USER', 'ROLE_VIEWER'],
-                })
-                navigate('/', { replace: true })
-                }}
+                onClick={() => handleOAuth('google')}
                 className="flex items-center justify-center gap-2 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-all font-medium text-slate-700"
             >
                 <Globe size={18} className="text-red-500" /> Google
@@ -102,14 +102,7 @@ export default function Login() {
 
             <button
                 type="button"
-                onClick={(e) => {
-                e.preventDefault()
-                setMockAuth({
-                    userName: 'GitHub User',
-                    roles: ['ROLE_USER', 'ROLE_PROJECT_MANAGER', 'ROLE_MAINTAINER'],
-                })
-                navigate('/', { replace: true })
-                }}
+                onClick={() => handleOAuth('github')}
                 className="flex items-center justify-center gap-2 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-all font-medium text-slate-700"
             >
                 <GitBranch size={18} /> GitHub
