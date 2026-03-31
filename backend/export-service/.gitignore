@@ -31,4 +31,8 @@ build/
 
 ### VS Code ###
 .vscode/
+
 application-local.properties
+
+# pass Docker
+.env

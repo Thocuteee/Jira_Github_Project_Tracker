@@ -7,8 +7,8 @@ services:
     ports:
       - "5434:5432"
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 1234
+      POSTGRES_USER: ${MY_DB_USER}
+      POSTGRES_PASSWORD: ${MY_DB_PASS}
       POSTGRES_DB: export_db
     volumes:
       - export_db_data:/var/lib/postgresql/data
