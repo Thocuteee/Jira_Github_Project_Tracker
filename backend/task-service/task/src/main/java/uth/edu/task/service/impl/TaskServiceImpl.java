@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import uth.edu.task.config.UserContextHolder;
+import uth.edu.task.dto.event.TaskEvent;
 import uth.edu.task.dto.request.TaskAssignRequest;
 import uth.edu.task.dto.request.TaskCreateRequest;
 import uth.edu.task.dto.request.TaskStatusUpdateRequest;
@@ -19,7 +20,9 @@ import uth.edu.task.repository.TaskCommentRepository;
 import uth.edu.task.repository.TaskHistoryRepository;
 import uth.edu.task.repository.TaskRepository;
 import uth.edu.task.service.TaskService;
+import uth.edu.task.service.publisher.TaskEventPublisher;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -34,6 +37,7 @@ public class TaskServiceImpl implements TaskService {
     private final TaskHistoryRepository taskHistoryRepository;
     private final TaskCommentRepository taskCommentRepository;
     private final AttachmentRepository attachmentRepository;
+    private final TaskEventPublisher taskEventPublisher;
     private final TaskMapper taskMapper;
 
     @Override
@@ -54,6 +58,17 @@ public class TaskServiceImpl implements TaskService {
         Task savedTask = taskRepository.save(task);
 
         saveTaskHistory(savedTask, currentUserId, "CREATE", "null", "Task Created");
+
+        TaskEvent event = TaskEvent.builder()
+                .taskId(savedTask.getTaskId())
+                .title(savedTask.getTitle())
+                .assignedTo(savedTask.getAssignedTo())
+                .requirementId(savedTask.getRequirementId())
+                .eventType("CREATED")
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        taskEventPublisher.publishTaskEvent(event);
 
         return taskMapper.toResponse(savedTask);
     }
