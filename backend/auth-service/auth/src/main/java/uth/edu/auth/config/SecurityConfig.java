@@ -17,6 +17,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import uth.edu.auth.security.JwtAuthenticationFilter;
+import uth.edu.auth.security.oauth2.OAuth2AuthenticationSuccessHandler;
 
 import java.util.List;
 
@@ -25,9 +26,14 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+    public SecurityConfig(
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler
+    ) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.oAuth2AuthenticationSuccessHandler = oAuth2AuthenticationSuccessHandler;
     }
 
     @Bean
@@ -37,16 +43,23 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .oauth2Login(oauth2 -> oauth2
+                    .successHandler(oAuth2AuthenticationSuccessHandler)
+                    .authorizationEndpoint(authorization -> authorization
+                            .baseUri("/oauth2/authorization")
+                    )
+                )
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        // Unhandled exceptions forward to /error; without this, the error dispatch is authenticated() → 403
                         .requestMatchers("/error").permitAll()
                         .requestMatchers(
                                 "/api/auth/login-user",
                                 "/api/auth/register-user",
                                 "/api/auth/refreshtoken",
-                                "/api/auth/logout-user"
+                                "/api/auth/logout-user",
+                                "/oauth2/authorization/**",
+                                "/login/oauth2/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 );

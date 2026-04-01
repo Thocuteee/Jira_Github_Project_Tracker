@@ -90,7 +90,7 @@ public class AuthController {
         return ResponseEntity.ok("Đã xóa người dùng thành công!");
     }
     
-    // 5. Cập nhật User (Ví dụ đổi tên)
+    // 5. Cập nhật User 
     @PutMapping("/users/{id}")
     public ResponseEntity<?> updateUser(@PathVariable UUID id, @RequestBody RegisterRequest request) {
         return ResponseEntity.ok(authService.updateUser(id, request));

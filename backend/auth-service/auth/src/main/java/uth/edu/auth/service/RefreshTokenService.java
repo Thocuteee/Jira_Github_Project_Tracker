@@ -30,18 +30,16 @@ public class RefreshTokenService {
 
     @Transactional
     public RefreshToken createRefreshToken(UUID userId) {
-        RefreshToken refreshToken = new RefreshToken();
         var user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy User!"));
 
-        // Mỗi user chỉ giữ 1 refresh token hiện tại.
-        refreshTokenRepository.deleteByUser(user);
+        // Mỗi user chỉ có đúng 1 dòng refresh token (update nếu đã tồn tại).
+        RefreshToken refreshToken = refreshTokenRepository.findByUser(user).orElseGet(RefreshToken::new);
         refreshToken.setUser(user);
         refreshToken.setExpiryDate(Instant.now().plusMillis(refreshTokenDurationMs));
         refreshToken.setToken(UUID.randomUUID().toString());
 
-        refreshToken = refreshTokenRepository.save(refreshToken);
-        return refreshToken;
+        return refreshTokenRepository.save(refreshToken);
     }
 
     public RefreshToken verifyExpiration(RefreshToken token) {

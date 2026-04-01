@@ -22,7 +22,6 @@ export default function Login() {
         try {
         const response = await authService.login({ email: email.trim(), password })
 
-        // Token giờ nằm trong HttpOnly cookie, không lưu ở localStorage nữa.
         localStorage.removeItem('accessToken')
         localStorage.removeItem('refreshToken')
         localStorage.setItem('userEmail', response.email)
@@ -49,6 +48,15 @@ export default function Login() {
     }
 
     const handleOAuth = (provider: string) => {
+        const authBaseUrl = import.meta.env.VITE_AUTH_SERVICE_URL || 'http://localhost:8081'
+        if (provider === 'google') {
+            window.location.href = `${authBaseUrl}/oauth2/authorization/google`
+            return
+        }
+        if (provider === 'github') {
+            window.location.href = `${authBaseUrl}/oauth2/authorization/github`
+            return
+        }
         alert(`OAuth (${provider}) chưa tích hợp vào BE hiện tại.`)
     }
 
