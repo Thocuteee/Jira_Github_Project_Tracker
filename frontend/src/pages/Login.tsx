@@ -25,6 +25,7 @@ export default function Login() {
         localStorage.setItem('userName', response.email.split('@')[0] || response.email)
         localStorage.setItem('userSubtitle', getPrimaryRole(response.roles ?? []))
         localStorage.setItem('userRoles', JSON.stringify(response.roles ?? []))
+        window.dispatchEvent(new Event('auth-changed'))
 
         navigate('/', { replace: true })
         } catch {

@@ -44,6 +44,11 @@ axiosClient.interceptors.response.use(
             // Nếu refresh thất bại -> Logout
             localStorage.removeItem('accessToken');
             localStorage.removeItem('refreshToken');
+            localStorage.removeItem('userEmail');
+            localStorage.removeItem('userName');
+            localStorage.removeItem('userSubtitle');
+            localStorage.removeItem('userRoles');
+            window.dispatchEvent(new Event('auth-changed'));
             window.location.href = '/login';
             return Promise.reject(refreshError);
         }

@@ -90,6 +90,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
             localStorage.removeItem('userSubtitle');
             localStorage.removeItem('userRoles');
             localStorage.removeItem('refreshToken');
+            window.dispatchEvent(new Event('auth-changed'));
             navigate('/login', { replace: true });
         }
     };

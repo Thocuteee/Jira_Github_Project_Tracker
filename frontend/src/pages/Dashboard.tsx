@@ -1,7 +1,6 @@
 import MainLayout from '@/components/layout/MainLayout';
 import { ArrowRight, Clock3, Users, FileText, GitBranch, RefreshCw } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import authService, { type UserProfile } from '@/api/auth.service';
 import { toDisplayRole } from '@/utils/authDisplay';
 
 const summaryStats = [
@@ -32,15 +31,6 @@ export default function Dashboard() {
             return [];
         }
     });
-
-    useEffect(() => {
-        if (roles.length) return;
-
-        authService
-            .getProfile()
-            .then((profile: UserProfile) => setRoles(profile.roles ?? []))
-            .catch(() => setRoles([]));
-    }, [roles.length]);
 
     const userName = useMemo(() => {
         try {
