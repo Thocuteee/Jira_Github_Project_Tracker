@@ -45,7 +45,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/login-user",
                                 "/api/auth/register-user",
-                                "/api/auth/refreshtoken"
+                                "/api/auth/refreshtoken",
+                                "/api/auth/logout-user"
                         ).permitAll()
                         .anyRequest().authenticated()
                 );

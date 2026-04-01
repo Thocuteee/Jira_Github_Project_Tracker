@@ -2,8 +2,8 @@ package uth.edu.auth.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import uth.edu.auth.model.RefreshToken;
 import uth.edu.auth.repository.RefreshTokenRepository;
@@ -28,11 +28,15 @@ public class RefreshTokenService {
         return refreshTokenRepository.findByToken(token);
     }
 
+    @Transactional
     public RefreshToken createRefreshToken(UUID userId) {
         RefreshToken refreshToken = new RefreshToken();
+        var user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy User!"));
 
-        refreshToken.setUser(userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy User!")));
+        // Mỗi user chỉ giữ 1 refresh token hiện tại.
+        refreshTokenRepository.deleteByUser(user);
+        refreshToken.setUser(user);
         refreshToken.setExpiryDate(Instant.now().plusMillis(refreshTokenDurationMs));
         refreshToken.setToken(UUID.randomUUID().toString());
 
@@ -46,5 +50,10 @@ public class RefreshTokenService {
             throw new RuntimeException("Refresh token đã hết hạn!");
         }
         return token;
+    }
+
+    @Transactional
+    public boolean revokeRefreshToken(String token) {
+        return refreshTokenRepository.deleteByToken(token) > 0;
     }
 }
