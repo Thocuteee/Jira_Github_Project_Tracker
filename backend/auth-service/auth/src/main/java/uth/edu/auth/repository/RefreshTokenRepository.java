@@ -10,6 +10,7 @@ import uth.edu.auth.model.RefreshToken;
 @Repository
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
     Optional<RefreshToken> findByToken(String token);
+    int deleteByToken(String token);
     
     @Modifying
     int deleteByUser(User user);

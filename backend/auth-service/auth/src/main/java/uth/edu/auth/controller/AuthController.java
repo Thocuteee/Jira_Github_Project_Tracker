@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.util.StringUtils;
 import jakarta.validation.Valid;
 
 import uth.edu.auth.security.JwtProvider;
@@ -93,6 +94,14 @@ public class AuthController {
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
+    }
+
+    @PostMapping("/logout-user")
+    public ResponseEntity<?> logoutUser(@RequestParam(required = false) String refreshToken) {
+        if (StringUtils.hasText(refreshToken)) {
+            refreshTokenService.revokeRefreshToken(refreshToken);
+        }
+        return ResponseEntity.ok("Đăng xuất thành công!");
     }
 
     @PutMapping("/admin/assign-role/{userId}")
