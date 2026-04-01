@@ -12,7 +12,8 @@ export interface RegisterRequest {
 }
 
 export interface AuthResponse {
-    token: string;
+    token?: string | null;
+    refreshToken?: string | null;
     type: string;
     email: string;
     roles: string[];
@@ -31,9 +32,7 @@ const authService = {
     },
 
     logout: (): Promise<string> => {
-        const refreshToken = localStorage.getItem('refreshToken');
-        const query = refreshToken ? `?refreshToken=${encodeURIComponent(refreshToken)}` : '';
-        return axiosClient.post(`/api/auth/logout-user${query}`);
+        return axiosClient.post('/api/auth/logout-user');
     },
 
     register: (data: RegisterRequest): Promise<string> => {

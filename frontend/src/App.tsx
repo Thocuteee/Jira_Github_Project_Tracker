@@ -6,7 +6,7 @@ import Register from '@/pages/Register'
 
 function isMockAuthed() {
   try {
-    return Boolean(localStorage.getItem('accessToken') && (localStorage.getItem('userEmail') || localStorage.getItem('userName')))
+    return Boolean(localStorage.getItem('userEmail') || localStorage.getItem('userName'))
   } catch {
     return false
   }

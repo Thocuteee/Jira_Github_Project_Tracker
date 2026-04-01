@@ -22,10 +22,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
 
     const authed = (() => {
         try {
-            return Boolean(
-                localStorage.getItem('accessToken') &&
-                    (localStorage.getItem('userEmail') || localStorage.getItem('userName'))
-            );
+            return Boolean(localStorage.getItem('userEmail') || localStorage.getItem('userName'));
         } catch {
             return false;
         }
@@ -84,12 +81,10 @@ export default function MainLayout({ children }: { children: ReactNode }) {
         } catch {
             // Nếu BE logout lỗi thì vẫn clear local state để người dùng thoát phiên.
         } finally {
-            localStorage.removeItem('accessToken');
             localStorage.removeItem('userEmail');
             localStorage.removeItem('userName');
             localStorage.removeItem('userSubtitle');
             localStorage.removeItem('userRoles');
-            localStorage.removeItem('refreshToken');
             window.dispatchEvent(new Event('auth-changed'));
             navigate('/login', { replace: true });
         }

@@ -8,6 +8,7 @@ export default function Login() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [submitting, setSubmitting] = useState(false)
+    const [error, setError] = useState<string | null>(null)
     const navigate = useNavigate()
 
     useEffect(() => {
@@ -16,11 +17,14 @@ export default function Login() {
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
+        setError(null)
         setSubmitting(true)
         try {
-        const response = await authService.login({ email, password })
+        const response = await authService.login({ email: email.trim(), password })
 
-        localStorage.setItem('accessToken', response.token)
+        // Token giờ nằm trong HttpOnly cookie, không lưu ở localStorage nữa.
+        localStorage.removeItem('accessToken')
+        localStorage.removeItem('refreshToken')
         localStorage.setItem('userEmail', response.email)
         localStorage.setItem('userName', response.email.split('@')[0] || response.email)
         localStorage.setItem('userSubtitle', getPrimaryRole(response.roles ?? []))
@@ -28,8 +32,17 @@ export default function Login() {
         window.dispatchEvent(new Event('auth-changed'))
 
         navigate('/', { replace: true })
-        } catch {
-        alert('Đăng nhập thất bại. Vui lòng kiểm tra lại!')
+        } catch (e: unknown) {
+        const msg = (() => {
+            try {
+            const maybe = e as { response?: { data?: unknown } }
+            if (typeof maybe?.response?.data === 'string') return maybe.response.data
+            } catch {
+            // ignore
+            }
+            return 'Đăng nhập thất bại. Vui lòng kiểm tra lại!'
+        })()
+        setError(msg)
         } finally {
         setSubmitting(false)
         }
@@ -48,6 +61,10 @@ export default function Login() {
             </div>
             <h2 className="text-2xl font-bold text-slate-800">Sign in to your workspace</h2>
             </div>
+
+            {error ? (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+            ) : null}
 
             <form onSubmit={handleLogin} className="space-y-4">
             <div>

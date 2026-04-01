@@ -6,18 +6,10 @@ type RetryableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
 const axiosClient = axios.create({
     baseURL: authBaseUrl,
+    withCredentials: true,
     headers: {
         'Content-Type': 'application/json',
     },
-});
-
-// Interceptor cho Request: Tự động thêm Bearer Token vào Header
-axiosClient.interceptors.request.use((config) => {
-    const token = localStorage.getItem('accessToken');
-    if (token && config.headers) {
-        config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
 });
 
 // Interceptor cho Response: Xử lý lỗi 401 (Refresh Token)
@@ -30,20 +22,12 @@ axiosClient.interceptors.response.use(
         if (error.response?.status === 401 && !originalRequest._retry) {
         originalRequest._retry = true;
         try {
-            const refreshToken = localStorage.getItem('refreshToken');
-            if (!refreshToken) throw new Error('No refresh token');
-
-            const response = await axios.post(`${authBaseUrl}/api/auth/refreshtoken`, { refreshToken });
-            
-            // Lưu token mới
-            localStorage.setItem('accessToken', response.data.accessToken);
+            await axios.post(`${authBaseUrl}/api/auth/refreshtoken`, {}, { withCredentials: true });
             
             // Thực hiện lại request ban đầu với token mới
             return axiosClient(originalRequest);
         } catch (refreshError) {
             // Nếu refresh thất bại -> Logout
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
             localStorage.removeItem('userEmail');
             localStorage.removeItem('userName');
             localStorage.removeItem('userSubtitle');
