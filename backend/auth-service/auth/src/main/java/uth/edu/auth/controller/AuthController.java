@@ -1,14 +1,24 @@
 package uth.edu.auth.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
+import jakarta.validation.Valid;
 
+import uth.edu.auth.security.JwtProvider;
 import uth.edu.auth.dto.JwtResponse;
 import uth.edu.auth.dto.LoginRequest;
 import uth.edu.auth.dto.RegisterRequest;
+import uth.edu.auth.dto.TokenRefreshRequest;
+import uth.edu.auth.dto.TokenRefreshResponse;
 import uth.edu.auth.model.User;
+import uth.edu.auth.model.*;
 import uth.edu.auth.service.IAuthService;
+import uth.edu.auth.repository.UserRepository;
+import uth.edu.auth.repository.RoleRepository;
+import uth.edu.auth.service.RefreshTokenService;
 import java.util.UUID;
 
 @RestController
@@ -17,6 +27,18 @@ public class AuthController {
 
     @Autowired
     private IAuthService authService;
+
+    @Autowired 
+    private UserRepository userRepository;
+
+    @Autowired 
+    private RoleRepository roleRepository;
+
+    @Autowired
+    private RefreshTokenService refreshTokenService;
+
+    @Autowired
+    private JwtProvider jwtProvider;
 
     // 1. Lấy danh sách tất cả User
     @GetMapping("/users")
@@ -40,7 +62,7 @@ public class AuthController {
             user.setEmail(request.getEmail());
             user.setPassword(request.getPassword());
 
-            User registeredUser = authService.registerUser(user, request.getRoleName());
+            User registeredUser = authService.registerUser(user);
             
             return ResponseEntity.ok("Đăng ký thành công cho user: " + registeredUser.getEmail());
         } catch (Exception e) {
@@ -71,6 +93,40 @@ public class AuthController {
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
+    }
+
+    @PutMapping("/admin/assign-role/{userId}")
+    @PreAuthorize("hasRole('ADMIN')") // Chỉ Token có Role ADMIN mới gọi được
+    public ResponseEntity<?> assignRole(@PathVariable UUID userId, @RequestParam String roleName) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+        
+        ERole eRole = switch (roleName.toUpperCase()) {
+            case "LECTURER" -> ERole.ROLE_LECTURER;
+            case "ADMIN" -> ERole.ROLE_ADMIN;
+            default -> ERole.ROLE_TEAM_MEMBER;
+        };
+
+        Role newRole = roleRepository.findByName(eRole).get();
+        user.getRoles().add(newRole); // Thêm quyền mới
+        userRepository.save(user);
+        
+        return ResponseEntity.ok("Nâng cấp thành công lên " + roleName);
+    }
+
+    @PostMapping("/refreshtoken")
+    public ResponseEntity<?> refreshToken(@Valid @RequestBody TokenRefreshRequest request) {
+        String requestRefreshToken = request.getRefreshToken();
+
+        var verified = refreshTokenService.findByToken(requestRefreshToken)
+                .map(refreshTokenService::verifyExpiration);
+        if (verified.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Refresh token không lưu trong database!");
+        }
+        var user = verified.get().getUser();
+        String token = jwtProvider.generateJwtToken(user.getEmail());
+        return ResponseEntity.ok(new TokenRefreshResponse(token, requestRefreshToken));
     }
     
 }
