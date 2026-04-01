@@ -3,10 +3,19 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Dashboard from '@/pages/Dashboard'
 import Login from '@/pages/Login'
 import Register from '@/pages/Register'
+import OAuth2Redirect from './pages/OAuth2Redirect'
 
 function isMockAuthed() {
   try {
-    return Boolean(localStorage.getItem('userEmail') || localStorage.getItem('userName'))
+    const localAuthed = Boolean(localStorage.getItem('userEmail') || localStorage.getItem('userName'))
+    if (localAuthed) return true
+
+    // OAuth2 callback mới đi thẳng /dashboard kèm query user info
+    if (window.location.pathname === '/dashboard') {
+      const params = new URLSearchParams(window.location.search)
+      return Boolean(params.get('email'))
+    }
+    return false
   } catch {
     return false
   }
@@ -35,8 +44,8 @@ export default function App() {
         <Route path="/login" element={authed ? <Navigate to="/dashboard" replace /> : <Login />} />
         <Route path="/signin" element={<Navigate to="/login" replace />} />
         <Route path="/auth/login" element={<Navigate to="/login" replace />} />
-
         <Route path="/register" element={<Register />} />
+        <Route path="/oauth2/redirect" element={<OAuth2Redirect />} />
 
         <Route path="*" element={<Navigate to={authed ? '/dashboard' : '/login'} replace />} />
       </Routes>

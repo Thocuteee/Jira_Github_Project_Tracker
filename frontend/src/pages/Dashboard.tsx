@@ -1,6 +1,7 @@
 import MainLayout from '@/components/layout/MainLayout';
 import { ArrowRight, Clock3, Users, FileText, GitBranch, RefreshCw } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toDisplayRole } from '@/utils/authDisplay';
 
 const summaryStats = [
@@ -17,9 +18,31 @@ const mockGroupProgress = [
 ];
 
 export default function Dashboard() {
+    const navigate = useNavigate();
+
     useEffect(() => {
         document.title = "Dashboard | Project Tracker";
     }, []);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const email = params.get('email') ?? '';
+        if (!email) return;
+
+        const name = params.get('name') ?? '';
+        const rolesRaw = params.get('roles') ?? '';
+        const roles = rolesRaw
+            .split(',')
+            .map((r) => r.trim())
+            .filter(Boolean);
+
+        localStorage.setItem('userEmail', email);
+        localStorage.setItem('userName', name || email.split('@')[0] || email);
+        localStorage.setItem('userRoles', JSON.stringify(roles));
+        localStorage.setItem('userSubtitle', toDisplayRole(roles[0]));
+        window.dispatchEvent(new Event('auth-changed'));
+        navigate('/dashboard', { replace: true });
+    }, [navigate]);
 
     const [roles, setRoles] = useState<string[]>(() => {
         try {
