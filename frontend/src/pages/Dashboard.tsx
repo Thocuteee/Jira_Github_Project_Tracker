@@ -2,6 +2,7 @@ import MainLayout from '@/components/layout/MainLayout';
 import { ArrowRight, Clock3, Users, FileText, GitBranch, RefreshCw } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import authService, { type UserProfile } from '@/api/auth.service';
+import { toDisplayRole } from '@/utils/authDisplay';
 
 const summaryStats = [
     { label: 'Active Groups', value: '5', icon: Users, iconBg: 'bg-blue-100 text-blue-600' },
@@ -68,7 +69,7 @@ export default function Dashboard() {
                             key={r}
                             className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700"
                         >
-                            {r}
+                            {toDisplayRole(r)}
                         </span>
                     ))}
                 </div>

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
     LayoutDashboard,
     Users,
@@ -11,9 +11,15 @@ import {
     RefreshCw,
     Settings,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import authService from '@/api/auth.service';
+import { getPrimaryRole } from '@/utils/authDisplay';
 
 export default function MainLayout({ children }: { children: ReactNode }) {
+    const navigate = useNavigate();
+    const [menuOpen, setMenuOpen] = useState(false);
+    const menuRef = useRef<HTMLDivElement | null>(null);
+
     const authed = (() => {
         try {
             return Boolean(
@@ -39,11 +45,54 @@ export default function MainLayout({ children }: { children: ReactNode }) {
 
     const userSubtitle = (() => {
         try {
+            const rawRoles = localStorage.getItem('userRoles');
+            if (rawRoles) {
+                const parsed = JSON.parse(rawRoles);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    return getPrimaryRole(parsed.map(String));
+                }
+            }
+
             return localStorage.getItem('userSubtitle') || 'Role';
         } catch {
             return 'Role';
         }
     })();
+
+    useEffect(() => {
+        if (!menuOpen) return;
+
+        const handleClickOutside = (event: MouseEvent) => {
+            if (!menuRef.current?.contains(event.target as Node)) {
+                setMenuOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [menuOpen]);
+
+    const handleUserInfo = () => {
+        setMenuOpen(false);
+        alert(`Tên: ${userName}\nEmail: ${localStorage.getItem('userEmail') || '-'}\nVai trò: ${userSubtitle}`);
+    };
+
+    const handleLogout = async () => {
+        setMenuOpen(false);
+        try {
+            await authService.logout();
+        } catch {
+            // Nếu BE logout lỗi thì vẫn clear local state để người dùng thoát phiên.
+        } finally {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('userEmail');
+            localStorage.removeItem('userName');
+            localStorage.removeItem('userSubtitle');
+            localStorage.removeItem('userRoles');
+            localStorage.removeItem('refreshToken');
+            navigate('/login', { replace: true });
+        }
+    };
 
     const initials = userName
         .split(' ')
@@ -107,14 +156,37 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                             <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
                         </button>
                         {authed ? (
-                            <div className="flex items-center gap-3 border-l border-slate-200 pl-5">
+                            <div className="relative flex items-center gap-3 border-l border-slate-200 pl-5" ref={menuRef}>
                                 <div className="hidden text-right sm:block">
                                     <div className="text-sm font-semibold text-slate-900">{userName}</div>
                                     <div className="text-xs text-slate-500">{userSubtitle}</div>
                                 </div>
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white">
+                                <button
+                                    type="button"
+                                    onClick={() => setMenuOpen((prev) => !prev)}
+                                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white transition hover:bg-blue-700"
+                                    aria-label="Mở menu người dùng"
+                                >
                                     {initials || 'U'}
-                                </div>
+                                </button>
+                                {menuOpen ? (
+                                    <div className="absolute right-0 top-12 z-20 w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+                                        <button
+                                            type="button"
+                                            onClick={handleUserInfo}
+                                            className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-100"
+                                        >
+                                            Thông tin người dùng
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleLogout}
+                                            className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50"
+                                        >
+                                            Đăng xuất
+                                        </button>
+                                    </div>
+                                ) : null}
                             </div>
                         ) : (
                             <div className="flex items-center gap-3 border-l border-slate-200 pl-5">

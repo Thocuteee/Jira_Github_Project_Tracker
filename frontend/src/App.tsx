@@ -23,6 +23,8 @@ export default function App() {
         {/* Alias route */}
         <Route path="/dashboard" element={authed ? <Dashboard /> : <Navigate to="/" replace />} />
         <Route path="/login" element={authed ? <Navigate to="/" replace /> : <Login />} />
+        <Route path="/signin" element={<Navigate to="/login" replace />} />
+        <Route path="/auth/login" element={<Navigate to="/login" replace />} />
 
         <Route path="/register" element={<Register />} />
 

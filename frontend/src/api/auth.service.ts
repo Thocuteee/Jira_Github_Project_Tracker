@@ -1,7 +1,12 @@
-// src/api/auth.service.ts
 import axiosClient from './authClient';
 
 export interface LoginRequest {
+    email: string;
+    password: string;
+}
+
+export interface RegisterRequest {
+    name: string;
     email: string;
     password: string;
 }
@@ -13,7 +18,6 @@ export interface AuthResponse {
     roles: string[];
 }
 
-/** Khớp `UserResponse` từ auth-service (UUID serialize thành string). */
 export interface UserProfile {
     userId: string;
     name: string;
@@ -24,6 +28,16 @@ export interface UserProfile {
 const authService = {
     login: (data: LoginRequest): Promise<AuthResponse> => {
         return axiosClient.post('/api/auth/login-user', data);
+    },
+
+    logout: (): Promise<string> => {
+        const refreshToken = localStorage.getItem('refreshToken');
+        const query = refreshToken ? `?refreshToken=${encodeURIComponent(refreshToken)}` : '';
+        return axiosClient.post(`/api/auth/logout-user${query}`);
+    },
+
+    register: (data: RegisterRequest): Promise<string> => {
+        return axiosClient.post('/api/auth/register-user', data);
     },
 
     getProfile: (): Promise<UserProfile> => {

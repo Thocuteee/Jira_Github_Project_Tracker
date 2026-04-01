@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Globe, GitBranch, LogIn } from 'lucide-react'
 import authService from '@/api/auth.service'
+import { getPrimaryRole } from '@/utils/authDisplay'
 
 export default function Login() {
     const [email, setEmail] = useState('')
@@ -22,7 +23,7 @@ export default function Login() {
         localStorage.setItem('accessToken', response.token)
         localStorage.setItem('userEmail', response.email)
         localStorage.setItem('userName', response.email.split('@')[0] || response.email)
-        localStorage.setItem('userSubtitle', response.roles?.[0] || 'Role')
+        localStorage.setItem('userSubtitle', getPrimaryRole(response.roles ?? []))
         localStorage.setItem('userRoles', JSON.stringify(response.roles ?? []))
 
         navigate('/', { replace: true })
@@ -45,7 +46,6 @@ export default function Login() {
                 <LogIn size={24} />
             </div>
             <h2 className="text-2xl font-bold text-slate-800">Sign in to your workspace</h2>
-            <p className="text-slate-500 text-sm mt-1">Đăng nhập bằng tài khoản (BE).</p>
             </div>
 
             <form onSubmit={handleLogin} className="space-y-4">
