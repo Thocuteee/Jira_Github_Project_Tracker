@@ -43,6 +43,12 @@ public class NotificationServiceImpl implements INotificationService {
     }
 
     @Override
+    public Notification getNotificationById(UUID notificationId) {
+        return notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new RuntimeException("Notification not found"));
+    }
+
+    @Override
     public List<Notification> getNotificationsByUserId(UUID userId) {
         return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId);
     }

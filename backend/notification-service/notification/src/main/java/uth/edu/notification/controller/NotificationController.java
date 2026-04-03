@@ -33,6 +33,15 @@ public class NotificationController {
         }
     }
 
+    @GetMapping("/{notificationId}")
+    public ResponseEntity<?> getNotificationById(@PathVariable UUID notificationId) {
+        try {
+            return ResponseEntity.ok(notificationService.getNotificationById(notificationId));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
     @GetMapping("/users/{userId}")
     public ResponseEntity<?> getNotificationsByUserId(@PathVariable UUID userId) {
         return ResponseEntity.ok(notificationService.getNotificationsByUserId(userId));
