@@ -1,0 +1,63 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Tài liệu SRS</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 40px;
+      }
+      h1 {
+        color: #2c3e50;
+        text-align: center;
+      }
+      .footer {
+        text-align: right;
+        margin-top: 50px;
+        font-style: italic;
+        color: gray;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+      th,
+      td {
+        border: 1px solid #dddddd;
+        text-align: left;
+        padding: 12px;
+      }
+      th {
+        background-color: #1b608e;
+        color: white;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>TÀI LIỆU ĐẶC TẢ YÊU CẦU (SRS)</h1>
+    <p><strong>Dự án:</strong> Hệ thống</p>
+    <p>
+      <strong>Ngày xuất file:</strong> <span th:text="${exportDate}"></span>
+    </p>
+
+    <h3>Danh sách Yêu cầu (Requirements):</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Mã Yêu Cầu (ID)</th>
+          <th>Tên Chức Năng</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="req : ${requirements}">
+          <td th:text="${req.reqId}">REQ-01</td>
+          <td th:text="${req.title}">Tên chức năng mẫu</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="footer">Được tạo tự động bởi Export</div>
+  </body>
+</html>
