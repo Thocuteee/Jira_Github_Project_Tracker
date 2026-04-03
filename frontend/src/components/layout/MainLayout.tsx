@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
     LayoutDashboard,
+    ListTodo,
+    Layers,
     Users,
-    FileText,
     GitBranch,
-    FileDown,
-    Plug,
-    Search,
-    Bell,
     RefreshCw,
+    Bell,
     Settings,
+    Briefcase,
+    ChevronDown,
+    Search
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import authService from '@/api/auth.service';
@@ -99,24 +100,55 @@ export default function MainLayout({ children }: { children: ReactNode }) {
 
     return (
         <div className="flex h-screen min-h-0 w-full bg-[#eef0f4] text-[#171c28]">
-            <aside className="flex w-64 shrink-0 flex-col bg-[#111827] px-3 py-5 text-slate-200">
-                <div className="mb-8 flex items-center gap-3 px-2">
+            <aside className="flex w-64 shrink-0 flex-col bg-white border-r border-slate-200/80 px-3 py-5 text-slate-700 overflow-y-auto">
+                <div className="mb-6 flex items-center gap-3 px-2">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-sm font-bold text-white">
-                        S
+                        P
                     </div>
-                    <span className="text-lg font-semibold tracking-tight text-white">SEOOP Tracker</span>
+                    <span className="text-lg font-semibold tracking-tight text-slate-900">Project Tracker</span>
                 </div>
-                <nav className="flex flex-1 flex-col gap-0.5">
-                    <NavItem icon={<LayoutDashboard size={18} />} label="Overview" active />
-                    <NavItem icon={<Users size={18} />} label="Group Management" />
-                    <NavItem icon={<FileText size={18} />} label="Jira Requirements" />
-                    <NavItem icon={<GitBranch size={18} />} label="GitHub Analytics" />
-                    <NavItem icon={<FileDown size={18} />} label="Export SRS Document" />
-                    <NavItem icon={<Plug size={18} />} label="Integration Settings" />
+                
+                <div className="mb-6 px-2">
+                    <button className="flex w-full items-center justify-between rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100 hover:text-slate-900">
+                        <span className="font-medium truncate">Chọn Group</span>
+                        <ChevronDown size={16} className="text-slate-400" />
+                    </button>
+                </div>
+
+                <nav className="flex flex-1 flex-col gap-6">
+                    <div>
+                        <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                            Dự án của tôi
+                        </h3>
+                        <div className="flex flex-col gap-0.5">
+                            <NavItem icon={<LayoutDashboard size={18} />} label="Dashboard" active />
+                            <NavItem icon={<ListTodo size={18} />} label="Bảng Task" />
+                            <NavItem icon={<Layers size={18} />} label="Yêu cầu (Epic)" />
+                            <NavItem icon={<Users size={18} />} label="Thành viên nhóm" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                            Tích hợp
+                        </h3>
+                        <div className="flex flex-col gap-0.5">
+                            <NavItem icon={<GitBranch size={18} />} label="GitHub Settings" />
+                            <NavItem icon={<RefreshCw size={18} />} label="Jira Sync" />
+                        </div>
+                    </div>
+
+                    <div className="mt-auto">
+                        <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                            Hệ thống
+                        </h3>
+                        <div className="flex flex-col gap-0.5">
+                            <NavItem icon={<Bell size={18} />} label="Thông báo" />
+                            <NavItem icon={<Settings size={18} />} label="Cấu hình cá nhân" />
+                            <NavItem icon={<Briefcase size={18} />} label="Quản lý Workspace" to="/workspaces" />
+                        </div>
+                    </div>
                 </nav>
-                <div className="mt-auto border-t border-slate-700/80 pt-4">
-                    <NavItem icon={<Settings size={18} />} label="Settings" />
-                </div>
             </aside>
 
             <div className="flex min-w-0 flex-1 flex-col">
@@ -203,19 +235,24 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     );
 }
 
-type NavItemProps = { icon: ReactNode; label: string; active?: boolean };
+type NavItemProps = { icon: ReactNode; label: string; active?: boolean; to?: string };
 
-function NavItem({ icon, label, active = false }: NavItemProps) {
-    return (
-        <div
-            className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                active
-                    ? 'bg-white/10 text-white'
-                    : 'text-slate-400 hover:bg-white/5 hover:text-slate-100'
-            }`}
-        >
+function NavItem({ icon, label, active = false, to }: NavItemProps) {
+    const content = (
+        <>
             <span className="shrink-0 opacity-90">{icon}</span>
             {label}
-        </div>
+        </>
     );
+    const className = `flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+        active
+            ? 'bg-blue-50 text-blue-700'
+            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+    }`;
+
+    if (to) {
+        return <Link to={to} className={className}>{content}</Link>;
+    }
+
+    return <div className={className}>{content}</div>;
 }
