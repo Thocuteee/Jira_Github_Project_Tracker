@@ -10,3 +10,13 @@ services:
       - MINIO_ROOT_USER=${MINIO_ROOT_USER}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
     command: server /data --console-address ":9001"
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: export_rabbitmq
+    ports:
+      - "5672:5672" # cong de ket noi va gui/nhan message
+      - "15672:15672" # cong de truy cap web management console
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS}
