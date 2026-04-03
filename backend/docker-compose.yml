@@ -11,18 +11,114 @@ services:
       POSTGRES_PASSWORD: ${DB_PASS}
       POSTGRES_DB: auth_db
     volumes:
-    - auth_db_data:/var/lib/postgresql/data
+      - auth_db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d auth_db"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d auth_db" ]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  
+  # Database cho GitHub Service
+  github-db:
+    image: postgres:15
+    container_name: github-db
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: github_db
+    volumes:
+      - github_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d github_db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  requirement-db:
+    image: postgres:15
+    container_name: requirement-db
+    ports:
+      - "5435:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: requirement_db
+    volumes:
+      - requirement_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d requirement_db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  task-db:
+    image: postgres:15
+    container_name: task-db
+    ports:
+      - "5436:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: task_db
+    volumes:
+      - task_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d task_db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  notification-db:
+    image: postgres:15
+    container_name: notification-db
+    ports:
+      - "5437:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: notification_db
+    volumes:
+      - notification_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d notification_db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  report-db:
+    image: postgres:15
+    container_name: report-db
+    ports:
+      - "5438:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${REPORT_DB_NAME}
+    volumes:
+      - report_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${REPORT_DB_NAME}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./api-gateway/gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    restart: always
+    ports:
+      - "${API_GATEWAY_PORT:-8080}:8080"
+    environment:
+      SERVER_PORT: 8080
 
   # Auth Service
   auth-service:
-    build: 
+    build:
       context: ./auth-service/auth # Thư mục chứa Dockerfile
       dockerfile: Dockerfile
     container_name: auth-service
@@ -30,8 +126,8 @@ services:
     ports:
       - "8081:8081"
     depends_on:
-        auth-db:
-          condition: service_healthy
+      auth-db:
+        condition: service_healthy
     environment:
       SERVER_PORT: 8081
       SPRING_DATASOURCE_URL: jdbc:postgresql://auth-db:5432/auth_db
@@ -47,6 +143,97 @@ services:
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
       FRONTEND_URL: ${FRONTEND_URL}
 
+  # GitHub integration service (repos, commits, integrations)
+  github-service:
+    build:
+      context: ./github-service/github
+      dockerfile: Dockerfile
+    container_name: github-service
+    restart: always
+    ports:
+      - "${GITHUB_SERVICE_PORT:-8087}:8087"
+    depends_on:
+      github-db:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8087
+      SPRING_DATASOURCE_URL: jdbc:postgresql://github-db:5432/github_db
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+
+  requirement-service:
+    build:
+      context: ./requirement-service/requirement
+      dockerfile: Dockerfile
+    container_name: requirement-service
+    restart: always
+    ports:
+      - "${REQUIREMENT_SERVICE_PORT:-8083}:8083"
+    depends_on:
+      requirement-db:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8083
+      SPRING_DATASOURCE_URL: jdbc:postgresql://requirement-db:5432/requirement_db
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+
+  task-service:
+    build:
+      context: ./task-service/task
+      dockerfile: Dockerfile
+    container_name: task-service
+    restart: always
+    ports:
+      - "${TASK_SERVICE_PORT:-8084}:8084"
+    depends_on:
+      task-db:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8084
+      SPRING_DATASOURCE_URL: jdbc:postgresql://task-db:5432/task_db
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+
+  notification-service:
+    build:
+      context: ./notification-service/notification
+      dockerfile: Dockerfile
+    container_name: notification-service
+    restart: always
+    ports:
+      - "${NOTIFICATION_SERVICE_PORT:-8086}:8086"
+    depends_on:
+      notification-db:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8086
+      SPRING_DATASOURCE_URL: jdbc:postgresql://notification-db:5432/notification_db
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+
+  report-service:
+    build:
+      context: ./report-service/report
+      dockerfile: Dockerfile
+    container_name: report-service
+    restart: always
+    ports:
+      - "${REPORT_SERVICE_PORT:-8085}:8085"
+    depends_on:
+      report-db:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8085
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_REPORT}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+
   frontend:
     build:
       context: ../frontend
@@ -55,10 +242,28 @@ services:
     ports:
       - "5173:5173"
     environment:
-      # SPA chạy trong trình duyệt → gọi API qua localhost (port đã publish của auth-service)
+      # SPA chạy trong trình duyệt → gọi API qua localhost (port đã publish của các service)
       VITE_AUTH_SERVICE_URL: http://localhost:8081
+      VITE_GITHUB_SERVICE_URL: http://localhost:8087
+      VITE_REQUIREMENT_SERVICE_URL: http://localhost:8083
+      VITE_TASK_SERVICE_URL: http://localhost:8084
+      VITE_REPORT_SERVICE_URL: http://localhost:8085
+      VITE_NOTIFICATION_SERVICE_URL: http://localhost:8086
+      VITE_API_GATEWAY_URL: http://localhost:8080
+
     depends_on:
+      - api-gateway
       - auth-service
+      - github-service
+      - requirement-service
+      - task-service
+      - notification-service
+      - report-service
 
 volumes:
   auth_db_data:
+  github_db_data:
+  requirement_db_data:
+  task_db_data:
+  notification_db_data:
+  report_db_data:
