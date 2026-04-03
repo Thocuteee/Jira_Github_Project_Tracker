@@ -60,7 +60,7 @@ public class AuthServiceImpl implements IAuthService {
 
     // Dang Ky tai khoan
     @Override
-    public User registerUser(User user) { // Bỏ roleName ở đây để an toàn
+    public User registerUser(User user, String roleName) {
         String normalizedEmail = user.getEmail() == null ? "" : user.getEmail().trim().toLowerCase();
         user.setEmail(normalizedEmail);
 
@@ -76,12 +76,34 @@ public class AuthServiceImpl implements IAuthService {
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
 
-        // 3. ÉP BUỘC ROLE LÀ MEMBER
-        Role memberRole = roleRepository.findByName(ERole.ROLE_TEAM_MEMBER)
-                .orElseThrow(() -> new RuntimeException("Lỗi: Không tìm thấy Role mặc định trong hệ thống."));
+        // 3. Xử lý quyền (Role)
+        ERole determinedRole;
+        if (roleName != null && !roleName.trim().isEmpty()) {
+            switch (roleName.toUpperCase()) {
+                case "ADMIN":
+                    determinedRole = ERole.ROLE_ADMIN;
+                    break;
+                case "LECTURER":
+                    determinedRole = ERole.ROLE_LECTURER;
+                    break;
+                case "TEAM_LEADER":
+                    determinedRole = ERole.ROLE_TEAM_LEADER;
+                    break;
+                case "TEAM_MEMBER":
+                default:
+                    determinedRole = ERole.ROLE_TEAM_MEMBER;
+                    break;
+            }
+        } else {
+            determinedRole = ERole.ROLE_TEAM_MEMBER;
+        }
+
+        final ERole finalRole = determinedRole;
+        Role assignedRole = roleRepository.findByName(finalRole)
+                .orElseThrow(() -> new RuntimeException("Lỗi: Không tìm thấy Role " + finalRole + " trong hệ thống."));
         
         Set<Role> roles = new HashSet<>();
-        roles.add(memberRole);
+        roles.add(assignedRole);
         user.setRoles(roles);
 
         return userRepository.save(user);

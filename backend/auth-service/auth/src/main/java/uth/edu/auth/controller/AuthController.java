@@ -75,9 +75,28 @@ public class AuthController {
             user.setEmail(request.getEmail());
             user.setPassword(request.getPassword());
 
-            User registeredUser = authService.registerUser(user);
+            User registeredUser = authService.registerUser(user, request.getRoleName());
             
             return ResponseEntity.ok("Đăng ký thành công cho user: " + registeredUser.getEmail());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // 3.1. Admin cấp tài khoản Giảng viên
+    @PostMapping("/admin/create-lecturer")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> createLecturer(@RequestBody RegisterRequest request) {
+        try {
+            User user = new User();
+            user.setName(request.getName());
+            user.setEmail(request.getEmail());
+            user.setPassword(request.getPassword());
+
+            // Ép buộc role LECTURER
+            User registeredUser = authService.registerUser(user, "LECTURER");
+            
+            return ResponseEntity.ok("Tạo tài khoản Giảng viên thành công cho: " + registeredUser.getEmail());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
