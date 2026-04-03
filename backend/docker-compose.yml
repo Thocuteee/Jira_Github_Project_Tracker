@@ -104,6 +104,23 @@ services:
       timeout: 5s
       retries: 5
 
+  jira-db:
+    image: postgres:15
+    container_name: jira-db
+    ports:
+      - "5439:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${JIRA_DB_NAME}
+    volumes:
+      - jira_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${JIRA_DB_NAME}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   # API Gateway
   api-gateway:
     build:
@@ -234,6 +251,27 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
 
+  jira-service:
+    build:
+      context: ./jira-service/jira
+      dockerfile: Dockerfile
+    container_name: jira-service
+    restart: always
+    ports:
+      - "${JIRA_SERVICE_PORT:-8088}:8088"
+    depends_on:
+      jira-db:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8088
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_JIRA}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      JIRA_API_URL: ${JIRA_API_URL}
+      JIRA_USERNAME: ${JIRA_USERNAME}
+      JIRA_API_TOKEN: ${JIRA_API_TOKEN}
+
   frontend:
     build:
       context: ../frontend
@@ -250,6 +288,7 @@ services:
       VITE_REPORT_SERVICE_URL: http://localhost:8085
       VITE_NOTIFICATION_SERVICE_URL: http://localhost:8086
       VITE_API_GATEWAY_URL: http://localhost:8080
+      VITE_JIRA_SERVICE_URL: ${VITE_JIRA_SERVICE_URL}
 
     depends_on:
       - api-gateway
@@ -259,6 +298,7 @@ services:
       - task-service
       - notification-service
       - report-service
+      - jira-service
 
 volumes:
   auth_db_data:
@@ -267,3 +307,4 @@ volumes:
   task_db_data:
   notification_db_data:
   report_db_data:
+  jira_db_data:
