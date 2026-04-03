@@ -27,7 +27,7 @@ public class ExportController {
 
         // tra ve 202 Accepted va exportId
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(Map.of(
-            "message", "Đang xử lý tạo file",
+            "message", "Dang xu ly tao file",
             "exportId", exportId
         ));
     }
