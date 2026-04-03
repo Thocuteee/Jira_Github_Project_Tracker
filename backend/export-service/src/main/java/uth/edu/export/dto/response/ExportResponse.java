@@ -15,7 +15,6 @@ import lombok.NoArgsConstructor;
 public class ExportResponse {
     private UUID exportId;
     private UUID groupId;
-    private UUID userId;
     private String version;
     private String fileName;
     private String fileUrl;
