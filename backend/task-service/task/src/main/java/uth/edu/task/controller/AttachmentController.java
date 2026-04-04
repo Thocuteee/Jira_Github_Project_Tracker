@@ -58,7 +58,7 @@ public class AttachmentController {
     public ResponseEntity<Void> delete(
             @PathVariable UUID taskId,
             @PathVariable UUID attachmentId) {
-        attachmentService.deleteAttachment(attachmentId);
+        attachmentService.deleteAttachment(taskId, attachmentId);
         return ResponseEntity.noContent().build();
     }
 }

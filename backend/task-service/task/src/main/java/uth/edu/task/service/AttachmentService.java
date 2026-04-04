@@ -18,5 +18,5 @@ public interface AttachmentService {
 
     AttachmentResponse updateAttachment(UUID attachmentId, AttachmentRequest request);
 
-    void deleteAttachment(UUID attachmentId);
+    void deleteAttachment(UUID taskId, UUID attachmentId);
 }

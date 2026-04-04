@@ -44,9 +44,20 @@ const authService = {
         return axiosClient.post('/api/auth/admin/create-lecturer', data);
     },
 
+    updateLecturer: (id: number, data: RegisterRequest): Promise<string> => {
+        return axiosClient.put(`/api/auth/users/${id}`, data);
+    },
+
+    // chưa có api thật trong authcontroller
+    updateUserStatus: (id: number, status: string): Promise<any> => {
+        return axiosClient.patch(`/api/auth/users/${id}/status`, { status });
+    },
+
     getProfile: (): Promise<UserProfile> => {
         return axiosClient.get('/api/users/me');
     },
+
+
 };
 
 export default authService;
