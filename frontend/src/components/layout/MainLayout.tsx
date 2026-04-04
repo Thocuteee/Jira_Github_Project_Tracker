@@ -145,6 +145,20 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                         <div className="flex flex-col gap-0.5">
                             <NavItem icon={<Bell size={18} />} label="Thông báo" />
                             <NavItem icon={<Settings size={18} />} label="Cấu hình cá nhân" />
+                            {(() => {
+                                try {
+                                    const rawRoles = localStorage.getItem('userRoles');
+                                    if (rawRoles) {
+                                        const parsed = JSON.parse(rawRoles);
+                                        return Array.isArray(parsed) && parsed.map(String).includes('ROLE_ADMIN');
+                                    }
+                                } catch (e) {
+                                    return false;
+                                }
+                                return false;                                
+                            })() && (
+                                <NavItem icon={<Users size={18} />} label="Quản lý Lecturer" to="/admin/lecturers" />
+                            )}
                             <NavItem icon={<Briefcase size={18} />} label="Quản lý Workspace" to="/workspaces" />
                         </div>
                     </div>

@@ -9,6 +9,7 @@ export interface RegisterRequest {
     name: string;
     email: string;
     password: string;
+    roleName?: string;
 }
 
 export interface AuthResponse {
@@ -37,6 +38,10 @@ const authService = {
 
     register: (data: RegisterRequest): Promise<string> => {
         return axiosClient.post('/api/auth/register-user', data);
+    },
+
+    createLecturer: (data: RegisterRequest): Promise<string> => {
+        return axiosClient.post('/api/auth/admin/create-lecturer', data);
     },
 
     getProfile: (): Promise<UserProfile> => {

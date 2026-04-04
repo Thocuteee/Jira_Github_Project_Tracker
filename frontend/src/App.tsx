@@ -9,6 +9,7 @@ import OAuth2Redirect from './pages/OAuth2Redirect'
 import WorkspaceList from './pages/WorkspaceList';
 import WorkspaceDashboard from './pages/WorkspaceDashboard';
 import AdminWorkspace from './pages/AdminWorkspace';
+import LecturerManagement from './pages/LecturerManagement';
 import GroupMembers from './pages/GroupMembers';
 
 function isMockAuthed() {
@@ -57,6 +58,7 @@ export default function App() {
         <Route path="/workspaces" element={<WorkspaceList />} />
         <Route path="/workspace/:groupId" element={<WorkspaceDashboard />} />
         <Route path="/admin/workspace" element={<AdminWorkspace />} />
+        <Route path="/admin/lecturers" element={<LecturerManagement />} />
         <Route path="/members/:groupId" element={<GroupMembers />} />
         <Route path="/members" element={<GroupMembers />} />
 

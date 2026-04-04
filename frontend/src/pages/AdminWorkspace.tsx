@@ -27,7 +27,6 @@ const AdminWorkspace = () => {
         groupName: '',
         course: '',
         lecturerEmail: '',
-        leaderEmail: '',
         githubRepo: ''
     });
     const [loading, setLoading] = useState(false);
@@ -47,8 +46,8 @@ const AdminWorkspace = () => {
                 groupName: formData.groupName,
             };
             await groupService.createGroup(payload);
-            setSuccess('Đã tạo Group thành công! Team Leader có thể bắt đầu thêm thành viên.');
-            setStep(5);
+            setSuccess('Đã tạo Group thành công! Lecturer có thể chỉ định Team Leader sau.');
+            setStep(4);
         } catch (err: any) {
             setError(err.message || 'Có lỗi xảy ra khi tạo group');
         } finally {
@@ -96,24 +95,15 @@ const AdminWorkspace = () => {
                                         3
                                     </div>
                                     <div className={`w-[calc(100%-3rem)] md:w-[calc(50%-2.5rem)] p-3 rounded-lg ${step >= 3 ? 'bg-slate-700 text-white' : 'opacity-50'}`}>
-                                        <h4 className="font-semibold text-sm">Chọn Team Leader</h4>
-                                    </div>
-                                </div>
-
-                                <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
-                                    <div className={`flex items-center justify-center w-7 h-7 rounded-full border-4 border-slate-800 shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow ${step >= 4 ? 'bg-blue-500 text-white' : 'bg-slate-600 text-slate-400'}`}>
-                                        4
-                                    </div>
-                                    <div className={`w-[calc(100%-3rem)] md:w-[calc(50%-2.5rem)] p-3 rounded-lg ${step >= 4 ? 'bg-slate-700 text-white' : 'opacity-50'}`}>
                                         <h4 className="font-semibold text-sm">Kết nối GitHub</h4>
                                     </div>
                                 </div>
 
                                 <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
-                                    <div className={`flex items-center justify-center w-7 h-7 rounded-full border-4 border-slate-800 shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow ${step >= 5 ? 'bg-green-500 text-white' : 'bg-slate-600 text-slate-400'}`}>
-                                        5
+                                    <div className={`flex items-center justify-center w-7 h-7 rounded-full border-4 border-slate-800 shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow ${step >= 4 ? 'bg-green-500 text-white' : 'bg-slate-600 text-slate-400'}`}>
+                                        4
                                     </div>
-                                    <div className={`w-[calc(100%-3rem)] md:w-[calc(50%-2.5rem)] p-3 rounded-lg ${step >= 5 ? 'bg-slate-700 text-white' : 'opacity-50'}`}>
+                                    <div className={`w-[calc(100%-3rem)] md:w-[calc(50%-2.5rem)] p-3 rounded-lg ${step >= 4 ? 'bg-slate-700 text-white' : 'opacity-50'}`}>
                                         <h4 className="font-semibold text-sm">Group Sẵn Sàng</h4>
                                     </div>
                                 </div>
@@ -148,38 +138,39 @@ const AdminWorkspace = () => {
                                             required
                                             type="text"
                                             name="groupName"
-                                            placeholder="Nhập tên group..."
+                                            placeholder="vd: SE1801 - Nhóm 5"
                                             value={formData.groupName}
                                             onChange={(e) => { handleChange(e); setStep(Math.max(step, 1)); }}
                                             className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1 text-slate-500 flex items-center gap-1">
-                                            <BookOpen size={14} /> Semester / Course
+                                        <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-1">
+                                            <BookOpen size={14} /> Semester / Course *
                                         </label>
-                                        <select
+                                        <input
+                                            required
+                                            type="text"
                                             name="course"
+                                            placeholder="vd: SP25 - SWP391"
                                             value={formData.course}
-                                            onChange={handleChange}
-                                            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-600"
-                                        >
-                                            <option value="">-- Chọn khóa học --</option>
-                                            <option value="SP24-SE102">SP24 - Kỹ nghệ phần mềm</option>
-                                            <option value="FA24-PRJ301">FA24 - PRJ301</option>
-                                        </select>
+                                            onChange={(e) => { handleChange(e); setStep(Math.max(step, 1)); }}
+                                            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                        />
+                                        <p className="text-xs text-slate-500 mt-1">Nhập tự do, không cần chọn từ danh sách</p>
                                     </div>
                                 </div>
 
                                 {/* Step 2 Data */}
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-1">
-                                        <GraduationCap size={16} /> Gán Lecturer (Email)
+                                        <GraduationCap size={16} /> Gán Lecturer (Email) *
                                     </label>
                                     <input
+                                        required
                                         type="email"
                                         name="lecturerEmail"
-                                        placeholder="lecturer@fpt.edu.vn"
+                                        placeholder="lecturer@uth.edu.vn"
                                         value={formData.lecturerEmail}
                                         onChange={(e) => { handleChange(e); setStep(Math.max(step, 2)); }}
                                         className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
@@ -190,21 +181,6 @@ const AdminWorkspace = () => {
                                 {/* Step 3 Data */}
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-1">
-                                        Chọn Team Leader (Email)
-                                    </label>
-                                    <input
-                                        type="email"
-                                        name="leaderEmail"
-                                        placeholder="leader@fpt.edu.vn"
-                                        value={formData.leaderEmail}
-                                        onChange={(e) => { handleChange(e); setStep(Math.max(step, 3)); }}
-                                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                                    />
-                                </div>
-
-                                {/* Step 4 Data */}
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-1">
                                         <Github size={16} /> Kết nối GitHub Repo URL
                                     </label>
                                     <input
@@ -212,7 +188,7 @@ const AdminWorkspace = () => {
                                         name="githubRepo"
                                         placeholder="https://github.com/org/repo"
                                         value={formData.githubRepo}
-                                        onChange={(e) => { handleChange(e); setStep(Math.max(step, 4)); }}
+                                        onChange={(e) => { handleChange(e); setStep(Math.max(step, 3)); }}
                                         className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
                                     />
                                 </div>

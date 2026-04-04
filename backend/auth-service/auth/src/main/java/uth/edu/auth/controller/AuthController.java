@@ -153,7 +153,12 @@ public class AuthController {
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
         
         ERole eRole = switch (roleName.toUpperCase()) {
-            case "LECTURER" -> ERole.ROLE_LECTURER;
+            case "LECTURER" -> {
+                if (user.getEmail() == null || !user.getEmail().endsWith("@gv.ut.edu.vn")) {
+                    throw new RuntimeException("Email của giảng viên phải có đuôi @gv.ut.edu.vn");
+                }
+                yield ERole.ROLE_LECTURER;
+            }
             case "ADMIN" -> ERole.ROLE_ADMIN;
             default -> ERole.ROLE_TEAM_MEMBER;
         };
