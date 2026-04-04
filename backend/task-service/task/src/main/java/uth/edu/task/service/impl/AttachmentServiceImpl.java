@@ -8,7 +8,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 import uth.edu.task.config.UserContextHolder;
-import uth.edu.task.dto.request.AttachmentCreateRequest;
+import uth.edu.task.dto.request.AttachmentRequest;
 import uth.edu.task.dto.request.GenerateUrlRequest;
 import uth.edu.task.dto.response.AttachmentResponse;
 import uth.edu.task.mapper.AttachmentMapper;
@@ -37,6 +37,9 @@ public class AttachmentServiceImpl implements AttachmentService {
     @Value("${cloudflare.r2.bucket-name}")
     private String bucketName;
 
+    @Value("${cloudflare.r2.public-domain}")
+    private String publicDomain;
+
     private final AttachmentMapper attachmentMapper;
 
     @Override
@@ -58,19 +61,20 @@ public class AttachmentServiceImpl implements AttachmentService {
 
         String presignedUrl = s3Presigner.presignPutObject(presignRequest).url().toString();
 
+        String fileAccessUrl = publicDomain + "/" + bucketName + "/" + fileKey;
+
         Map<String, String> response = new HashMap<>();
         response.put("presignedUrl", presignedUrl);
         response.put("fileKey", fileKey);
+        response.put("fileUrl", fileAccessUrl);
 
         return response;
     }
 
     @Override
-    @Transactional
-    public AttachmentResponse saveAttachment(UUID taskId, AttachmentCreateRequest request) {
+    public AttachmentResponse saveAttachment(UUID taskId, AttachmentRequest request) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy Task"));
-
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy Task!"));
         Attachment attachment = attachmentMapper.toEntity(request);
         attachment.setTask(task);
         attachment.setUploadedBy(UserContextHolder.getUserId());
@@ -80,7 +84,6 @@ public class AttachmentServiceImpl implements AttachmentService {
 
         return attachmentMapper.toResponse(saved);
     }
-
 
     @Override
     public List<AttachmentResponse> getAttachmentsByTaskId(UUID taskId){
@@ -95,13 +98,31 @@ public class AttachmentServiceImpl implements AttachmentService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    @Transactional
+    public AttachmentResponse updateAttachment(UUID attachmentId, AttachmentRequest request) {
+        Attachment existing = attachmentRepository.findById(attachmentId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy attachment!"));
+        String currentUserId = UserContextHolder.getUserId().toString();
+        if (!existing.getUploadedBy().toString().equals(currentUserId)) {
+            throw new RuntimeException("Bạn không có quyền sửa attachment này!");
+        }
+        attachmentMapper.updateEntityFromRequest(request, existing);
+        return attachmentMapper.toResponse(attachmentRepository.save(existing));
+    }
 
     @Override
     @Transactional
-    public void deleteAttachment(UUID attachmentId){
-        Attachment attachment = attachmentRepository.findById(attachmentId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy Attachment!"));
-
-        attachmentRepository.delete(attachment);
+    public void deleteAttachment(UUID attachmentId) {
+        Attachment existing = attachmentRepository.findById(attachmentId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy attachment!"));
+        String currentUserId = UserContextHolder.getUserId().toString();
+        String role = UserContextHolder.getUserRole();
+        boolean owner = currentUserId != null && existing.getUploadedBy().equals(currentUserId);
+        boolean leader = "TEAM_LEADER".equals(role);
+        if (!owner && !leader) {
+            throw new RuntimeException("Bạn không có quyền xóa attachment này!");
+        }
+        attachmentRepository.delete(existing);
     }
 }

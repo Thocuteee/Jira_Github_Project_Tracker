@@ -52,7 +52,6 @@ public class TaskServiceImpl implements TaskService {
         }
 
         Task task = taskMapper.toEntity(request);
-        task.setStatus(ETaskStatus.TODO);
         task.setCreatedBy(currentUserId);
 
         Task savedTask = taskRepository.save(task);

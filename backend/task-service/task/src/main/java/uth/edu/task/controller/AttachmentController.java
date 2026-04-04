@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import uth.edu.task.dto.request.AttachmentCreateRequest;
+import uth.edu.task.dto.request.AttachmentRequest;
 import uth.edu.task.dto.request.GenerateUrlRequest;
 import uth.edu.task.dto.response.AttachmentResponse;
 import uth.edu.task.service.AttachmentService;
@@ -21,8 +21,7 @@ public class AttachmentController {
 
     private final AttachmentService attachmentService;
 
-    // Sinh link upload file
-    // /api/tasks/{taskId}/attachments/presigned-url
+
     @PostMapping("/{taskId}/attachments/presigned-url")
     public ResponseEntity<Map<String, String>> generatePresignedUrl(@PathVariable UUID taskId,
                                                                     @Valid @RequestBody GenerateUrlRequest request) {
@@ -32,34 +31,34 @@ public class AttachmentController {
     }
 
 
-    // Tạo một Attachment
-    // /api/tasks/{taskId}/attachments
+
     @PostMapping("/{taskId}/attachments")
     public ResponseEntity<AttachmentResponse> saveAttachmentMetadata(@PathVariable UUID taskId,
-                                                                     @Valid @RequestBody AttachmentCreateRequest request) {
+                                                                     @Valid @RequestBody AttachmentRequest request) {
         AttachmentResponse response = attachmentService.saveAttachment(taskId, request);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
 
-    // Lấy toàn bộ Attachment của một Task
-    // /api/tasks/{taskId}/attachments
     @GetMapping("/{taskId}/attachments")
-    public ResponseEntity<List<AttachmentResponse>> getAttachmentsByTaskId(@PathVariable UUID taskId) {
-        List<AttachmentResponse> responses = attachmentService.getAttachmentsByTaskId(taskId);
-
-        return ResponseEntity.ok(responses);
+    public ResponseEntity<List<AttachmentResponse>> list(@PathVariable UUID taskId) {
+        return ResponseEntity.ok(attachmentService.getAttachmentsByTaskId(taskId));
     }
 
+    @PatchMapping("/{taskId}/attachments/{attachmentId}")
+    public ResponseEntity<AttachmentResponse> update(
+            @PathVariable UUID taskId,
+            @PathVariable UUID attachmentId,
+            @Valid @RequestBody AttachmentRequest request) {
+        return ResponseEntity.ok(attachmentService.updateAttachment(attachmentId, request));
+    }
 
-    // Xoá một Attachment
-    // /api/tasks/attachments/{attachmentId}
-    @DeleteMapping("/attachments/{attachmentId}")
-    public ResponseEntity<Void> deleteAttachment(@PathVariable UUID attachmentId) {
+    @DeleteMapping("/{taskId}/attachments/{attachmentId}")
+    public ResponseEntity<Void> delete(
+            @PathVariable UUID taskId,
+            @PathVariable UUID attachmentId) {
         attachmentService.deleteAttachment(attachmentId);
-
         return ResponseEntity.noContent().build();
     }
-
 }

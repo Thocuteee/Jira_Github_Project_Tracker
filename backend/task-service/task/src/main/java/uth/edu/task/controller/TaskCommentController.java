@@ -19,47 +19,31 @@ public class TaskCommentController {
 
     private final TaskCommentService taskCommentService;
 
-
-    // Tạo một comment
-    // /api/tasks/{taskId}/comments
     @PostMapping("/{taskId}/comments")
-    public ResponseEntity<TaskCommentResponse> addComment(@PathVariable UUID taskId,
-                                                          @Valid @RequestBody TaskCommentRequest request) {
-        TaskCommentResponse response = taskCommentService.addComment(taskId, request);
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    public ResponseEntity<TaskCommentResponse> addComment(
+            @PathVariable UUID taskId,
+            @Valid @RequestBody TaskCommentRequest request) {
+        return new ResponseEntity<>(taskCommentService.addComment(taskId, request), HttpStatus.CREATED);
     }
 
-
-    // Lấy toàn comment của một Task
-    // /api/tasks/{taskId}/comments
     @GetMapping("/{taskId}/comments")
-    public ResponseEntity<List<TaskCommentResponse>> getAllCommentsByTaskId(@PathVariable UUID taskId){
-
-        List<TaskCommentResponse> responses = taskCommentService.getAllCommentsByTaskId(taskId);
-
-        return ResponseEntity.ok(responses);
+    public ResponseEntity<List<TaskCommentResponse>> listComments(@PathVariable UUID taskId) {
+        return ResponseEntity.ok(taskCommentService.getAllCommentsByTaskId(taskId));
     }
 
-
-    // Sửa nội dung một comment
-    // /api/tasks/comments/{commentId}
-    @PatchMapping("/comments/{commentId}")
-    public ResponseEntity<TaskCommentResponse> updateComment(@PathVariable UUID commentId,
-                                                             @Valid @RequestBody TaskCommentRequest request) {
-        TaskCommentResponse response = taskCommentService.updateComment(commentId, request);
-
-        return ResponseEntity.ok(response);
+    @PatchMapping("/{taskId}/comments/{commentId}")
+    public ResponseEntity<TaskCommentResponse> updateComment(
+            @PathVariable UUID taskId,
+            @PathVariable UUID commentId,
+            @Valid @RequestBody TaskCommentRequest request) {
+        return ResponseEntity.ok(taskCommentService.updateComment(commentId, request));
     }
 
-
-    // Xoá một comment
-    // /api/tasks/comments/{commentId}
-    @DeleteMapping("/comments/{commentId}")
-    public ResponseEntity<Void> deleteComment(@PathVariable UUID commentId) {
+    @DeleteMapping("/{taskId}/comments/{commentId}")
+    public ResponseEntity<Void> deleteComment(
+            @PathVariable UUID taskId,
+            @PathVariable UUID commentId) {
         taskCommentService.deleteComment(commentId);
-
         return ResponseEntity.noContent().build();
     }
-
 }

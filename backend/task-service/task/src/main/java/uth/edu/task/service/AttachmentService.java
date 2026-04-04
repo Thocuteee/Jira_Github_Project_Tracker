@@ -1,6 +1,6 @@
 package uth.edu.task.service;
 
-import uth.edu.task.dto.request.AttachmentCreateRequest;
+import uth.edu.task.dto.request.AttachmentRequest;
 import uth.edu.task.dto.request.GenerateUrlRequest;
 import uth.edu.task.dto.response.AttachmentResponse;
 
@@ -12,9 +12,11 @@ public interface AttachmentService {
     // Trả về Map chứa Presigned URL và FileKey
     Map<String, String> generatePresignedUrl(UUID taskId, GenerateUrlRequest request);
 
-    AttachmentResponse saveAttachment(UUID taskId, AttachmentCreateRequest request);
+    AttachmentResponse saveAttachment(UUID taskId, AttachmentRequest request);
 
     List<AttachmentResponse> getAttachmentsByTaskId(UUID taskId);
+
+    AttachmentResponse updateAttachment(UUID attachmentId, AttachmentRequest request);
 
     void deleteAttachment(UUID attachmentId);
 }

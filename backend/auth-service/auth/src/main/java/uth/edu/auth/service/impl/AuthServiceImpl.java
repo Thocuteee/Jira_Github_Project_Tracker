@@ -13,6 +13,7 @@ import uth.edu.auth.repository.UserRepository;
 import uth.edu.auth.security.JwtProvider;
 import uth.edu.auth.repository.RoleRepository;
 import uth.edu.auth.service.IAuthService;
+import uth.edu.auth.service.RefreshTokenService;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -31,6 +32,9 @@ public class AuthServiceImpl implements IAuthService {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private RefreshTokenService refreshTokenService;
 
     @Override
     public List<User> getAllUsers() {
@@ -56,9 +60,12 @@ public class AuthServiceImpl implements IAuthService {
 
     // Dang Ky tai khoan
     @Override
-    public User registerUser(User user) { // Bỏ roleName ở đây để an toàn
+    public User registerUser(User user, String roleName) {
+        String normalizedEmail = user.getEmail() == null ? "" : user.getEmail().trim().toLowerCase();
+        user.setEmail(normalizedEmail);
+
         // 1. Kiểm tra email tồn tại
-        if (userRepository.existsByEmail(user.getEmail())) {
+        if (userRepository.existsByEmail(normalizedEmail)) {
             throw new RuntimeException("Lỗi: Email đã được sử dụng!");
         }
 
@@ -69,12 +76,34 @@ public class AuthServiceImpl implements IAuthService {
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
 
-        // 3. ÉP BUỘC ROLE LÀ MEMBER
-        Role memberRole = roleRepository.findByName(ERole.ROLE_TEAM_MEMBER)
-                .orElseThrow(() -> new RuntimeException("Lỗi: Không tìm thấy Role mặc định trong hệ thống."));
+        // 3. Xử lý quyền (Role)
+        ERole determinedRole;
+        if (roleName != null && !roleName.trim().isEmpty()) {
+            switch (roleName.toUpperCase()) {
+                case "ADMIN":
+                    determinedRole = ERole.ROLE_ADMIN;
+                    break;
+                case "LECTURER":
+                    determinedRole = ERole.ROLE_LECTURER;
+                    break;
+                case "TEAM_LEADER":
+                    determinedRole = ERole.ROLE_TEAM_LEADER;
+                    break;
+                case "TEAM_MEMBER":
+                default:
+                    determinedRole = ERole.ROLE_TEAM_MEMBER;
+                    break;
+            }
+        } else {
+            determinedRole = ERole.ROLE_TEAM_MEMBER;
+        }
+
+        final ERole finalRole = determinedRole;
+        Role assignedRole = roleRepository.findByName(finalRole)
+                .orElseThrow(() -> new RuntimeException("Lỗi: Không tìm thấy Role " + finalRole + " trong hệ thống."));
         
         Set<Role> roles = new HashSet<>();
-        roles.add(memberRole);
+        roles.add(assignedRole);
         user.setRoles(roles);
 
         return userRepository.save(user);
@@ -83,20 +112,27 @@ public class AuthServiceImpl implements IAuthService {
     // Dang nhap
     @Override
     public JwtResponse login(LoginRequest loginRequest) {
+        String normalizedEmail = loginRequest.getEmail() == null ? "" : loginRequest.getEmail().trim().toLowerCase();
+        String rawPassword = loginRequest.getPassword() == null ? "" : loginRequest.getPassword();
+        if (normalizedEmail.isEmpty() || rawPassword.isEmpty()) {
+            throw new RuntimeException("Email hoặc mật khẩu không được để trống!");
+        }
+
         // 1. Kiểm tra User có tồn tại không
-        User user = userRepository.findByEmail(loginRequest.getEmail()).orElseThrow(() -> new RuntimeException("Error: Không tìm thấy User!"));
+        User user = userRepository.findByEmail(normalizedEmail).orElseThrow(() -> new RuntimeException("Error: Không tìm thấy User!"));
 
         // 2. Kiểm tra mật khẩu 
-        if (!passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
+        if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
             throw new RuntimeException("Error: Sai mật khẩu!");
         }
 
         // 3. Tạo Token từ email/username
         String jwt = jwtProvider.generateJwtToken(user.getEmail());
+        String refreshToken = refreshTokenService.createRefreshToken(user.getUserId()).getToken();
 
         // 4. Lấy danh sách Role để trả về 
         List<String> roles = user.getRoles().stream().map(role -> role.getName().name()).collect(Collectors.toList());
 
-        return new JwtResponse(jwt, user.getEmail(), roles);
+        return new JwtResponse(jwt, refreshToken, user.getEmail(), roles);
     }
 } 

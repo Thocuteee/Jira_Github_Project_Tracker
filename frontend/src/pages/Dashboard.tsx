@@ -1,5 +1,8 @@
 import MainLayout from '@/components/layout/MainLayout';
 import { ArrowRight, Clock3, Users, FileText, GitBranch, RefreshCw } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { toDisplayRole } from '@/utils/authDisplay';
 
 const summaryStats = [
     { label: 'Active Groups', value: '5', icon: Users, iconBg: 'bg-blue-100 text-blue-600' },
@@ -15,11 +18,74 @@ const mockGroupProgress = [
 ];
 
 export default function Dashboard() {
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        document.title = "Dashboard | Project Tracker";
+    }, []);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const email = params.get('email') ?? '';
+        if (!email) return;
+
+        const name = params.get('name') ?? '';
+        const rolesRaw = params.get('roles') ?? '';
+        const roles = rolesRaw
+            .split(',')
+            .map((r) => r.trim())
+            .filter(Boolean);
+
+        localStorage.setItem('userEmail', email);
+        localStorage.setItem('userName', name || email.split('@')[0] || email);
+        localStorage.setItem('userRoles', JSON.stringify(roles));
+        localStorage.setItem('userSubtitle', toDisplayRole(roles[0]));
+        window.dispatchEvent(new Event('auth-changed'));
+        navigate('/dashboard', { replace: true });
+    }, [navigate]);
+
+    const [roles, setRoles] = useState<string[]>(() => {
+        try {
+            const raw = localStorage.getItem('userRoles');
+            if (!raw) return [];
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed.map(String) : [];
+        } catch {
+            return [];
+        }
+    });
+
+    const userName = useMemo(() => {
+        try {
+            return localStorage.getItem('userName') || localStorage.getItem('userEmail') || 'User';
+        } catch {
+            return 'User';
+        }
+    }, []);
+
     return (
         <MainLayout>
             <div className="mb-8">
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900">Overview</h1>
-                <p className="mt-1 text-slate-600">Tổng quan tiến độ nhóm và hoạt động gần đây.</p>
+                <div className="flex flex-wrap items-end justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Overview</h1>
+                        <p className="mt-1 text-slate-600">
+                            Welcome, <span className="font-semibold text-slate-800">{userName}</span>
+                        </p>
+                    </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <span className="text-sm text-slate-500 mr-1">Roles:</span>
+                    {roles.map((r) => (
+                        <span
+                            key={r}
+                            className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700"
+                        >
+                            {toDisplayRole(r)}
+                        </span>
+                    ))}
+                </div>
             </div>
 
             <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

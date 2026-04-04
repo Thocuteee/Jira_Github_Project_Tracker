@@ -4,7 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 @Data
-public class AttachmentCreateRequest {
+public class AttachmentRequest {
 
     @NotBlank(message = "File Key không được để trống!")
     private String fileKey;
