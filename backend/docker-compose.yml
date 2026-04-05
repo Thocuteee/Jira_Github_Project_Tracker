@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   # Database cho Auth Service
   auth-db:
@@ -121,6 +120,37 @@ services:
       timeout: 5s
       retries: 5
 
+  # Database cho Group Service
+  group-db:
+    image: postgres:15
+    container_name: group-db
+    ports:
+      - "5440:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: group_db
+    volumes:
+      - group_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d group_db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis for Token & Cache
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: always
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   # API Gateway
   api-gateway:
     build:
@@ -130,8 +160,14 @@ services:
     restart: always
     ports:
       - "${API_GATEWAY_PORT:-8080}:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
     environment:
       SERVER_PORT: 8080
+      JWT_SECRET_KEY: ${JWT_SECRET}
+      SPRING_DATA_REDIS_HOST: ${REDIS_HOST:-redis}
+      SPRING_DATA_REDIS_PORT: ${REDIS_PORT:-6379}
 
   # Auth Service
   auth-service:
@@ -144,6 +180,8 @@ services:
       - "8081:8081"
     depends_on:
       auth-db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     environment:
       SERVER_PORT: 8081
@@ -159,6 +197,8 @@ services:
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
       FRONTEND_URL: ${FRONTEND_URL}
+      SPRING_DATA_REDIS_HOST: ${REDIS_HOST:-redis}
+      SPRING_DATA_REDIS_PORT: ${REDIS_PORT:-6379}
 
   # GitHub integration service (repos, commits, integrations)
   github-service:
@@ -272,6 +312,25 @@ services:
       JIRA_USERNAME: ${JIRA_USERNAME}
       JIRA_API_TOKEN: ${JIRA_API_TOKEN}
 
+  # Group Service
+  group-service:
+    build:
+      context: ./group-service/group
+      dockerfile: Dockerfile
+    container_name: group-service
+    restart: always
+    ports:
+      - "${GROUP_SERVICE_PORT:-8082}:8082"
+    depends_on:
+      group-db:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8082
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_GROUP}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+
   frontend:
     build:
       context: ../frontend
@@ -299,6 +358,7 @@ services:
       - notification-service
       - report-service
       - jira-service
+      - group-service
 
 volumes:
   auth_db_data:
@@ -308,3 +368,4 @@ volumes:
   notification_db_data:
   report_db_data:
   jira_db_data:
+  group_db_data:

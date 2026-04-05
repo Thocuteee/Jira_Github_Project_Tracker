@@ -124,8 +124,8 @@ public class AuthServiceImpl implements IAuthService {
             throw new RuntimeException("Error: Sai mật khẩu!");
         }
 
-        // 3. Tạo Token từ email/username
-        String jwt = jwtProvider.generateJwtToken(user.getEmail());
+        // 3. Tạo Token từ object User (bao gồm userId và role trong claim)
+        String jwt = jwtProvider.generateJwtToken(user);
         String refreshToken = refreshTokenService.createRefreshToken(user.getUserId()).getToken();
 
         // 4. Lấy danh sách Role để trả về 
