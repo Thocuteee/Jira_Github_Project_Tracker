@@ -11,6 +11,7 @@ import org.springframework.util.StringUtils;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.data.redis.core.RedisTemplate;
 
 import uth.edu.auth.security.JwtProvider;
 import uth.edu.auth.dto.JwtResponse;
@@ -52,6 +53,9 @@ public class AuthController {
 
     @Autowired
     private JwtProvider jwtProvider;
+
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
 
     // 1. Lấy danh sách tất cả User
     @GetMapping("/users")
@@ -122,7 +126,12 @@ public class AuthController {
             JwtResponse jwtResponse = authService.login(loginRequest);
             response.addHeader("Set-Cookie", buildTokenCookie(ACCESS_TOKEN_COOKIE, jwtResponse.getToken(), accessTokenDurationMs).toString());
             response.addHeader("Set-Cookie", buildTokenCookie(REFRESH_TOKEN_COOKIE, jwtResponse.getRefreshToken(), refreshTokenDurationMs).toString());
-            return ResponseEntity.ok(new JwtResponse(null, null, jwtResponse.getEmail(), jwtResponse.getRoles()));
+            
+            return ResponseEntity.ok(new JwtResponse(
+                    jwtResponse.getToken(), 
+                    jwtResponse.getRefreshToken(), 
+                    jwtResponse.getEmail(), 
+                    jwtResponse.getRoles()));
             
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -141,6 +150,12 @@ public class AuthController {
         if (StringUtils.hasText(refreshToken)) {
             refreshTokenService.revokeRefreshToken(refreshToken);
         }
+
+        String accessToken = readCookieValue(request, ACCESS_TOKEN_COOKIE);
+        if (StringUtils.hasText(accessToken)) {
+            redisTemplate.opsForValue().set("auth:blacklist:" + accessToken, "true", accessTokenDurationMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+        }
+
         response.addHeader("Set-Cookie", clearCookie(ACCESS_TOKEN_COOKIE).toString());
         response.addHeader("Set-Cookie", clearCookie(REFRESH_TOKEN_COOKIE).toString());
         return ResponseEntity.ok("Đăng xuất thành công!");
@@ -153,7 +168,12 @@ public class AuthController {
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
         
         ERole eRole = switch (roleName.toUpperCase()) {
-            case "LECTURER" -> ERole.ROLE_LECTURER;
+            case "LECTURER" -> {
+                if (user.getEmail() == null || !user.getEmail().endsWith("@gv.ut.edu.vn")) {
+                    throw new RuntimeException("Email của giảng viên phải có đuôi @gv.ut.edu.vn");
+                }
+                yield ERole.ROLE_LECTURER;
+            }
             case "ADMIN" -> ERole.ROLE_ADMIN;
             default -> ERole.ROLE_TEAM_MEMBER;
         };
@@ -182,7 +202,7 @@ public class AuthController {
                     .body("Refresh token không lưu trong database!");
         }
         var user = verified.get().getUser();
-        String token = jwtProvider.generateJwtToken(user.getEmail());
+        String token = jwtProvider.generateJwtToken(user);
         response.addHeader("Set-Cookie", buildTokenCookie(ACCESS_TOKEN_COOKIE, token, accessTokenDurationMs).toString());
         return ResponseEntity.ok(new TokenRefreshResponse(token, requestRefreshToken));
     }

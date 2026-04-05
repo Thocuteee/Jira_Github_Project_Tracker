@@ -44,7 +44,7 @@ export default function Dashboard() {
         navigate('/dashboard', { replace: true });
     }, [navigate]);
 
-    const [roles, setRoles] = useState<string[]>(() => {
+    const [roles] = useState<string[]>(() => {
         try {
             const raw = localStorage.getItem('userRoles');
             if (!raw) return [];

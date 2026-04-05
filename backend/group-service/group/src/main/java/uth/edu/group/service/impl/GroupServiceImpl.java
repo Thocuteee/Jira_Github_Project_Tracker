@@ -51,6 +51,14 @@ public class GroupServiceImpl implements IGroupService {
     }
 
     @Override
+    public List<GroupResponse> getMyGroups(UUID userId) {
+        return memberRepo.findByUserId(userId).stream()
+                .map(GroupMember::getGroup)
+                .map(groupMapper::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public GroupResponse getGroupById(UUID id) {
         Group group = groupRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy nhóm!"));

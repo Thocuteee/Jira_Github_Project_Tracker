@@ -77,36 +77,34 @@ public class AuthServiceImpl implements IAuthService {
         user.setUpdatedAt(LocalDateTime.now());
 
         // 3. Xử lý quyền (Role)
-        ERole determinedRole;
-        if (roleName != null && !roleName.trim().isEmpty()) {
-            switch (roleName.toUpperCase()) {
-                case "ADMIN":
-                    determinedRole = ERole.ROLE_ADMIN;
-                    break;
-                case "LECTURER":
-                    determinedRole = ERole.ROLE_LECTURER;
-                    break;
-                case "TEAM_LEADER":
-                    determinedRole = ERole.ROLE_TEAM_LEADER;
-                    break;
-                case "TEAM_MEMBER":
-                default:
-                    determinedRole = ERole.ROLE_TEAM_MEMBER;
-                    break;
-            }
-        } else {
-            determinedRole = ERole.ROLE_TEAM_MEMBER;
+        ERole eRole = ERole.ROLE_TEAM_MEMBER; // Gán mặc định là MEMBER nếu không truyền gì
+
+    if (roleName != null && !roleName.isEmpty()) {
+        switch (roleName.toUpperCase()) {
+            case "LECTURER":
+                eRole = ERole.ROLE_LECTURER;
+                if (!normalizedEmail.endsWith("@gv.ut.edu.vn")) {
+                    throw new RuntimeException("Lỗi: Email giảng viên phải có đuôi @gv.ut.edu.vn");
+                }
+                break;
+            case "ADMIN":
+                eRole = ERole.ROLE_ADMIN;
+                break;
+            default:
+                eRole = ERole.ROLE_TEAM_MEMBER;
         }
+    }
 
-        final ERole finalRole = determinedRole;
-        Role assignedRole = roleRepository.findByName(finalRole)
-                .orElseThrow(() -> new RuntimeException("Lỗi: Không tìm thấy Role " + finalRole + " trong hệ thống."));
-        
-        Set<Role> roles = new HashSet<>();
-        roles.add(assignedRole);
-        user.setRoles(roles);
+    final ERole assignedERole = eRole;
+    Role assignedRole = roleRepository.findByName(assignedERole)
+            .orElseThrow(() -> new RuntimeException("Lỗi: Không tìm thấy Role " + assignedERole + " trong hệ thống."));
+    
+    Set<Role> roles = new HashSet<>();
+    roles.add(assignedRole);
+    user.setRoles(roles);
+    // --- KẾT THÚC SỬA ---
 
-        return userRepository.save(user);
+    return userRepository.save(user);
     }
 
     // Dang nhap
@@ -126,8 +124,8 @@ public class AuthServiceImpl implements IAuthService {
             throw new RuntimeException("Error: Sai mật khẩu!");
         }
 
-        // 3. Tạo Token từ email/username
-        String jwt = jwtProvider.generateJwtToken(user.getEmail());
+        // 3. Tạo Token từ object User (bao gồm userId và role trong claim)
+        String jwt = jwtProvider.generateJwtToken(user);
         String refreshToken = refreshTokenService.createRefreshToken(user.getUserId()).getToken();
 
         // 4. Lấy danh sách Role để trả về 
