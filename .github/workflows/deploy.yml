@@ -1,0 +1,93 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  REGISTRY: ghcr.io
+  # Use the repository name for the image namespace
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      matrix:
+        include:
+          - service: frontend
+            context: ./frontend
+          - service: api-gateway
+            context: ./backend/api-gateway/gateway
+          - service: auth-service
+            context: ./backend/auth-service/auth
+          - service: group-service
+            context: ./backend/group-service
+          - service: requirement-service
+            context: ./backend/requirement-service/requirement
+          - service: task-service
+            context: ./backend/task-service/task
+          - service: notification-service
+            context: ./backend/notification-service/notification
+          - service: report-service
+            context: ./backend/report-service/report
+          - service: github-service
+            context: ./backend/github-service/github
+          - service: jira-service
+            context: ./backend/jira-service/jira
+          - service: export-service
+            context: ./backend/export-service
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository (needed for docker-compose file)
+        uses: actions/checkout@v4
+
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            mkdir -p ~/app
+            cd ~/app
+            
+            # Khởi tạo hoặc cập nhật code từ GitHub
+            if [ ! -d ".git" ]; then
+              git clone https://github.com/${{ github.repository }}.git .
+            else
+              git pull origin main
+            fi
+            
+            cd backend
+            # Login to GHCR on VPS to pull images
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            # Pull images mới nhất và khởi động lại
+            docker compose pull
+            docker compose up -d

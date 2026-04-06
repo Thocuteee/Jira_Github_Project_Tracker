@@ -1,16 +1,20 @@
 version: "3.8"
 
+# CI/CD: Use 'image:' tags for GHCR pulling
+# Set IMAGE_PREFIX=ghcr.io/thocuteee/jira_github_project_tracker in your .env
+
 services:
   # ==========================================
   # FRONTEND & GATEWAY (Thường chạy trên VPS 1)
   # ==========================================
   frontend:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/frontend:latest
     build:
       context: ../frontend
       dockerfile: Dockerfile
     container_name: frontend
     ports:
-      - "5173:5173"
+      - "80:80"
     environment:
       VITE_API_GATEWAY_URL: ${VITE_API_GATEWAY_URL}
       VITE_AUTH_SERVICE_URL: ${VITE_AUTH_SERVICE_URL}
@@ -26,6 +30,7 @@ services:
       - api-gateway
 
   api-gateway:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/api-gateway:latest
     build:
       context: ./api-gateway/gateway
       dockerfile: Dockerfile
@@ -40,6 +45,7 @@ services:
   # CORE BACKEND SERVICES (Thường chạy trên VPS 2)
   # ==========================================
   auth-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/auth-service:latest
     build:
       context: ./auth-service/auth
       dockerfile: Dockerfile
@@ -64,6 +70,7 @@ services:
       FRONTEND_URL: ${FRONTEND_URL}
 
   group-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/group-service:latest
     build:
       context: ./group-service/
       dockerfile: Dockerfile
@@ -79,6 +86,7 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
 
   requirement-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/requirement-service:latest
     build:
       context: ./requirement-service/requirement
       dockerfile: Dockerfile
@@ -94,6 +102,7 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
 
   task-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/task-service:latest
     build:
       context: ./task-service/task
       dockerfile: Dockerfile
@@ -115,6 +124,7 @@ services:
       CLOUDFLARE_R2_BUCKET_NAME: ${CLOUDFLARE_R2_BUCKET_NAME}
 
   notification-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/notification-service:latest
     build:
       context: ./notification-service/notification
       dockerfile: Dockerfile
@@ -133,6 +143,7 @@ services:
   # EXTERNAL & SUPPORT SERVICES
   # ==========================================
   report-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/report-service:latest
     build:
       context: ./report-service/report
       dockerfile: Dockerfile
@@ -148,6 +159,7 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
 
   github-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/github-service:latest
     build:
       context: ./github-service/github
       dockerfile: Dockerfile
@@ -163,6 +175,7 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
 
   jira-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/jira-service:latest
     build:
       context: ./jira-service/jira
       dockerfile: Dockerfile
@@ -179,8 +192,8 @@ services:
       JIRA_API_URL: ${JIRA_API_URL}
       JIRA_USERNAME: ${JIRA_USERNAME}
       JIRA_API_TOKEN: ${JIRA_API_TOKEN}
-
   export-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/export-service:latest
     build:
       context: ./export-service/
       dockerfile: Dockerfile

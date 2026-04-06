@@ -46,7 +46,10 @@ public class SecurityConfig {
                 .oauth2Login(oauth2 -> oauth2
                     .successHandler(oAuth2AuthenticationSuccessHandler)
                     .authorizationEndpoint(authorization -> authorization
-                            .baseUri("/oauth2/authorization")
+                            .baseUri("/api/auth/oauth2/authorization")
+                    )
+                    .redirectionEndpoint(redirection -> redirection
+                            .baseUri("/api/auth/login/oauth2/code/*")
                     )
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
@@ -58,8 +61,8 @@ public class SecurityConfig {
                                 "/api/auth/register-user",
                                 "/api/auth/refreshtoken",
                                 "/api/auth/logout-user",
-                                "/oauth2/authorization/**",
-                                "/login/oauth2/**"
+                                "/api/auth/oauth2/authorization/**",
+                                "/api/auth/login/oauth2/code/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 );
@@ -84,7 +87,8 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOriginPatterns(List.of(
                 "http://localhost:*",
-                "http://127.0.0.1:*"
+                "http://127.0.0.1:*",
+                "https://swp391.uth.today"
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));
