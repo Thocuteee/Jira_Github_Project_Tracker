@@ -13,8 +13,6 @@ services:
       context: ../frontend
       dockerfile: Dockerfile
     container_name: frontend
-    ports:
-      - "80:80"
     environment:
       VITE_API_GATEWAY_URL: ${VITE_API_GATEWAY_URL}
       VITE_AUTH_SERVICE_URL: ${VITE_AUTH_SERVICE_URL}
@@ -36,8 +34,6 @@ services:
       dockerfile: Dockerfile
     container_name: api-gateway
     restart: always
-    ports:
-      - "${API_GATEWAY_PORT:-8080}:8080"
     environment:
       SERVER_PORT: 8080
 
@@ -192,6 +188,7 @@ services:
       JIRA_API_URL: ${JIRA_API_URL}
       JIRA_USERNAME: ${JIRA_USERNAME}
       JIRA_API_TOKEN: ${JIRA_API_TOKEN}
+
   export-service:
     image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/export-service:latest
     build:
@@ -207,3 +204,16 @@ services:
       SPRING_DATASOURCE_USERNAME: ${DB_USER_EXPORT}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASS_EXPORT}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - api-gateway
+      - auth-service
