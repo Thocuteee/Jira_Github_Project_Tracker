@@ -97,13 +97,22 @@ jobs:
             
             # Login to GHCR on VPS để pull image mới
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            # Dọn dẹp và chuẩn bị khởi động
+            cd backend
+            docker compose down --remove-orphans || true
             
-            # Dọn dẹp triệt để TOÀN BỘ các container bị kẹt tên (Force remove)
-            docker rm -f frontend api-gateway auth-service group-service requirement-service task-service notification-service report-service github-service jira-service export-service nginx || true
+            # Tạo file .env từ Secret
+            echo "${{ secrets.ENV_FILE_CONTENT }}" > .env
+            echo "✅ .env file created successfully"
             
-            # Pull image mới nhất và khởi động lại
+            # Login to GHCR on VPS để pull image mới
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            # Pull image mới nhất và khởi động toàn bộ hệ thống
             docker compose pull
             docker compose down --remove-orphans
             docker compose up -d
+            
+            echo "🚀 Deployment successfully finalized over Nginx!"
           EOF
 
