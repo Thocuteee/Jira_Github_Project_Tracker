@@ -110,6 +110,7 @@ jobs:
             
             # Pull image mới nhất và khởi động toàn bộ hệ thống
             docker compose pull
+            docker compose down --remove-orphans
             docker compose up -d
             
             echo "🚀 Deployment successfully finalized over Nginx!"
