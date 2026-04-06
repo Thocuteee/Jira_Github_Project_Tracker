@@ -79,6 +79,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           envs: ENV_FILE_CONTENT
+          debug: true
           script: |
             mkdir -p ~/app
             cd ~/app
