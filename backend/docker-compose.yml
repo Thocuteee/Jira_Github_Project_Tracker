@@ -18,16 +18,13 @@ services:
       timeout: 5s
       retries: 5
 
-  
-
   # Auth Service
   auth-service:
     build: 
       context: ./auth-service/auth # Thư mục chứa Dockerfile
       dockerfile: Dockerfile
     container_name: auth-service
-    restart: always # Thêm dòng này
-    ports:
+    restart: always 
       - "8081:8081"
     depends_on:
         auth-db:
@@ -39,21 +36,115 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
-      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-604800000}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
 
-  frontend:
-    build:
-      context: ../frontend
-      dockerfile: Dockerfile
-    container_name: frontend
+  # Database cho Notification Service
+  notification-db:
+    image: postgres:15
+    container_name: notification-db
     ports:
-      - "5173:5173"
+      - "5434:5432"
     environment:
-      # SPA chạy trong trình duyệt → gọi API qua localhost (port đã publish của auth-service)
-      VITE_AUTH_SERVICE_URL: http://localhost:8081
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: notification_db
+    volumes:
+      - notification_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d notification_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # # Notification Service
+  # notification-service:
+  #   build:
+  #     context: ./notification-service/notification # Thư mục chứa Dockerfile
+  #     dockerfile: Dockerfile
+  #   container_name: notification-service
+  #   restart: always
+  #   ports:
+  #     - "8086:8086"
+  #   depends_on:
+  #     notification-db:
+  #       condition: service_healthy
+  #   environment:
+  #     SERVER_PORT: 8086
+  #     SPRING_DATASOURCE_URL: jdbc:postgresql://notification-db:5432/notification_db
+  #     SPRING_DATASOURCE_USERNAME: ${DB_USER}
+  #     SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
+  #     SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      # Optional FCM sending (FCM disabled nếu không set FIREBASE_CREDENTIALS_PATH)
+      # FIREBASE_CREDENTIALS_PATH: /app/firebase/serviceAccountKey.json
+
+  # # API Gateway
+  # api-gateway:
+  #   build:
+  #     context: ./api-gateway
+  #     dockerfile: Dockerfile
+  #   container_name: api-gateway
+  #   restart: always
+  #   ports:
+  #     - "8080:8080"
+  #   depends_on:
+  #     auth-service:
+  #       condition: service_started
+  #     group-service:
+  #       condition: service_started
+  #     #requirement-service:
+  #       #condition: service_started
+  #     #task-service:
+  #       #condition: service_started
+  #     notification-service:
+  #       condition: service_started
+  #   environment:
+  #     SERVER_PORT: 8080
+  #     AUTH_SERVICE_URL: http://auth-service:8081
+  #     NOTIFICATION_SERVICE_URL: http://notification-service:8086
+  #     JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
+  #     GATEWAY_CORS_ALLOWED_ORIGIN: ${GATEWAY_CORS_ALLOWED_ORIGIN:-http://localhost:5173}
+  #     GATEWAY_RATE_LIMIT_ENABLED: ${GATEWAY_RATE_LIMIT_ENABLED:-true}
+  #     GATEWAY_RATE_LIMIT_PER_MIN: ${GATEWAY_RATE_LIMIT_PER_MIN:-120}
+
+
+# Database cho Group Service
+  group-db:
+    image: postgres:15
+    container_name: group-db
+    ports:
+      - "5435:5432" # Dùng port 5435 để không đụng với 5433 (auth) và 5434 (notification)
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: group_db
+    volumes:
+      - group_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d group_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Group Service
+  group-service:
+    build: 
+      context: ./group-service # Trỏ đúng vào thư mục backend/group-service
+      dockerfile: Dockerfile
+    container_name: group-service
+    restart: always
+    ports:
+      - "8082:8082"
     depends_on:
-      - auth-service
+      group-db:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8082
+      SPRING_DATASOURCE_URL: jdbc:postgresql://group-db:5432/group_db
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
 
 volumes:
   auth_db_data:
+  notification_db_data:
+  group_db_data:
