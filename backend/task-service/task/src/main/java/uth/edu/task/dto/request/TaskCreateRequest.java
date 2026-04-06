@@ -27,7 +27,7 @@ public class TaskCreateRequest {
     @NotNull(message = "Mức độ ưu tiên không được để trống")
     private ETaskPriority priority;
 
-    private String assignedTo;
+    private UUID assignedTo;
 
     private LocalDate dueDate;
 }

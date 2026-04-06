@@ -5,9 +5,14 @@ import lombok.Data;
 
 @Data
 public class AttachmentRequest {
-    @NotBlank(message = "Tên file không được để trống")
+
+    @NotBlank(message = "File Key không được để trống!")
+    private String fileKey;
+
+    @NotBlank(message = "Tên file không được để trống!")
     private String fileName;
 
-    @NotBlank(message = "Đường dẫn file không được để trống")
+    @NotBlank(message = "URL lưu trữ file không được để trống!")
     private String fileUrl;
+
 }

@@ -17,5 +17,8 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
+    allowedHosts: [
+      'swp391.uth.today'
+    ]
   },
 })

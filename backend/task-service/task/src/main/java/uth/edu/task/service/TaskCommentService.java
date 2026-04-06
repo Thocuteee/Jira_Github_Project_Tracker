@@ -10,7 +10,7 @@ public interface TaskCommentService {
 
     TaskCommentResponse addComment(UUID taskId, TaskCommentRequest request);
 
-    List<TaskCommentResponse> getCommentsByTaskId(UUID taskId);
+    List<TaskCommentResponse> getAllCommentsByTaskId(UUID taskId);
 
     TaskCommentResponse updateComment(UUID commentId, TaskCommentRequest request);
 

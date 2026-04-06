@@ -6,10 +6,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import uth.edu.task.dto.request.AttachmentRequest;
+import uth.edu.task.dto.request.GenerateUrlRequest;
 import uth.edu.task.dto.response.AttachmentResponse;
 import uth.edu.task.service.AttachmentService;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -19,12 +21,25 @@ public class AttachmentController {
 
     private final AttachmentService attachmentService;
 
-    @PostMapping("/{taskId}/attachments")
-    public ResponseEntity<AttachmentResponse> add(
-            @PathVariable UUID taskId,
-            @Valid @RequestBody AttachmentRequest request) {
-        return new ResponseEntity<>(attachmentService.addAttachment(taskId, request), HttpStatus.CREATED);
+
+    @PostMapping("/{taskId}/attachments/presigned-url")
+    public ResponseEntity<Map<String, String>> generatePresignedUrl(@PathVariable UUID taskId,
+                                                                    @Valid @RequestBody GenerateUrlRequest request) {
+        Map<String, String> response = attachmentService.generatePresignedUrl(taskId, request);
+
+        return ResponseEntity.ok(response);
     }
+
+
+
+    @PostMapping("/{taskId}/attachments")
+    public ResponseEntity<AttachmentResponse> saveAttachmentMetadata(@PathVariable UUID taskId,
+                                                                     @Valid @RequestBody AttachmentRequest request) {
+        AttachmentResponse response = attachmentService.saveAttachment(taskId, request);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
 
     @GetMapping("/{taskId}/attachments")
     public ResponseEntity<List<AttachmentResponse>> list(@PathVariable UUID taskId) {
@@ -43,7 +58,7 @@ public class AttachmentController {
     public ResponseEntity<Void> delete(
             @PathVariable UUID taskId,
             @PathVariable UUID attachmentId) {
-        attachmentService.deleteAttachment(attachmentId);
+        attachmentService.deleteAttachment(taskId, attachmentId);
         return ResponseEntity.noContent().build();
     }
 }

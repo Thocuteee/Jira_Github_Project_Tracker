@@ -12,5 +12,4 @@ public interface TaskCommentRepository extends JpaRepository<TaskComment, UUID> 
 
     void deleteAllByTask_TaskId(UUID taskId);
 
-
 }

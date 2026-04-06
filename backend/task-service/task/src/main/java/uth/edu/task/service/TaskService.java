@@ -15,7 +15,9 @@ public interface TaskService {
 
     TaskResponse getTaskById(UUID taskId);
 
-    List<TaskResponse> getTasksByRequirementId(String requirementId);
+
+
+    List<TaskResponse> getTasksByRequirementId(UUID requirementId);
 
     TaskResponse updateTask(UUID taskId, TaskUpdateRequest request);
 

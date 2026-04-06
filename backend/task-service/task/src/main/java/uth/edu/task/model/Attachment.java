@@ -24,10 +24,13 @@ public class Attachment {
     private Task task;
 
     @Column(name = "uploaded_by", nullable = false)
-    private String uploadedBy;
+    private UUID uploadedBy;
 
     @Column(name = "file_name", nullable = false)
     private String fileName;
+
+    @Column(name = "file_key", nullable = false)
+    private String fileKey;
 
     @Column(name = "file_url", nullable = false)
     private String fileUrl;
@@ -35,4 +38,5 @@ public class Attachment {
     @CreationTimestamp
     @Column(name = "uploaded_at", updatable = false)
     private LocalDateTime uploadedAt;
+
 }

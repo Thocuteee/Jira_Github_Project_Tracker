@@ -11,13 +11,10 @@ import uth.edu.task.model.TaskComment;
 @Mapper(componentModel = "spring")
 public interface TaskCommentMapper {
 
-    // Chuyển từ Request sang Entity
     TaskComment toEntity(TaskCommentRequest request);
 
-    // Chuyển từ Entity sang Response
     @Mapping(source = "task.taskId", target = "taskId")
     TaskCommentResponse toResponse(TaskComment taskComment);
 
-    // Cập nhật dữ liệu từ Request vào Entity có sẵn
     void updateEntityFromRequest(TaskCommentRequest request, @MappingTarget TaskComment taskComment);
 }

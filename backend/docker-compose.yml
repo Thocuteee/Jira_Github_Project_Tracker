@@ -1,158 +1,36 @@
+version: "3.8"
+
+# CI/CD: Use 'image:' tags for GHCR pulling
+# Set IMAGE_PREFIX=ghcr.io/thocuteee/jira_github_project_tracker in your .env
+
 services:
-  # Database cho Export Service
-  export-db:
-    image: postgres:15
-    container_name: export-db
+  # ==========================================
+  # FRONTEND & GATEWAY (Thường chạy trên VPS 1)
+  # ==========================================
+  frontend:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/frontend:latest
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: frontend
     ports:
-      - "5454:5432"
+      - "80:80"
     environment:
-      POSTGRES_USER: ${MY_DB_USER}
-      POSTGRES_PASSWORD: ${MY_DB_PASS}
-      POSTGRES_DB: export_db
-    volumes:
-      - export_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d auth_db" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      VITE_API_GATEWAY_URL: ${VITE_API_GATEWAY_URL}
+      VITE_AUTH_SERVICE_URL: ${VITE_AUTH_SERVICE_URL}
+      VITE_GROUP_SERVICE_URL: ${VITE_GROUP_SERVICE_URL}
+      VITE_REQUIREMENT_SERVICE_URL: ${VITE_REQUIREMENT_SERVICE_URL}
+      VITE_TASK_SERVICE_URL: ${VITE_TASK_SERVICE_URL}
+      VITE_REPORT_SERVICE_URL: ${VITE_REPORT_SERVICE_URL}
+      VITE_NOTIFICATION_SERVICE_URL: ${VITE_NOTIFICATION_SERVICE_URL}
+      VITE_GITHUB_SERVICE_URL: ${VITE_GITHUB_SERVICE_URL}
+      VITE_JIRA_SERVICE_URL: ${VITE_JIRA_SERVICE_URL}
+      VITE_EXPORT_SERVICE_URL: ${VITE_EXPORT_SERVICE_URL}
+    depends_on:
+      - api-gateway
 
-  # Database cho GitHub Service
-  github-db:
-    image: postgres:15
-    container_name: github-db
-    ports:
-      - "5434:5432"
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-      POSTGRES_DB: github_db
-    volumes:
-      - github_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d github_db" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  requirement-db:
-    image: postgres:15
-    container_name: requirement-db
-    ports:
-      - "5435:5432"
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-      POSTGRES_DB: requirement_db
-    volumes:
-      - requirement_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d requirement_db" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  task-db:
-    image: postgres:15
-    container_name: task-db
-    ports:
-      - "5436:5432"
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-      POSTGRES_DB: task_db
-    volumes:
-      - task_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d task_db" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  notification-db:
-    image: postgres:15
-    container_name: notification-db
-    ports:
-      - "5437:5432"
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-      POSTGRES_DB: notification_db
-    volumes:
-      - notification_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d notification_db" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  report-db:
-    image: postgres:15
-    container_name: report-db
-    ports:
-      - "5438:5432"
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-      POSTGRES_DB: ${REPORT_DB_NAME}
-    volumes:
-      - report_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${REPORT_DB_NAME}" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  jira-db:
-    image: postgres:15
-    container_name: jira-db
-    ports:
-      - "5439:5432"
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-      POSTGRES_DB: ${JIRA_DB_NAME}
-    volumes:
-      - jira_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${JIRA_DB_NAME}" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  # Database cho Group Service
-  group-db:
-    image: postgres:15
-    container_name: group-db
-    ports:
-      - "5440:5432"
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-      POSTGRES_DB: group_db
-    volumes:
-      - group_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d group_db" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  # Redis for Token & Cache
-  redis:
-    image: redis:7-alpine
-    container_name: redis
-    restart: always
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  # API Gateway
   api-gateway:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/api-gateway:latest
     build:
       context: ./api-gateway/gateway
       dockerfile: Dockerfile
@@ -160,34 +38,27 @@ services:
     restart: always
     ports:
       - "${API_GATEWAY_PORT:-8080}:8080"
-    depends_on:
-      redis:
-        condition: service_healthy
     environment:
       SERVER_PORT: 8080
-      JWT_SECRET_KEY: ${JWT_SECRET}
-      SPRING_DATA_REDIS_HOST: ${REDIS_HOST:-redis}
-      SPRING_DATA_REDIS_PORT: ${REDIS_PORT:-6379}
 
-  # Auth Service
+  # ==========================================
+  # CORE BACKEND SERVICES (Thường chạy trên VPS 2)
+  # ==========================================
   auth-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/auth-service:latest
     build:
-      context: ./auth-service/auth # Thư mục chứa Dockerfile
+      context: ./auth-service/auth
       dockerfile: Dockerfile
     container_name: auth-service
-    restart: always # Thêm dòng này
+    restart: always
     ports:
-      - "8081:8081"
-    depends_on:
-      auth-db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      # Rất quan trọng: Chỉ mở port trên dải IP nội bộ
+      - "${VPS2_PRIVATE_IP}:${AUTH_SERVICE_PORT:-8081}:8081"
     environment:
       SERVER_PORT: 8081
-      SPRING_DATASOURCE_URL: jdbc:postgresql://auth-db:5432/auth_db
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_AUTH}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_AUTH}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_AUTH}
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
       JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-604800000}
@@ -197,83 +68,82 @@ services:
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
       FRONTEND_URL: ${FRONTEND_URL}
-      SPRING_DATA_REDIS_HOST: ${REDIS_HOST:-redis}
-      SPRING_DATA_REDIS_PORT: ${REDIS_PORT:-6379}
 
-  # GitHub integration service (repos, commits, integrations)
-  github-service:
+  group-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/group-service:latest
     build:
-      context: ./github-service/github
+      context: ./group-service/
       dockerfile: Dockerfile
-    container_name: github-service
+    container_name: group-service
     restart: always
     ports:
-      - "${GITHUB_SERVICE_PORT:-8087}:8087"
-    depends_on:
-      github-db:
-        condition: service_healthy
+      - "${VPS2_PRIVATE_IP}:${GROUP_SERVICE_PORT:-8082}:8082"
     environment:
-      SERVER_PORT: 8087
-      SPRING_DATASOURCE_URL: jdbc:postgresql://github-db:5432/github_db
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
+      SERVER_PORT: 8082
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_GROUP}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_GROUP}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_GROUP}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
 
   requirement-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/requirement-service:latest
     build:
       context: ./requirement-service/requirement
       dockerfile: Dockerfile
     container_name: requirement-service
     restart: always
     ports:
-      - "${REQUIREMENT_SERVICE_PORT:-8083}:8083"
-    depends_on:
-      requirement-db:
-        condition: service_healthy
+      - "${VPS2_PRIVATE_IP}:${REQUIREMENT_SERVICE_PORT:-8083}:8083"
     environment:
       SERVER_PORT: 8083
-      SPRING_DATASOURCE_URL: jdbc:postgresql://requirement-db:5432/requirement_db
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_REQUIREMENT}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_REQUIREMENT}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_REQUIREMENT}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
 
   task-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/task-service:latest
     build:
       context: ./task-service/task
       dockerfile: Dockerfile
     container_name: task-service
     restart: always
     ports:
-      - "${TASK_SERVICE_PORT:-8084}:8084"
-    depends_on:
-      task-db:
-        condition: service_healthy
+      - "${VPS2_PRIVATE_IP}:${TASK_SERVICE_PORT:-8084}:8084"
     environment:
       SERVER_PORT: 8084
-      SPRING_DATASOURCE_URL: jdbc:postgresql://task-db:5432/task_db
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
+      JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_TASK}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_TASK}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_TASK}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      CLOUDFLARE_R2_ENDPOINT: ${CLOUDFLARE_R2_ENDPOINT}
+      CLOUDFLARE_R2_PUBLIC_DOMAIN: ${CLOUDFLARE_R2_PUBLIC_DOMAIN}
+      CLOUDFLARE_R2_ACCESS_KEY: ${CLOUDFLARE_R2_ACCESS_KEY}
+      CLOUDFLARE_R2_SECRET_KEY: ${CLOUDFLARE_R2_SECRET_KEY}
+      CLOUDFLARE_R2_BUCKET_NAME: ${CLOUDFLARE_R2_BUCKET_NAME}
 
   notification-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/notification-service:latest
     build:
       context: ./notification-service/notification
       dockerfile: Dockerfile
     container_name: notification-service
     restart: always
     ports:
-      - "${NOTIFICATION_SERVICE_PORT:-8086}:8086"
-    depends_on:
-      notification-db:
-        condition: service_healthy
+      - "${VPS2_PRIVATE_IP}:${NOTIFICATION_SERVICE_PORT:-8086}:8086"
     environment:
       SERVER_PORT: 8086
-      SPRING_DATASOURCE_URL: jdbc:postgresql://notification-db:5432/notification_db
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_NOTIFICATION}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_NOTIFICATION}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_NOTIFICATION}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
 
+  # ==========================================
+  # EXTERNAL & SUPPORT SERVICES
+  # ==========================================
   report-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/report-service:latest
     build:
       context: ./report-service/report
       dockerfile: Dockerfile
@@ -281,17 +151,31 @@ services:
     restart: always
     ports:
       - "${REPORT_SERVICE_PORT:-8085}:8085"
-    depends_on:
-      report-db:
-        condition: service_healthy
     environment:
       SERVER_PORT: 8085
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_REPORT}
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_REPORT}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_REPORT}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+
+  github-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/github-service:latest
+    build:
+      context: ./github-service/github
+      dockerfile: Dockerfile
+    container_name: github-service
+    restart: always
+    ports:
+      - "${GITHUB_SERVICE_PORT:-8087}:8087"
+    environment:
+      SERVER_PORT: 8087
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_GITHUB}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_GITHUB}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_GITHUB}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
 
   jira-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/jira-service:latest
     build:
       context: ./jira-service/jira
       dockerfile: Dockerfile
@@ -299,73 +183,27 @@ services:
     restart: always
     ports:
       - "${JIRA_SERVICE_PORT:-8088}:8088"
-    depends_on:
-      jira-db:
-        condition: service_healthy
     environment:
       SERVER_PORT: 8088
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_JIRA}
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_JIRA}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_JIRA}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       JIRA_API_URL: ${JIRA_API_URL}
       JIRA_USERNAME: ${JIRA_USERNAME}
       JIRA_API_TOKEN: ${JIRA_API_TOKEN}
-
-  # Group Service
-  group-service:
+  export-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/export-service:latest
     build:
-      context: ./group-service/group
+      context: ./export-service/
       dockerfile: Dockerfile
-    container_name: group-service
+    container_name: export-service
     restart: always
     ports:
-      - "${GROUP_SERVICE_PORT:-8082}:8082"
-    depends_on:
-      group-db:
-        condition: service_healthy
+      - "${EXPORT_SERVICE_PORT:-8089}:8089"
     environment:
-      SERVER_PORT: 8082
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_GROUP}
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
+      SERVER_PORT: 8089
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_EXPORT}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_EXPORT}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_EXPORT}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
-
-  frontend:
-    build:
-      context: ../frontend
-      dockerfile: Dockerfile
-    container_name: frontend
-    ports:
-      - "5173:5173"
-    environment:
-      # SPA chạy trong trình duyệt → gọi API qua localhost (port đã publish của các service)
-      VITE_AUTH_SERVICE_URL: http://localhost:8081
-      VITE_GITHUB_SERVICE_URL: http://localhost:8087
-      VITE_REQUIREMENT_SERVICE_URL: http://localhost:8083
-      VITE_TASK_SERVICE_URL: http://localhost:8084
-      VITE_REPORT_SERVICE_URL: http://localhost:8085
-      VITE_NOTIFICATION_SERVICE_URL: http://localhost:8086
-      VITE_API_GATEWAY_URL: http://localhost:8080
-      VITE_JIRA_SERVICE_URL: ${VITE_JIRA_SERVICE_URL}
-
-    depends_on:
-      - api-gateway
-      - auth-service
-      - github-service
-      - requirement-service
-      - task-service
-      - notification-service
-      - report-service
-      - jira-service
-      - group-service
-
-volumes:
-  auth_db_data:
-  github_db_data:
-  requirement_db_data:
-  task_db_data:
-  notification_db_data:
-  report_db_data:
-  jira_db_data:
-  group_db_data:

@@ -23,7 +23,7 @@ public class TaskController {
     private final TaskService taskService;
 
     // Tạo Task mới
-    // URL POST: /api/tasks/
+    // /api/tasks/
     @PostMapping
     public ResponseEntity<TaskResponse> createTask(@Valid @RequestBody TaskCreateRequest request){
         TaskResponse response = taskService.createTask(request);
@@ -33,7 +33,7 @@ public class TaskController {
 
 
     // Lấy chi tiết một Task theo ID
-    // URL GET: /api/tasks/{taskId}
+    // /api/tasks/{taskId}
     @GetMapping("/{taskId}")
     public ResponseEntity<TaskResponse> getTaskById(@PathVariable UUID taskId){
         TaskResponse response = taskService.getTaskById(taskId);
@@ -43,9 +43,9 @@ public class TaskController {
 
 
     // Lấy danh sách Task của một Requirement
-    // URL GET: /api/tasks/requirement/{requirementId}
+    // /api/tasks/requirement/{requirementId}
     @GetMapping("/requirement/{requirementId}")
-    public ResponseEntity<List<TaskResponse>> getTaskByRequirementId(@PathVariable String requirementId){
+    public ResponseEntity<List<TaskResponse>> getTaskByRequirementId(@PathVariable UUID requirementId){
         List<TaskResponse> responses = taskService.getTasksByRequirementId(requirementId);
 
         return ResponseEntity.ok(responses);
@@ -53,7 +53,7 @@ public class TaskController {
 
 
     // Cập nhật một Task
-    // URL PATCH: /api/tasks/{taskId}
+    // /api/tasks/{taskId}
     @PatchMapping("/{taskId}")
     public ResponseEntity<TaskResponse> updateTask(@PathVariable UUID taskId,
                                                    @Valid @RequestBody TaskUpdateRequest request){
@@ -64,7 +64,7 @@ public class TaskController {
 
 
     // Giao Task cho Member
-    // URL PATCH: /api/tasks/{taskId}/assign
+    // /api/tasks/{taskId}/assign
     @PatchMapping("/{taskId}/assign")
     public ResponseEntity<TaskResponse> assignTask(@PathVariable UUID taskId,
                                                    @Valid @RequestBody TaskAssignRequest request) {
@@ -75,7 +75,7 @@ public class TaskController {
 
 
     // Thay đổi Status của một Task
-    // URL PATCH: /api/tasks/{taskId}/status
+    // /api/tasks/{taskId}/status
     @PatchMapping("/{taskId}/status")
     public ResponseEntity<TaskResponse> changeTaskStatus(@PathVariable UUID taskId,
                                                          @Valid @RequestBody TaskStatusUpdateRequest request){
@@ -86,7 +86,7 @@ public class TaskController {
 
 
     // Xoá một Task
-    // URL DELETE: /api/tasks/{taskId}
+    // /api/tasks/{taskId}
     @DeleteMapping("/{taskId}")
     public ResponseEntity<Void> deleteTask(@PathVariable UUID taskId){
         taskService.deleteTask(taskId);

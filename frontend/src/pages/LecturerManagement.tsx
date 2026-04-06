@@ -14,6 +14,11 @@ export default function LecturerManagement() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editLecturerId, setEditLecturerId] = useState<number | null>(null);
+    const [editForm, setEditForm] = useState({
+        name: '', email: '', password: ''
+    });
 
     const fetchLecturers = async () => {
         setIsLoadingData(true);
@@ -87,6 +92,77 @@ export default function LecturerManagement() {
             return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
         }
         return name.substring(0, 2).toUpperCase();
+    };
+
+
+
+
+
+
+    const handleChangeEdit = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setEditForm({ ...editForm, [e.target.name]: e.target.value });
+    };
+
+    // Hàm mở Popup Sửa và điền dữ liệu cũ vào form
+    const handleOpenEdit = (lecturer: any) => {
+        setEditLecturerId(lecturer.userId);
+        setEditForm({
+            name: lecturer.name || '',
+            email: lecturer.email || '',
+            password: ''
+        });
+        setShowEditModal(true);
+    };
+
+    // Hàm gọi API Sửa
+    const handleUpdateLecturer = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editLecturerId) return;
+
+        setLoading(true); setError(''); setSuccess('');
+
+        try {
+            // Chỉ gửi password nếu người dùng có nhập
+            const updateData: any = {
+                name: editForm.name,
+                email: editForm.email,
+            };
+            if (editForm.password.trim() !== '') {
+                updateData.password = editForm.password;
+            }
+
+            await authService.updateLecturer(editLecturerId, updateData);
+
+            setSuccess('Cập nhật Lecturer thành công!');
+
+            setTimeout(() => {
+                setShowEditModal(false);
+                setSuccess('');
+                fetchLecturers(); // Tải lại danh sách
+            }, 1500);
+
+        } catch (err: any) {
+            setError(err.message || 'Có lỗi xảy ra khi cập nhật');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleToggleStatus = async (lecturer: any) => {
+        const newStatus = lecturer.status === 'DISABLED' ? 'ACTIVE' : 'DISABLED';
+        const actionText = newStatus === 'DISABLED' ? 'Khóa' : 'Mở khóa';
+
+        if (!window.confirm(`Bạn có chắc chắn muốn ${actionText.toLowerCase()} giảng viên này?`)) return;
+
+        try {
+            await authService.updateUserStatus(lecturer.id, newStatus);
+            setLecturers(prev => prev.map(l =>
+                l.id === lecturer.id ? { ...l, status: newStatus } : l
+            ));
+        } catch (err: any) {
+            alert('Lỗi: Không thể thay đổi trạng thái!');
+            console.error(err);
+        }
     };
 
     // Đảm bảo an toàn khi đếm số lượng
@@ -195,12 +271,25 @@ export default function LecturerManagement() {
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button className="px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition shadow-sm">Sửa</button>
+                                                <button
+                                                    onClick={() => handleOpenEdit(lecturer)}
+                                                    className="px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition shadow-sm">
+                                                    Sửa
+                                                </button>
                                                 <button className="px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition shadow-sm">Xem groups</button>
+
                                                 {lecturer?.status !== 'DISABLED' ? (
-                                                    <button className="px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-semibold text-red-600 hover:bg-red-50 hover:border-red-200 transition shadow-sm">Khóa</button>
+                                                    <button
+                                                        onClick={() => handleToggleStatus(lecturer)}
+                                                        className="px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-semibold text-red-600 hover:bg-red-50 hover:border-red-200 transition shadow-sm">
+                                                        Khóa
+                                                    </button>
                                                 ) : (
-                                                    <button className="px-3 py-1.5 border border-green-200 bg-green-50 text-green-600 rounded-lg text-xs font-semibold hover:bg-green-100 transition shadow-sm">Mở khóa</button>
+                                                    <button
+                                                        onClick={() => handleToggleStatus(lecturer)}
+                                                        className="px-3 py-1.5 border border-green-200 bg-green-50 text-green-600 rounded-lg text-xs font-semibold hover:bg-green-100 transition shadow-sm">
+                                                        Mở khóa
+                                                    </button>
                                                 )}
                                             </div>
                                         </td>
@@ -275,6 +364,58 @@ export default function LecturerManagement() {
                                     <button type="submit" disabled={loading} 
                                         className="px-6 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm shadow-blue-200 transition-colors disabled:opacity-50 flex items-center gap-2">
                                         {loading ? <><Loader2 className="animate-spin" size={16}/> Đang tạo...</> : 'Tạo tài khoản'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* Floating Modal for Edit */}
+                {showEditModal && (
+                    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+                        <div className="bg-white rounded-2xl w-full max-w-[500px] p-7 shadow-2xl border border-slate-100">
+                            <h3 className="text-xl font-bold text-slate-900 mb-6">Cập nhật Lecturer</h3>
+
+                            {error && (
+                                <div className="mb-5 p-3.5 bg-red-50 border border-red-200 text-red-600 rounded-xl flex items-center gap-2.5 text-sm font-medium">
+                                    <AlertCircle size={18} className="shrink-0" /> {error}
+                                </div>
+                            )}
+
+                            {success && (
+                                <div className="mb-5 p-3.5 bg-green-50 border border-green-200 text-green-600 rounded-xl flex items-center gap-2.5 text-sm font-medium">
+                                    <CheckCircle2 size={18} className="shrink-0" /> {success}
+                                </div>
+                            )}
+
+                            <form onSubmit={handleUpdateLecturer} className="space-y-5">
+                                <div className="space-y-5">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 mb-1.5">Họ tên <span className="text-red-500">*</span></label>
+                                        <input required type="text" name="name" value={editForm.name} onChange={handleChangeEdit} placeholder="Nguyễn Văn A"
+                                               className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 focus:bg-white transition-all" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 mb-1.5">Email <span className="text-red-500">*</span></label>
+                                        <input required type="email" name="email" value={editForm.email} onChange={handleChangeEdit} placeholder="name@uth.edu.vn"
+                                               className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 focus:bg-white transition-all" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 mb-1.5">Mật khẩu mới</label>
+                                        <input type="password" name="password" value={editForm.password} onChange={handleChangeEdit} placeholder="Để trống nếu không muốn đổi"
+                                               className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 focus:bg-white transition-all" />
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-slate-100">
+                                    <button type="button" onClick={() => setShowEditModal(false)} disabled={loading}
+                                            className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 hover:text-slate-900 transition-colors disabled:opacity-50 shadow-sm">
+                                        Hủy
+                                    </button>
+                                    <button type="submit" disabled={loading}
+                                            className="px-6 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm shadow-blue-200 transition-colors disabled:opacity-50 flex items-center gap-2">
+                                        {loading ? <><Loader2 className="animate-spin" size={16}/> Đang lưu...</> : 'Lưu thay đổi'}
                                     </button>
                                 </div>
                             </form>
