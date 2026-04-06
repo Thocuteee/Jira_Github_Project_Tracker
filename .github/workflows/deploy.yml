@@ -70,12 +70,36 @@ jobs:
       - name: Checkout repository (needed for docker-compose file)
         uses: actions/checkout@v4
 
-      - name: Deploy to VPS (RSA Raw SSH Debug)
+      - name: Deploy to VPS
+        env:
+          ENV_FILE_CONTENT: ${{ secrets.ENV_FILE_CONTENT }}
         run: |
           # Lưu RSA private key ra file tạm
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > deploy_rsa_key
           chmod 600 deploy_rsa_key
           
-          # Thử kết nối với chế độ Verbose (-v) để xem server nói gì
-          ssh -v -i deploy_rsa_key -o StrictHostKeyChecking=no root@${{ secrets.VPS_HOST }} "echo '✅ RSA Connection Success!'"
+          # Thực thi lệnh SSH trực tiếp
+          ssh -i deploy_rsa_key -o StrictHostKeyChecking=no root@${{ secrets.VPS_HOST }} << 'EOF'
+            mkdir -p ~/app
+            cd ~/app
+            
+            # Khởi tạo hoặc cập nhật code từ GitHub
+            if [ ! -d ".git" ]; then
+              git clone https://github.com/${{ github.repository }}.git .
+            else
+              git pull origin main
+            fi
+            
+            cd backend
+            # Tạo file .env từ Secret
+            echo "${{ secrets.ENV_FILE_CONTENT }}" > .env
+            echo "✅ .env file created successfully"
+            
+            # Login to GHCR on VPS để pull image mới
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            # Pull image mới nhất và khởi động lại
+            docker compose pull
+            docker compose up -d
+          EOF
 
