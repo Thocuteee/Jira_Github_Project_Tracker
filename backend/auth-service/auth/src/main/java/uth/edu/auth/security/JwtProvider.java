@@ -21,9 +21,16 @@ public class JwtProvider {
     @Value("${auth.jwt.expiration}")
     private int jwtExpirationMs;
 
-    public String generateJwtToken(String email) {
+    public String generateJwtToken(uth.edu.auth.model.User user) {
+        String role = user.getRoles().stream()
+                .map(r -> r.getName().name())
+                .findFirst()
+                .orElse("ROLE_TEAM_MEMBER");
+
         return Jwts.builder()
-            .setSubject(email)
+            .setSubject(user.getEmail())
+            .claim("userId", user.getUserId().toString())
+            .claim("role", role)
             .setIssuedAt(new Date())
             .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
             .signWith(SignatureAlgorithm.HS256, jwtSecret)

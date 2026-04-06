@@ -1,359 +1,9 @@
 version: "3.8"
+
 services:
-
-  auth-db:
-    image: postgres:15
-    container_name: auth-db
-    ports:
-      - "5433:5432"
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-      POSTGRES_DB: auth_db
-    volumes:
-      - auth_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d auth_db" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  group-db:
-    image: postgres:15
-    container_name: group-db
-    ports:
-      - "5434:5432"
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-      POSTGRES_DB: group_db
-    volumes:
-      - group_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d group_db" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  requirement-db:
-    image: postgres:15
-    container_name: requirement-db
-    ports:
-      - "5435:5432"
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-      POSTGRES_DB: requirement_db
-    volumes:
-      - requirement_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d requirement_db" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  task-db:
-    image: postgres:15
-    container_name: task-db
-    ports:
-      - "5436:5432"
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-      POSTGRES_DB: task_db
-    volumes:
-      - task_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d task_db" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-
-  report-db:
-    image: postgres:15
-    container_name: report-db
-    ports:
-      - "5437:5432"
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-      POSTGRES_DB: ${REPORT_DB_NAME}
-    volumes:
-      - report_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${REPORT_DB_NAME}" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-
-  notification-db:
-    image: postgres:15
-    container_name: notification-db
-    ports:
-      - "5438:5432"
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-      POSTGRES_DB: notification_db
-    volumes:
-      - notification_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d notification_db" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  github-db:
-    image: postgres:15
-    container_name: github-db
-    ports:
-      - "5439:5432"
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-      POSTGRES_DB: github_db
-    volumes:
-      - github_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d github_db" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-
-  jira-db:
-    image: postgres:15
-    container_name: jira-db
-    ports:
-      - "5440:5432"
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-      POSTGRES_DB: ${JIRA_DB_NAME}
-    volumes:
-      - jira_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${JIRA_DB_NAME}" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-
-  export-db:
-    image: postgres:15
-    container_name: export-db
-    ports:
-      - "5441:5432"
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-      POSTGRES_DB: export_db
-    volumes:
-      - export_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d export_db" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-
-
-  # API Gateway
-  api-gateway:
-    build:
-      context: ./api-gateway/gateway
-      dockerfile: Dockerfile
-    container_name: api-gateway
-    restart: always
-    ports:
-      - "${API_GATEWAY_PORT:-8080}:8080"
-    environment:
-      SERVER_PORT: 8080
-
-  # Auth Service
-  auth-service:
-    build:
-      context: ./auth-service/auth
-      dockerfile: Dockerfile
-    container_name: auth-service
-    restart: always
-    ports:
-      - "${AUTH_SERVICE_PORT:-8081}:8081"
-    depends_on:
-      auth-db:
-        condition: service_healthy
-    environment:
-      SERVER_PORT: 8081
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_AUTH}
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
-      JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
-      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
-      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-604800000}
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
-      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
-      FRONTEND_URL: ${FRONTEND_URL}
-
-  group-service:
-    build:
-      context: ./group-service/
-      dockerfile: Dockerfile
-    container_name: group-service
-    restart: always
-    ports:
-      - "${GROUP_SERVICE_PORT:-8082}:8082"
-    depends_on:
-      group-db:
-        condition: service_healthy
-    environment:
-      SERVER_PORT: 8082
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_GROUP}
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
-
-  requirement-service:
-    build:
-      context: ./requirement-service/requirement
-      dockerfile: Dockerfile
-    container_name: requirement-service
-    restart: always
-    ports:
-      - "${REQUIREMENT_SERVICE_PORT:-8083}:8083"
-    depends_on:
-      requirement-db:
-        condition: service_healthy
-    environment:
-      SERVER_PORT: 8083
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_REQUIREMENT}
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
-
-  task-service:
-    build:
-      context: ./task-service/task
-      dockerfile: Dockerfile
-    container_name: task-service
-    restart: always
-    ports:
-      - "${TASK_SERVICE_PORT:-8084}:8084"
-    depends_on:
-      task-db:
-        condition: service_healthy
-    environment:
-      SERVER_PORT: 8084
-      JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_TASK}
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
-      CLOUDFLARE_R2_ENDPOINT: ${CLOUDFLARE_R2_ENDPOINT}
-      CLOUDFLARE_R2_PUBLIC_DOMAIN: ${CLOUDFLARE_R2_PUBLIC_DOMAIN}
-      CLOUDFLARE_R2_ACCESS_KEY: ${CLOUDFLARE_R2_ACCESS_KEY}
-      CLOUDFLARE_R2_SECRET_KEY: ${CLOUDFLARE_R2_SECRET_KEY}
-      CLOUDFLARE_R2_BUCKET_NAME: ${CLOUDFLARE_R2_BUCKET_NAME}
-
-  report-service:
-    build:
-      context: ./report-service/report
-      dockerfile: Dockerfile
-    container_name: report-service
-    restart: always
-    ports:
-      - "${REPORT_SERVICE_PORT:-8085}:8085"
-    depends_on:
-      report-db:
-        condition: service_healthy
-    environment:
-      SERVER_PORT: 8085
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_REPORT}
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
-
-  notification-service:
-    build:
-      context: ./notification-service/notification
-      dockerfile: Dockerfile
-    container_name: notification-service
-    restart: always
-    ports:
-      - "${NOTIFICATION_SERVICE_PORT:-8086}:8086"
-    depends_on:
-      notification-db:
-        condition: service_healthy
-    environment:
-      SERVER_PORT: 8086
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_NOTIFICATION}
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
-
-  github-service:
-    build:
-      context: ./github-service/github
-      dockerfile: Dockerfile
-    container_name: github-service
-    restart: always
-    ports:
-      - "${GITHUB_SERVICE_PORT:-8087}:8087"
-    depends_on:
-      github-db:
-        condition: service_healthy
-    environment:
-      SERVER_PORT: 8087
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_GITHUB}
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
-
-  jira-service:
-    build:
-      context: ./jira-service/jira
-      dockerfile: Dockerfile
-    container_name: jira-service
-    restart: always
-    ports:
-      - "${JIRA_SERVICE_PORT:-8088}:8088"
-    depends_on:
-      jira-db:
-        condition: service_healthy
-    environment:
-      SERVER_PORT: 8088
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_JIRA}
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
-      JIRA_API_URL: ${JIRA_API_URL}
-      JIRA_USERNAME: ${JIRA_USERNAME}
-      JIRA_API_TOKEN: ${JIRA_API_TOKEN}
-
-
-  export-service:
-    build:
-      context: ./export-service/
-      dockerfile: Dockerfile
-    container_name: export-service
-    restart: always
-    ports:
-      - "${EXPORT_SERVICE_PORT:-8089}:8089"
-    depends_on:
-      export-db:
-        condition: service_healthy
-    environment:
-      SERVER_PORT: 8089
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_EXPORT}
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
-
-
+  # ==========================================
+  # FRONTEND & GATEWAY (Thường chạy trên VPS 1)
+  # ==========================================
   frontend:
     build:
       context: ../frontend
@@ -374,24 +24,173 @@ services:
       VITE_EXPORT_SERVICE_URL: ${VITE_EXPORT_SERVICE_URL}
     depends_on:
       - api-gateway
-      - auth-service
-      - group-service
-      - requirement-service
-      - task-service
-      - report-service
-      - notification-service
-      - github-service
-      - jira-service
-      - export-service
 
+  api-gateway:
+    build:
+      context: ./api-gateway/gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    restart: always
+    ports:
+      - "${API_GATEWAY_PORT:-8080}:8080"
+    environment:
+      SERVER_PORT: 8080
 
-volumes:
-  auth_db_data:
-  group_db_data:
-  requirement_db_data:
-  task_db_data:
-  report_db_data:
-  notification_db_data:
-  github_db_data:
-  jira_db_data:
-  export_db_data:
+  # ==========================================
+  # CORE BACKEND SERVICES (Thường chạy trên VPS 2)
+  # ==========================================
+  auth-service:
+    build:
+      context: ./auth-service/auth
+      dockerfile: Dockerfile
+    container_name: auth-service
+    restart: always
+    ports:
+      # Rất quan trọng: Chỉ mở port trên dải IP nội bộ
+      - "${VPS2_PRIVATE_IP}:${AUTH_SERVICE_PORT:-8081}:8081"
+    environment:
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_AUTH}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_AUTH}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_AUTH}
+      JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-604800000}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      FRONTEND_URL: ${FRONTEND_URL}
+
+  group-service:
+    build:
+      context: ./group-service/
+      dockerfile: Dockerfile
+    container_name: group-service
+    restart: always
+    ports:
+      - "${VPS2_PRIVATE_IP}:${GROUP_SERVICE_PORT:-8082}:8082"
+    environment:
+      SERVER_PORT: 8082
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_GROUP}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_GROUP}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_GROUP}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+
+  requirement-service:
+    build:
+      context: ./requirement-service/requirement
+      dockerfile: Dockerfile
+    container_name: requirement-service
+    restart: always
+    ports:
+      - "${VPS2_PRIVATE_IP}:${REQUIREMENT_SERVICE_PORT:-8083}:8083"
+    environment:
+      SERVER_PORT: 8083
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_REQUIREMENT}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_REQUIREMENT}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_REQUIREMENT}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+
+  task-service:
+    build:
+      context: ./task-service/task
+      dockerfile: Dockerfile
+    container_name: task-service
+    restart: always
+    ports:
+      - "${VPS2_PRIVATE_IP}:${TASK_SERVICE_PORT:-8084}:8084"
+    environment:
+      SERVER_PORT: 8084
+      JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_TASK}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_TASK}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_TASK}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      CLOUDFLARE_R2_ENDPOINT: ${CLOUDFLARE_R2_ENDPOINT}
+      CLOUDFLARE_R2_PUBLIC_DOMAIN: ${CLOUDFLARE_R2_PUBLIC_DOMAIN}
+      CLOUDFLARE_R2_ACCESS_KEY: ${CLOUDFLARE_R2_ACCESS_KEY}
+      CLOUDFLARE_R2_SECRET_KEY: ${CLOUDFLARE_R2_SECRET_KEY}
+      CLOUDFLARE_R2_BUCKET_NAME: ${CLOUDFLARE_R2_BUCKET_NAME}
+
+  notification-service:
+    build:
+      context: ./notification-service/notification
+      dockerfile: Dockerfile
+    container_name: notification-service
+    restart: always
+    ports:
+      - "${VPS2_PRIVATE_IP}:${NOTIFICATION_SERVICE_PORT:-8086}:8086"
+    environment:
+      SERVER_PORT: 8086
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_NOTIFICATION}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_NOTIFICATION}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_NOTIFICATION}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+
+  # ==========================================
+  # EXTERNAL & SUPPORT SERVICES
+  # ==========================================
+  report-service:
+    build:
+      context: ./report-service/report
+      dockerfile: Dockerfile
+    container_name: report-service
+    restart: always
+    ports:
+      - "${REPORT_SERVICE_PORT:-8085}:8085"
+    environment:
+      SERVER_PORT: 8085
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_REPORT}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_REPORT}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_REPORT}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+
+  github-service:
+    build:
+      context: ./github-service/github
+      dockerfile: Dockerfile
+    container_name: github-service
+    restart: always
+    ports:
+      - "${GITHUB_SERVICE_PORT:-8087}:8087"
+    environment:
+      SERVER_PORT: 8087
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_GITHUB}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_GITHUB}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_GITHUB}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+
+  jira-service:
+    build:
+      context: ./jira-service/jira
+      dockerfile: Dockerfile
+    container_name: jira-service
+    restart: always
+    ports:
+      - "${JIRA_SERVICE_PORT:-8088}:8088"
+    environment:
+      SERVER_PORT: 8088
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_JIRA}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_JIRA}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_JIRA}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      JIRA_API_URL: ${JIRA_API_URL}
+      JIRA_USERNAME: ${JIRA_USERNAME}
+      JIRA_API_TOKEN: ${JIRA_API_TOKEN}
+
+  export-service:
+    build:
+      context: ./export-service/
+      dockerfile: Dockerfile
+    container_name: export-service
+    restart: always
+    ports:
+      - "${EXPORT_SERVICE_PORT:-8089}:8089"
+    environment:
+      SERVER_PORT: 8089
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_EXPORT}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_EXPORT}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_EXPORT}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
