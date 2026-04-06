@@ -10,6 +10,7 @@ services:
       context: ../frontend
       dockerfile: Dockerfile
     container_name: frontend
+    restart: always
     environment:
       VITE_API_GATEWAY_URL: ${VITE_API_GATEWAY_URL}
       VITE_AUTH_SERVICE_URL: ${VITE_AUTH_SERVICE_URL}
@@ -35,7 +36,7 @@ services:
       SERVER_PORT: 8080
 
   # ==========================================
-  # CORE BACKEND SERVICES (VPS 2)
+  # CORE BACKEND SERVICES
   # ==========================================
   auth-service:
     image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/auth-service:latest
@@ -44,8 +45,6 @@ services:
       dockerfile: Dockerfile
     container_name: auth-service
     restart: always
-    ports:
-      - "${VPS2_PRIVATE_IP}:${AUTH_SERVICE_PORT:-8081}:8081"
     environment:
       SERVER_PORT: 8081
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_AUTH}
@@ -68,8 +67,6 @@ services:
       dockerfile: Dockerfile
     container_name: group-service
     restart: always
-    ports:
-      - "${VPS2_PRIVATE_IP}:${GROUP_SERVICE_PORT:-8082}:8082"
     environment:
       SERVER_PORT: 8082
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -85,8 +82,6 @@ services:
       dockerfile: Dockerfile
     container_name: requirement-service
     restart: always
-    ports:
-      - "${VPS2_PRIVATE_IP}:${REQUIREMENT_SERVICE_PORT:-8083}:8083"
     environment:
       SERVER_PORT: 8083
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -102,8 +97,6 @@ services:
       dockerfile: Dockerfile
     container_name: task-service
     restart: always
-    ports:
-      - "${VPS2_PRIVATE_IP}:${TASK_SERVICE_PORT:-8084}:8084"
     environment:
       SERVER_PORT: 8084
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -124,8 +117,6 @@ services:
       dockerfile: Dockerfile
     container_name: notification-service
     restart: always
-    ports:
-      - "${VPS2_PRIVATE_IP}:${NOTIFICATION_SERVICE_PORT:-8086}:8086"
     environment:
       SERVER_PORT: 8086
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -134,9 +125,6 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASS_NOTIFICATION}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
 
-  # ==========================================
-  # EXTERNAL & SUPPORT SERVICES
-  # ==========================================
   report-service:
     image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/report-service:latest
     build:
@@ -144,8 +132,6 @@ services:
       dockerfile: Dockerfile
     container_name: report-service
     restart: always
-    ports:
-      - "${REPORT_SERVICE_PORT:-8085}:8085"
     environment:
       SERVER_PORT: 8085
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -161,8 +147,6 @@ services:
       dockerfile: Dockerfile
     container_name: github-service
     restart: always
-    ports:
-      - "${GITHUB_SERVICE_PORT:-8087}:8087"
     environment:
       SERVER_PORT: 8087
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -178,8 +162,6 @@ services:
       dockerfile: Dockerfile
     container_name: jira-service
     restart: always
-    ports:
-      - "${JIRA_SERVICE_PORT:-8088}:8088"
     environment:
       SERVER_PORT: 8088
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -198,8 +180,6 @@ services:
       dockerfile: Dockerfile
     container_name: export-service
     restart: always
-    ports:
-      - "${EXPORT_SERVICE_PORT:-8089}:8089"
     environment:
       SERVER_PORT: 8089
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
