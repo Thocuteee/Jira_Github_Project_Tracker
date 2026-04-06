@@ -70,13 +70,12 @@ jobs:
       - name: Checkout repository (needed for docker-compose file)
         uses: actions/checkout@v4
 
-      - name: Deploy to VPS
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            echo "✅ SSH Connection Successful!"
-            ls -la
+      - name: Deploy to VPS (Raw SSH Debug)
+        run: |
+          # Lưu private key ra file tạm
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > deploy_key
+          chmod 600 deploy_key
+          
+          # Thử kết nối bằng lệnh SSH nguyên bản với chế độ Verbose (-v)
+          ssh -v -i deploy_key -o StrictHostKeyChecking=no root@${{ secrets.VPS_HOST }} "echo '✅ Raw SSH Connection Successful!'"
 
