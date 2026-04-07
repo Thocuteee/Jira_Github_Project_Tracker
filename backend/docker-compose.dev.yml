@@ -1,0 +1,85 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${LOCAL_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${LOCAL_DB_PASS:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+
+  auth-service:
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth_db
+      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
+    depends_on:
+      - postgres
+
+  group-service:
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/group_db
+      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
+    depends_on:
+      - postgres
+
+  requirement-service:
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/requirement_db
+      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
+    depends_on:
+      - postgres
+
+  task-service:
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/task_db
+      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
+    depends_on:
+      - postgres
+
+  report-service:
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/report_db
+      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
+    depends_on:
+      - postgres
+
+  notification-service:
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification_db
+      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
+    depends_on:
+      - postgres
+
+  github-service:
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/github_db
+      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
+    depends_on:
+      - postgres
+
+  jira-service:
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/jira_db
+      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
+    depends_on:
+      - postgres
+
+  export-service:
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/export_db
+      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
+    depends_on:
+      - postgres
+

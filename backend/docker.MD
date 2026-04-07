@@ -1,8 +1,8 @@
 # Xóa dữ liệu cũ
 docker-compose down -v
 # Run docker
-docker-compose up --build -d 
 
+docker-compose up --build -d 
 docker-compdocker-compose up -d --buildose down && docker-compose up -d --build
 docker compose restart
 
