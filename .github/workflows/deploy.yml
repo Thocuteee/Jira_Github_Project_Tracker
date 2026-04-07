@@ -7,6 +7,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME_LOWER: ""
 
 jobs:
   build-and-push:
@@ -16,6 +17,7 @@ jobs:
       packages: write
 
     strategy:
+      fail-fast: false
       matrix:
         include:
           - service: frontend
@@ -71,32 +73,40 @@ jobs:
 
       - name: Deploy to VPS
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
+          GH_REPO: ${{ github.repository }}
           ENV_FILE_CONTENT: ${{ secrets.ENV_FILE_CONTENT }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
         run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > deploy_rsa_key
+          echo "$SSH_PRIVATE_KEY" > deploy_rsa_key
           chmod 600 deploy_rsa_key
-          
-          ssh -i deploy_rsa_key -o StrictHostKeyChecking=no root@${{ secrets.VPS_HOST }} << 'EOF'
+
+          ssh -i deploy_rsa_key -o StrictHostKeyChecking=no root@$VPS_HOST bash -s << EOF
+            set -e
+
             mkdir -p ~/app
             cd ~/app
-            
+
             # Update code
             if [ ! -d ".git" ]; then
-              git clone https://github.com/${{ github.repository }}.git .
+              git clone https://github.com/$GH_REPO.git .
             else
               git pull origin main
             fi
-            
+
             cd backend
+
             # Cleanup and prepare .env
             docker compose down --remove-orphans || true
-            echo "${{ secrets.ENV_FILE_CONTENT }}" > .env
-            
+            printf '%s' "$ENV_FILE_CONTENT" > .env
+
             # Login and Deploy
-            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
             docker compose pull
             docker compose down --remove-orphans
             docker compose up -d
-            
-            echo "🚀 Deployment successfully finalized over Nginx!"
+
+            echo "Deployment successfully finalized!"
           EOF
