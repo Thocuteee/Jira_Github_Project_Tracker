@@ -16,7 +16,7 @@ public interface AttachmentService {
 
     List<AttachmentResponse> getAttachmentsByTaskId(UUID taskId);
 
-    AttachmentResponse updateAttachment(UUID attachmentId, AttachmentRequest request);
+    AttachmentResponse updateAttachment(UUID taskId, UUID attachmentId, AttachmentRequest request);
 
     void deleteAttachment(UUID taskId, UUID attachmentId);
 }
