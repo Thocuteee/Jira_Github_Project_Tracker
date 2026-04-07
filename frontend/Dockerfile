@@ -1,6 +1,10 @@
 # Stage 1: Build
 FROM node:22-alpine AS build
 WORKDIR /app
+
+ARG VITE_AUTH_SERVICE_URL
+ENV VITE_AUTH_SERVICE_URL=$VITE_AUTH_SERVICE_URL
+
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
