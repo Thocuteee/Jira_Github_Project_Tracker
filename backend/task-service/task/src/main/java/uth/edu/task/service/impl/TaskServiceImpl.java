@@ -157,6 +157,18 @@ public class TaskServiceImpl implements TaskService {
         }
         task.setAssignedTo(request.getAssignedTo());
 
+        TaskEvent event = TaskEvent.builder()
+                .taskId(task.getTaskId())
+                .title(task.getTitle())
+                .assignedTo(task.getAssignedTo())
+                .requirementId(task.getRequirementId())
+                .assignedTo(task.getAssignedTo())
+                .eventType("ASSIGN")
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        taskEventPublisher.publishTaskEvent(event);
+
         Task updatedTask = taskRepository.save(task);
         return taskMapper.toResponse(updatedTask);
     }
