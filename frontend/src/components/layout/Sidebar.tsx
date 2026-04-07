@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 
 const myProjectNav = [
-    { name: 'Dashboard', icon: LayoutDashboard, href: '/' },
+    { name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
     { name: 'Bảng Task', icon: ListTodo, href: '/tasks' },
     { name: 'Yêu cầu (Epic)', icon: Layers, href: '/requirements' },
     { name: 'Thành viên nhóm', icon: Users, href: '/members' },

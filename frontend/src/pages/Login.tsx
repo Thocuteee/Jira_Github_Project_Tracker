@@ -52,11 +52,11 @@ export default function Login() {
     const handleOAuth = (provider: string) => {
         const authBaseUrl = import.meta.env.VITE_AUTH_SERVICE_URL || 'http://localhost:8081'
         if (provider === 'google') {
-            window.location.href = `${authBaseUrl}/oauth2/authorization/google`
+            window.location.href = `${authBaseUrl}/api/auth/oauth2/authorization/google`
             return
         }
         if (provider === 'github') {
-            window.location.href = `${authBaseUrl}/oauth2/authorization/github`
+            window.location.href = `${authBaseUrl}/api/auth/oauth2/authorization/github`
             return
         }
         alert(`OAuth (${provider}) chưa tích hợp vào BE hiện tại.`)

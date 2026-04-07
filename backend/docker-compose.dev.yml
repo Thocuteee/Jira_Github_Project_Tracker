@@ -1,4 +1,18 @@
 services:
+  frontend:
+    build:
+      args:
+        VITE_API_GATEWAY_URL: http://localhost
+        VITE_AUTH_SERVICE_URL: http://localhost
+        VITE_GROUP_SERVICE_URL: http://localhost/api/groups
+        VITE_REQUIREMENT_SERVICE_URL: http://localhost/api/requirements
+        VITE_TASK_SERVICE_URL: http://localhost/api/tasks
+        VITE_REPORT_SERVICE_URL: http://localhost/api/reports
+        VITE_NOTIFICATION_SERVICE_URL: http://localhost/api/notifications
+        VITE_GITHUB_SERVICE_URL: http://localhost/api/github
+        VITE_JIRA_SERVICE_URL: http://localhost/api/jira
+        VITE_EXPORT_SERVICE_URL: http://localhost/api/export
+
   postgres:
     image: postgres:16-alpine
     container_name: postgres
@@ -7,12 +21,13 @@ services:
       POSTGRES_USER: ${LOCAL_DB_USER:-postgres}
       POSTGRES_PASSWORD: ${LOCAL_DB_PASS:-postgres}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
 
   auth-service:
     environment:
+      FRONTEND_URL: http://localhost
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth_db
       SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}

@@ -1,6 +1,13 @@
 version: "3.8"
 
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: always
+    ports:
+      - "6379:6379"
+
   # ==========================================
   # FRONTEND & GATEWAY (VPS 1)
   # ==========================================
@@ -51,6 +58,8 @@ services:
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_AUTH}
       SPRING_DATASOURCE_USERNAME: ${DB_USER_AUTH}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASS_AUTH}
+      SPRING_DATA_REDIS_HOST: ${SPRING_DATA_REDIS_HOST:-redis}
+      SPRING_DATA_REDIS_PORT: ${SPRING_DATA_REDIS_PORT:-6379}
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
       JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-604800000}
@@ -60,6 +69,8 @@ services:
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
       FRONTEND_URL: ${FRONTEND_URL}
+    depends_on:
+      - redis
 
   group-service:
     image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/group-service:latest

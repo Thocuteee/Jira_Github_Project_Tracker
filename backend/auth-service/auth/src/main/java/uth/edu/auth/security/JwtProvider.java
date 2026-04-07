@@ -1,17 +1,21 @@
 package uth.edu.auth.security;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.Key;
 import java.util.Date;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.SignatureException;
+import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.UnsupportedJwtException;
+import io.jsonwebtoken.security.Keys;
 
 @Component
 public class JwtProvider {
@@ -20,6 +24,16 @@ public class JwtProvider {
 
     @Value("${auth.jwt.expiration}")
     private int jwtExpirationMs;
+
+    private Key getSigningKey() {
+        try {
+            byte[] keyBytes = MessageDigest.getInstance("SHA-256")
+                    .digest(jwtSecret.getBytes(StandardCharsets.UTF_8));
+            return Keys.hmacShaKeyFor(keyBytes);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("Cannot initialize JWT signing key", e);
+        }
+    }
 
     public String generateJwtToken(uth.edu.auth.model.User user) {
         String role = user.getRoles().stream()
@@ -33,13 +47,13 @@ public class JwtProvider {
             .claim("role", role)
             .setIssuedAt(new Date())
             .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
-            .signWith(SignatureAlgorithm.HS256, jwtSecret)
+            .signWith(getSigningKey(), SignatureAlgorithm.HS256)
             .compact();
     }
 
     public String getUserNameFromJwtToken(String token) {
         return Jwts.parser()
-            .setSigningKey(jwtSecret)
+            .setSigningKey(getSigningKey())
             .parseClaimsJws(token)
             .getBody()
             .getSubject();
@@ -47,7 +61,7 @@ public class JwtProvider {
 
     public boolean validateJwtToken(String authToken) {
         try {
-            Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(authToken);
+            Jwts.parser().setSigningKey(getSigningKey()).parseClaimsJws(authToken);
             return true;
         } catch (SignatureException e) {
             System.err.println("JWT không hợp lệ: " + e.getMessage());
