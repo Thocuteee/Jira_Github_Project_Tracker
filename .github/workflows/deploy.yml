@@ -103,8 +103,8 @@ jobs:
 
             # Cleanup: dừng và xóa toàn bộ containers cũ (kể cả orphan)
             docker compose down --remove-orphans || true
-            docker stop $(docker ps -aq) 2>/dev/null || true
-            docker rm -f $(docker ps -aq) 2>/dev/null || true
+            docker stop \$(docker ps -aq) 2>/dev/null || true
+            docker rm -f \$(docker ps -aq) 2>/dev/null || true
             printf '%s' "$ENV_FILE_CONTENT" > .env
 
             # Login and Deploy
