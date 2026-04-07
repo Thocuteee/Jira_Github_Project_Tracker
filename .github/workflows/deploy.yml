@@ -89,12 +89,15 @@ jobs:
             mkdir -p ~/app
             cd ~/app
 
-            # Update code
+            # Update code — luôn hoạt động dù thư mục rỗng hay không
             if [ ! -d ".git" ]; then
-              git clone https://github.com/$GH_REPO.git .
+              git init
+              git remote add origin https://github.com/$GH_REPO.git
             else
-              git pull origin main
+              git remote set-url origin https://github.com/$GH_REPO.git
             fi
+            git fetch origin main
+            git reset --hard FETCH_HEAD
 
             cd backend
 
