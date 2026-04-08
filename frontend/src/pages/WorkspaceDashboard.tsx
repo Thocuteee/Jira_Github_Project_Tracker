@@ -7,16 +7,15 @@ const WorkspaceDashboard = () => {
   const { groupId } = useParams();
   const [groupInfo, setGroupInfo] = useState<{ name?: string } | null>(null);
   const [stats, setStats] = useState({ total: 0, done: 0 });
+  const apiGatewayBaseUrl = import.meta.env.VITE_API_GATEWAY_URL || window.location.origin;
 
   useEffect(() => {
-    // 1. Lấy thông tin Group (8082)
-    axios.get(`http://localhost:8080/api/groups/${groupId}`).then(res => setGroupInfo(res.data)).catch(err => console.error("Lỗi lấy thông tin group:", err));
-    // 2. Lấy thống kê Task (8083)
-    axios.get(`http://localhost:8080/api/tasks/stats?groupId=${groupId}`).then(res => setStats(res.data)).catch(err => {
+    axios.get(`${apiGatewayBaseUrl}/api/groups/${groupId}`).then(res => setGroupInfo(res.data)).catch(err => console.error("Lỗi lấy thông tin group:", err));
+    axios.get(`${apiGatewayBaseUrl}/api/tasks/stats?groupId=${groupId}`).then(res => setStats(res.data)).catch(err => {
       console.error("Lỗi lấy thống kê task:", err);
       setStats({ total: 0, done: 0 }); // fallback properties
     });
-  }, [groupId]);
+  }, [apiGatewayBaseUrl, groupId]);
 
   const progress = stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0;
 

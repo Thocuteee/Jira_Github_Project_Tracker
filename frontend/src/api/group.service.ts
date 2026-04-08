@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Giả sử API Gateway chạy ở 8080
-const API_URL = 'http://localhost:8080/api/groups';
+const apiGatewayBaseUrl = import.meta.env.VITE_API_GATEWAY_URL || window.location.origin;
+const API_URL = `${apiGatewayBaseUrl}/api/groups`;
 
 class GroupService {
   // --- Group Endpoints ---

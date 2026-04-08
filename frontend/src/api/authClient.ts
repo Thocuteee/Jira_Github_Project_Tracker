@@ -1,6 +1,6 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 
-const authBaseUrl = import.meta.env.VITE_AUTH_SERVICE_URL || 'http://localhost:8081';
+const authBaseUrl = import.meta.env.VITE_AUTH_SERVICE_URL || window.location.origin;
 
 type RetryableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 

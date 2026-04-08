@@ -13,19 +13,20 @@ interface Workspace {
 const WorkspaceList = () => {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const navigate = useNavigate();
+  const apiGatewayBaseUrl = import.meta.env.VITE_API_GATEWAY_URL || window.location.origin;
 
   useEffect(() => {
     // Gọi API lấy danh sách Group mà User này tham gia
     const fetchWorkspaces = async () => {
       try {
-        const response = await axios.get('http://localhost:8080/api/groups/my-groups');
+        const response = await axios.get(`${apiGatewayBaseUrl}/api/groups/my-groups`);
         setWorkspaces(response.data);
       } catch (error) {
         console.error("Lỗi lấy danh sách nhóm:", error);
       }
     };
     fetchWorkspaces();
-  }, []);
+  }, [apiGatewayBaseUrl]);
 
   return (
     <div className="p-8 bg-slate-50 min-h-screen">
