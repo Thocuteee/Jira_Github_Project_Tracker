@@ -50,7 +50,8 @@ export default function Login() {
     }
 
     const handleOAuth = (provider: string) => {
-        const authBaseUrl = import.meta.env.VITE_AUTH_SERVICE_URL || 'http://localhost:8081'
+        // Đi qua Nginx (http://localhost), không gọi thẳng port 8081
+        const authBaseUrl = import.meta.env.VITE_AUTH_SERVICE_URL || 'http://localhost'
         if (provider === 'google') {
             window.location.href = `${authBaseUrl}/api/auth/oauth2/authorization/google`
             return

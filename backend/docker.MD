@@ -17,6 +17,7 @@ docker compose --env-file .env up -d --build
 ```
 
 docker-compose up --build -d
+docker compose -f docker-compose.yml -f docker-compose.dev.yml down -v
 
 # 1. Truy cập vào giao diện lệnh của Redis
 docker exec -it redis redis-cli
