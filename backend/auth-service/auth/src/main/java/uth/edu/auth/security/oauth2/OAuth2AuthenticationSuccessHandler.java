@@ -60,12 +60,14 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         String refreshToken = refreshTokenService.createRefreshToken(user.getUserId()).getToken();
         String roles = user.getRoles().stream().map(role -> role.getName().name()).collect(Collectors.joining(","));
 
-        response.addHeader("Set-Cookie", buildTokenCookie(ACCESS_TOKEN_COOKIE, accessToken, accessTokenDurationMs).toString());
-        response.addHeader("Set-Cookie", buildTokenCookie(REFRESH_TOKEN_COOKIE, refreshToken, refreshTokenDurationMs).toString());
+        boolean secureCookie = isHttpsRequest(request);
+        response.addHeader("Set-Cookie", buildTokenCookie(ACCESS_TOKEN_COOKIE, accessToken, accessTokenDurationMs, secureCookie).toString());
+        response.addHeader("Set-Cookie", buildTokenCookie(REFRESH_TOKEN_COOKIE, refreshToken, refreshTokenDurationMs, secureCookie).toString());
 
+        String redirectBase = normalizeRedirectBaseUrl(request, oauth2RedirectBaseUrl);
         String targetUrl = String.format(
                 "%s?email=%s&name=%s&roles=%s",
-                oauth2RedirectBaseUrl,
+                redirectBase,
                 encode(normalizedEmail),
                 encode(user.getName()),
                 encode(roles)
@@ -115,10 +117,75 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         return java.net.URLEncoder.encode(value == null ? "" : value, java.nio.charset.StandardCharsets.UTF_8);
     }
 
-    private ResponseCookie buildTokenCookie(String name, String value, long maxAgeMs) {
+    private String normalizeRedirectBaseUrl(HttpServletRequest request, String configured) {
+        String value = (configured == null) ? "" : configured.trim();
+        if (value.isEmpty()) {
+            value = "/oauth2/redirect";
+        }
+
+        // Absolute URL -> keep as is
+        if (value.startsWith("http://") || value.startsWith("https://")) {
+            return value;
+        }
+
+        // If it's a bare path like "oauth2/redirect", fix missing leading slash.
+        if (!value.startsWith("/")) {
+            value = "/" + value;
+        }
+
+        String origin = resolveRequestOrigin(request);
+        return origin + value;
+    }
+
+    private String resolveRequestOrigin(HttpServletRequest request) {
+        String proto = firstNonBlank(
+                request.getHeader("X-Forwarded-Proto"),
+                request.getHeader("x-forwarded-proto")
+        );
+        if (!StringUtils.hasText(proto)) {
+            proto = request.isSecure() ? "https" : "http";
+        }
+
+        String host = firstNonBlank(
+                request.getHeader("X-Forwarded-Host"),
+                request.getHeader("x-forwarded-host"),
+                request.getHeader("Host")
+        );
+        if (!StringUtils.hasText(host)) {
+            host = request.getServerName();
+            int port = request.getServerPort();
+            boolean defaultPort = ("https".equalsIgnoreCase(proto) && port == 443) || ("http".equalsIgnoreCase(proto) && port == 80);
+            if (!defaultPort && port > 0) {
+                host = host + ":" + port;
+            }
+        }
+
+        return proto + "://" + host;
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null) return null;
+        for (String v : values) {
+            if (StringUtils.hasText(v)) return v.trim();
+        }
+        return null;
+    }
+
+    private boolean isHttpsRequest(HttpServletRequest request) {
+        String forwardedProto = firstNonBlank(
+                request.getHeader("X-Forwarded-Proto"),
+                request.getHeader("x-forwarded-proto")
+        );
+        if (StringUtils.hasText(forwardedProto)) {
+            return "https".equalsIgnoreCase(forwardedProto.trim());
+        }
+        return request.isSecure();
+    }
+
+    private ResponseCookie buildTokenCookie(String name, String value, long maxAgeMs, boolean secure) {
         return ResponseCookie.from(name, value)
                 .httpOnly(true)
-                .secure(false)
+                .secure(secure)
                 .sameSite("Lax")
                 .path("/")
                 .maxAge(maxAgeMs / 1000)
