@@ -22,10 +22,6 @@ export default function Login() {
         try {
         const response = await authService.login({ email: email.trim(), password })
 
-        // Lưu Token vào localStorage để Gateway có thể xác thực
-        localStorage.setItem('accessToken', response.token || '')
-        localStorage.setItem('refreshToken', response.refreshToken || '')
-
         localStorage.setItem('userEmail', response.email)
         localStorage.setItem('userName', response.email.split('@')[0] || response.email)
         localStorage.setItem('userSubtitle', getPrimaryRole(response.roles ?? []))

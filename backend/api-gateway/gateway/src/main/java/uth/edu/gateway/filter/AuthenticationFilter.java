@@ -12,6 +12,7 @@ import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
+import org.springframework.http.HttpCookie;
 import reactor.core.publisher.Mono;
 import uth.edu.gateway.jwt.JwtProvider;
 
@@ -42,22 +43,25 @@ public class AuthenticationFilter implements GlobalFilter {
             return chain.filter(exchange);
         }
 
-        // 2. Check Authorization Header
-        if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
-            log.warn("Missing Authorization Header for path: {}", path);
-            return onError(exchange, "Missing Authorization Header", HttpStatus.UNAUTHORIZED);
-        }
-
+        // 2. Extract token from Authorization header OR HttpOnly cookie (accessToken)
+        String token = null;
         String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            log.warn("Invalid Authorization Header format for path: {}", path);
-            return onError(exchange, "Invalid Authorization Header", HttpStatus.UNAUTHORIZED);
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            token = authHeader.substring(7);
+        } else {
+            HttpCookie cookie = request.getCookies().getFirst("accessToken");
+            if (cookie != null && cookie.getValue() != null && !cookie.getValue().isBlank()) {
+                token = cookie.getValue();
+            }
         }
-
-        String token = authHeader.substring(7);
+        if (token == null || token.isBlank()) {
+            log.warn("Missing JWT (Authorization header or accessToken cookie) for path: {}", path);
+            return onError(exchange, "Missing Token", HttpStatus.UNAUTHORIZED);
+        }
+        final String jwtToken = token;
         
         // 3. Check Blacklist in Redis with timeout and fallback
-        return redisTemplate.hasKey("auth:blacklist:" + token)
+        return redisTemplate.hasKey("auth:blacklist:" + jwtToken)
                 .timeout(java.time.Duration.ofSeconds(2)) // Don't hang if Redis is slow
                 .onErrorResume(e -> {
                     log.error("Redis error in auth-filter: {}", e.getMessage());
@@ -66,18 +70,18 @@ public class AuthenticationFilter implements GlobalFilter {
                 .defaultIfEmpty(false)
                 .flatMap(isBlacklisted -> {
                     if (Boolean.TRUE.equals(isBlacklisted)) {
-                        log.warn("Token is blacklisted: {}", token);
+                        log.warn("Token is blacklisted: {}", jwtToken);
                         return onError(exchange, "Token is revoked", HttpStatus.UNAUTHORIZED);
                     }
 
                     // 4. Validate Token
-                    if (!jwtProvider.validateToken(token)) {
+                    if (!jwtProvider.validateToken(jwtToken)) {
                         log.warn("Invalid JWT Token for path: {}", path);
                         return onError(exchange, "Invalid Token", HttpStatus.UNAUTHORIZED);
                     }
 
                     try {
-                        Claims claims = jwtProvider.getClaims(token);
+                        Claims claims = jwtProvider.getClaims(jwtToken);
                         String userId = claims.get("userId", String.class);
                         String role = claims.get("role", String.class);
 

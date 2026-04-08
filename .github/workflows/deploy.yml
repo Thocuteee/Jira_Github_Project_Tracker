@@ -23,7 +23,8 @@ jobs:
           - service: frontend
             context: ./frontend
             build-args: |
-              VITE_AUTH_SERVICE_URL=https://swp391.uth.today/api/auth
+              VITE_AUTH_SERVICE_URL=https://swp391.uth.today
+              VITE_API_GATEWAY_URL=https://swp391.uth.today
           - service: api-gateway
             context: ./backend/api-gateway/gateway
           - service: auth-service
