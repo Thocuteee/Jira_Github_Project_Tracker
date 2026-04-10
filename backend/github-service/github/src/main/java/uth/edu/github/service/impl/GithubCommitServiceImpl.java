@@ -1,6 +1,8 @@
 package uth.edu.github.service.impl;
 
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import uth.edu.github.dto.GithubCommitRequest;
 import uth.edu.github.dto.GithubCommitResponse;
@@ -9,9 +11,12 @@ import uth.edu.github.model.GithubCommit;
 import uth.edu.github.model.GithubRepository;
 import uth.edu.github.repository.GithubCommitRepo;
 import uth.edu.github.repository.GithubRepositoryRepo;
+import uth.edu.github.service.GithubMessagePublisher;
 import uth.edu.github.service.IGithubCommitService;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -22,6 +27,9 @@ public class GithubCommitServiceImpl implements IGithubCommitService {
     private final GithubCommitRepo commitRepo;
     private final GithubRepositoryRepo repoRepo;
     private final GithubCommitMapper mapper;
+
+    @Autowired 
+    private GithubMessagePublisher githubMessagePublisher;
 
     @Override
     public GithubCommitResponse create(GithubCommitRequest request) {
@@ -69,5 +77,15 @@ public class GithubCommitServiceImpl implements IGithubCommitService {
         if (!commitRepo.existsById(commitId))
             throw new RuntimeException("Không tìm thấy Commit!");
         commitRepo.deleteById(commitId);
+    }
+
+    @Override
+    public void saveCommit(GithubCommit commit) {
+        Map<String, Object> message = new HashMap<>();
+        message.put("jiraKey", "PROJ-123"); 
+        message.put("url", commit.getUrl());
+        message.put("message", commit.getMessage());
+
+        githubMessagePublisher.sendCommitSync(message);
     }
 }

@@ -45,4 +45,9 @@ public class GithubCommit {
             this.committedAt = LocalDateTime.now();
         }
     }
+
+    public Object getUrl() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'getUrl'");
+    }
 }
