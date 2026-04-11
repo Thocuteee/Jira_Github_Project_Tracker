@@ -93,12 +93,11 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     public List<TaskResponse> getTasksForUserInGroup(UUID groupId, UUID userId) {
-        String role = getUserRoleString(groupId, userId);
+        String roleInGroup = getUserRoleString(groupId, userId);
         List<Task> tasks;
-        if ("LEADER".equalsIgnoreCase(role)) {
+        if (!"NONE".equalsIgnoreCase(roleInGroup)) {
+            // Mọi thành viên trong nhóm đều có thể xem toàn bộ Task của nhóm
             tasks = taskRepository.findByGroupId(groupId);
-        } else if ("MEMBER".equalsIgnoreCase(role)) {
-            tasks = taskRepository.findByGroupIdAndAssignedTo(groupId, userId);
         } else {
             return java.util.Collections.emptyList();
         }
@@ -119,21 +118,9 @@ public class TaskServiceImpl implements TaskService {
         boolean isLeader = isLeaderInGroup(groupId, currentUserId);
         boolean isAssignee = existingTask.getAssignedTo() != null && existingTask.getAssignedTo().equals(currentUserId);
 
-        // Kiểm tra quyền Update
+        // Kiểm tra quyền Update: Theo yêu cầu mới, chỉ Leader mới được update thông tin Task
         if (!isLeader) {
-            // Nếu không phải Nhóm trưởng, chỉ Thành viên được giao task mới được sửa (nhưng
-            // bị giới hạn trường)
-            if (!isAssignee) {
-                throw new RuntimeException(
-                        "Bạn không phải Nhóm trưởng và cũng không được giao Task này nên không có quyền chỉnh sửa!");
-            }
-
-            // Nếu Thành viên cố tình gửi lên các trường cấm sửa (chỉ Nhóm trưởng mới được
-            // sửa title, priority, dueDate)
-            if (request.getTitle() != null || request.getPriority() != null || request.getDueDate() != null) {
-                throw new RuntimeException(
-                        "Lỗi phân quyền: Thành viên chỉ được cập nhật tiến độ (mô tả), không được sửa thông tin chung của Task!");
-            }
+            throw new RuntimeException("Lỗi phân quyền: Chỉ Nhóm trưởng mới có quyền chỉnh sửa thông tin Task!");
         }
 
         // Kiểm tra xem trạng thái có thay đổi không để ghi lịch sử
@@ -206,7 +193,7 @@ public class TaskServiceImpl implements TaskService {
                 () -> new RuntimeException("Không tìm thấy Task!"));
 
         // Chỉ người đang được giao Task và Nhóm trưởng mới được đổi Status
-        boolean isAssignee = currentUserId.equals(task.getAssignedTo());
+        boolean isAssignee = task.getAssignedTo() != null && currentUserId.equals(task.getAssignedTo());
         boolean isLeader = isLeaderInGroup(task.getGroupId(), currentUserId);
 
         if (!isAssignee && !isLeader) {
@@ -242,15 +229,23 @@ public class TaskServiceImpl implements TaskService {
 
     // Hàm phụ trợ
     private String getUserRoleString(UUID groupId, UUID userId) {
+        if (userId == null) {
+            log.warn("getUserRoleString: userId is null, returning NONE for groupId: {}", groupId);
+            return "NONE";
+        }
         try {
             List<GroupMemberResponse> members = groupClient.getGroupMembers(groupId);
+            if (members == null) {
+                log.error("getUserRoleString: groupClient returned null members list for groupId: {}", groupId);
+                return "NONE";
+            }
             return members.stream()
                     .filter(m -> m.getUserId().equals(userId))
                     .map(GroupMemberResponse::getRoleInGroup)
                     .findFirst()
                     .orElse("NONE");
         } catch (Exception e) {
-            log.error("Lỗi khi lấy Role từ group-service cho groupId {}: {}", groupId, e.getMessage());
+            log.error("Lỗi khi lấy Role từ group-service cho groupId {} (userId: {}): {}", groupId, userId, e.getMessage(), e);
             return "NONE";
         }
     }

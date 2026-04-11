@@ -7,6 +7,7 @@ import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
@@ -17,6 +18,7 @@ import reactor.core.publisher.Mono;
 import uth.edu.gateway.jwt.JwtProvider;
 
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @Component
@@ -38,9 +40,29 @@ public class AuthenticationFilter implements GlobalFilter {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getURI().getPath();
 
-        // 1. Skip auth for open endpoints
+        // 1. Chống Header Spoofing: Xóa sạch các header định danh nội bộ nếu chúng đến từ bên ngoài
+        // 2. Tracing: Sinh Correlation ID để truy vết request
+        String correlationId = request.getHeaders().getFirst("X-Correlation-Id");
+        if (correlationId == null || correlationId.isBlank()) {
+            correlationId = UUID.randomUUID().toString();
+        }
+
+        // Tạo request builder để thay đổi headers
+        ServerHttpRequest.Builder requestBuilder = request.mutate()
+                .header("X-Correlation-Id", correlationId)
+                .headers(httpHeaders -> {
+                    httpHeaders.remove("X-User-Id");
+                    httpHeaders.remove("X-User-Role");
+                });
+
+        // CORS preflight: không gửi cookie → tránh chặn 401 không có header CORS
+        if (request.getMethod() == HttpMethod.OPTIONS) {
+            return chain.filter(exchange.mutate().request(requestBuilder.build()).build());
+        }
+
+        // Skip auth for open endpoints
         if (OPEN_ENDPOINTS.stream().anyMatch(path::contains)) {
-            return chain.filter(exchange);
+            return chain.filter(exchange.mutate().request(requestBuilder.build()).build());
         }
 
         // 2. Extract token from Authorization header OR HttpOnly cookie (accessToken)
@@ -87,13 +109,13 @@ public class AuthenticationFilter implements GlobalFilter {
 
                         log.info("Authenticated user: {} with role: {}", userId, role);
 
-                        // 5. Inject headers
-                        ServerHttpRequest modifiedRequest = request.mutate()
+                        // 5. Inject headers an toàn
+                        ServerHttpRequest finalRequest = requestBuilder
                                 .header("X-User-Id", userId)
                                 .header("X-User-Role", role)
                                 .build();
 
-                        return chain.filter(exchange.mutate().request(modifiedRequest).build());
+                        return chain.filter(exchange.mutate().request(finalRequest).build());
                     } catch (Exception e) {
                         log.error("Error parsing JWT claims", e);
                         return onError(exchange, "Invalid Token Claims", HttpStatus.UNAUTHORIZED);
