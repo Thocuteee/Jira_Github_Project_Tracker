@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout, Plus, Users, ArrowRight } from 'lucide-react';
-import axios from 'axios';
+import axiosClient from '@/api/authClient';
 
 interface Workspace {
   id: string;
@@ -13,20 +13,28 @@ interface Workspace {
 const WorkspaceList = () => {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const navigate = useNavigate();
-  const apiGatewayBaseUrl = import.meta.env.VITE_API_GATEWAY_URL || window.location.origin;
 
   useEffect(() => {
-    // Gọi API lấy danh sách Group mà User này tham gia
     const fetchWorkspaces = async () => {
       try {
-        const response = await axios.get(`${apiGatewayBaseUrl}/api/groups/my-groups`);
-        setWorkspaces(response.data);
+        const raw = (await axiosClient.get('/api/groups/my-groups')) as Array<{
+          groupId: string;
+          groupName: string;
+        }>;
+        const list = Array.isArray(raw) ? raw : [];
+        setWorkspaces(
+          list.map((g) => ({
+            id: g.groupId,
+            name: g.groupName,
+            groupPrefix: String(g.groupId).replace(/-/g, '').slice(0, 8).toUpperCase(),
+          }))
+        );
       } catch (error) {
-        console.error("Lỗi lấy danh sách nhóm:", error);
+        console.error('Lỗi lấy danh sách nhóm:', error);
       }
     };
     fetchWorkspaces();
-  }, [apiGatewayBaseUrl]);
+  }, []);
 
   return (
     <div className="p-8 bg-slate-50 min-h-screen">

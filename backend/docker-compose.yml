@@ -80,7 +80,6 @@ services:
       SPRING_RABBITMQ_HOST: ${SPRING_RABBITMQ_HOST:-rabbitmq}
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
-      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-604800000}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
@@ -226,3 +225,16 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASS_EXPORT}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_RABBITMQ_HOST: ${SPRING_RABBITMQ_HOST:-rabbitmq}
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - api-gateway
+      - auth-service
