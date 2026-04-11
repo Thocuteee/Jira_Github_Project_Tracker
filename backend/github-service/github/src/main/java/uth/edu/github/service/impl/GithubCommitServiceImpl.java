@@ -45,7 +45,15 @@ public class GithubCommitServiceImpl implements IGithubCommitService {
                 .commitFile(request.getCommitFile())
                 .build();
 
-        return mapper.toResponse(commitRepo.save(commit));
+        GithubCommit savedCommit = commitRepo.save(commit);
+
+        try {
+            saveCommit(savedCommit);
+        } catch (Exception e) {
+            System.err.println("❌ Lỗi gửi message sang RabbitMQ: " + e.getMessage());
+        }
+
+        return mapper.toResponse(savedCommit);
     }
 
     @Override
@@ -81,8 +89,22 @@ public class GithubCommitServiceImpl implements IGithubCommitService {
 
     @Override
     public void saveCommit(GithubCommit commit) {
+        String messageText = commit.getMessage();
+        if (messageText == null) return;
+        
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("([A-Z]+-[0-9]+)");
+        java.util.regex.Matcher matcher = pattern.matcher(messageText);
+        
+        String jiraKey = null;
+        if (matcher.find()) {
+            jiraKey = matcher.group(1);
+        } else {
+            System.out.println("Không tìm thấy mã Task Jira trong commit message. Bỏ qua gửi sang RabbitMQ.");
+            return; 
+        }
+
         Map<String, Object> message = new HashMap<>();
-        message.put("jiraKey", "PROJ-123"); 
+        message.put("jiraKey", jiraKey); 
         message.put("url", commit.getUrl());
         message.put("message", commit.getMessage());
 
