@@ -21,8 +21,11 @@ public class Integration {
     @Column(name = "group_id", nullable = false)
     private UUID groupId;
 
-    @Column(name = "github_token", nullable = false)
+    @Column(name = "github_token", nullable = true)
     private String githubToken;
+
+    @Column(name = "github_repo")
+    private String githubRepo;
 
     @Column(name = "jira_project_key")
     private String jiraProjectKey;

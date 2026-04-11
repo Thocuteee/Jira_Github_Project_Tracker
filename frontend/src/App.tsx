@@ -11,6 +11,7 @@ import WorkspaceDashboard from './pages/WorkspaceDashboard';
 import AdminWorkspace from './pages/AdminWorkspace';
 import LecturerManagement from './pages/LecturerManagement';
 import GroupMembers from './pages/GroupMembers';
+import Integrations from './pages/Integrations';
 
 function isMockAuthed() {
   try {
@@ -61,6 +62,7 @@ export default function App() {
         <Route path="/admin/lecturers" element={<LecturerManagement />} />
         <Route path="/members/:groupId" element={<GroupMembers />} />
         <Route path="/members" element={<GroupMembers />} />
+        <Route path="/settings/integrations" element={<Integrations />} />
 
         <Route path="*" element={<Navigate to={authed ? '/dashboard' : '/login'} replace />} />
       </Routes>

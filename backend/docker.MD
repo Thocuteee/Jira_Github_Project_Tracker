@@ -6,6 +6,9 @@
 ```bash
 cd backend
 docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.local up -d --build
+
+docker compose --env-file .env.local -f docker-compose.yml -f docker-compose.dev.yml up --build -d frontend
+
 ```
 
 ## VPS/Production

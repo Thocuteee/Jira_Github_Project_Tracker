@@ -11,7 +11,8 @@ public class IntegrationMapper {
     public Integration toEntity(IntegrationRequest request) {
         return Integration.builder()
                 .groupId(request.getGroupId())
-                .githubToken(request.getGithubToken())
+                .githubToken(request.getGithubToken() != null ? request.getGithubToken() : "")
+                .githubRepo(request.getGithubRepo())
                 .jiraProjectKey(request.getJiraProjectKey())
                 .build();
     }
@@ -21,6 +22,7 @@ public class IntegrationMapper {
         res.setIntegrationId(entity.getIntegrationId());
         res.setGroupId(entity.getGroupId());
         res.setGithubToken(entity.getGithubToken());
+        res.setGithubRepo(entity.getGithubRepo());
         res.setJiraProjectKey(entity.getJiraProjectKey());
         res.setCreatedAt(entity.getCreatedAt());
         return res;

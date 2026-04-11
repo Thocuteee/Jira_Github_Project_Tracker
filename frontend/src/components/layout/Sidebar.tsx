@@ -3,7 +3,6 @@ import {
     ListTodo, 
     Layers, 
     Users, 
-    GitBranch, 
     RefreshCw, 
     Bell, 
     Settings, 
@@ -19,8 +18,7 @@ const myProjectNav = [
 ];
 
 const integrationNav = [
-    { name: 'GitHub Settings', icon: GitBranch, href: '/settings/github' },
-    { name: 'Jira Sync', icon: RefreshCw, href: '/settings/jira' },
+    { name: 'Trung tâm Tích hợp', icon: RefreshCw, href: '/settings/integrations' },
 ];
 
 const systemNav = [
