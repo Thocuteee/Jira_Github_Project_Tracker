@@ -2,10 +2,16 @@ package uth.edu.auth.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
-import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.util.StringUtils;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.data.redis.core.RedisTemplate;
 
 import uth.edu.auth.security.JwtProvider;
 import uth.edu.auth.dto.JwtResponse;
@@ -24,6 +30,14 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/auth") 
 public class AuthController {
+    private static final String ACCESS_TOKEN_COOKIE = "accessToken";
+    private static final String REFRESH_TOKEN_COOKIE = "refreshToken";
+
+    @Value("${auth.jwt.expiration}")
+    private long accessTokenDurationMs;
+
+    @Value("${uth.app.jwtRefreshExpirationMs}")
+    private long refreshTokenDurationMs;
 
     @Autowired
     private IAuthService authService;
@@ -39,6 +53,9 @@ public class AuthController {
 
     @Autowired
     private JwtProvider jwtProvider;
+
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
 
     // 1. Lấy danh sách tất cả User
     @GetMapping("/users")
@@ -62,9 +79,28 @@ public class AuthController {
             user.setEmail(request.getEmail());
             user.setPassword(request.getPassword());
 
-            User registeredUser = authService.registerUser(user);
+            User registeredUser = authService.registerUser(user, request.getRoleName());
             
             return ResponseEntity.ok("Đăng ký thành công cho user: " + registeredUser.getEmail());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // 3.1. Admin cấp tài khoản Giảng viên
+    @PostMapping("/admin/create-lecturer")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> createLecturer(@RequestBody RegisterRequest request) {
+        try {
+            User user = new User();
+            user.setName(request.getName());
+            user.setEmail(request.getEmail());
+            user.setPassword(request.getPassword());
+
+            // Ép buộc role LECTURER
+            User registeredUser = authService.registerUser(user, "LECTURER");
+            
+            return ResponseEntity.ok("Tạo tài khoản Giảng viên thành công cho: " + registeredUser.getEmail());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -77,7 +113,7 @@ public class AuthController {
         return ResponseEntity.ok("Đã xóa người dùng thành công!");
     }
     
-    // 5. Cập nhật User (Ví dụ đổi tên)
+    // 5. Cập nhật User 
     @PutMapping("/users/{id}")
     public ResponseEntity<?> updateUser(@PathVariable UUID id, @RequestBody RegisterRequest request) {
         return ResponseEntity.ok(authService.updateUser(id, request));
@@ -85,14 +121,44 @@ public class AuthController {
 
     //6. Dang Nhap
     @PostMapping("/login-user")
-    public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest, HttpServletResponse response) {
         try {
             JwtResponse jwtResponse = authService.login(loginRequest);
-            return ResponseEntity.ok(jwtResponse);
+            response.addHeader("Set-Cookie", buildTokenCookie(ACCESS_TOKEN_COOKIE, jwtResponse.getToken(), accessTokenDurationMs).toString());
+            response.addHeader("Set-Cookie", buildTokenCookie(REFRESH_TOKEN_COOKIE, jwtResponse.getRefreshToken(), refreshTokenDurationMs).toString());
+            
+            return ResponseEntity.ok(new JwtResponse(
+                    jwtResponse.getToken(), 
+                    jwtResponse.getRefreshToken(), 
+                    jwtResponse.getEmail(), 
+                    jwtResponse.getRoles()));
             
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
+    }
+
+    @PostMapping("/logout-user")
+    public ResponseEntity<?> logoutUser(
+            @RequestParam(required = false) String refreshToken,
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) {
+        if (!StringUtils.hasText(refreshToken)) {
+            refreshToken = readCookieValue(request, REFRESH_TOKEN_COOKIE);
+        }
+        if (StringUtils.hasText(refreshToken)) {
+            refreshTokenService.revokeRefreshToken(refreshToken);
+        }
+
+        String accessToken = readCookieValue(request, ACCESS_TOKEN_COOKIE);
+        if (StringUtils.hasText(accessToken)) {
+            redisTemplate.opsForValue().set("auth:blacklist:" + accessToken, "true", accessTokenDurationMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+        }
+
+        response.addHeader("Set-Cookie", clearCookie(ACCESS_TOKEN_COOKIE).toString());
+        response.addHeader("Set-Cookie", clearCookie(REFRESH_TOKEN_COOKIE).toString());
+        return ResponseEntity.ok("Đăng xuất thành công!");
     }
 
     @PutMapping("/admin/assign-role/{userId}")
@@ -102,7 +168,12 @@ public class AuthController {
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
         
         ERole eRole = switch (roleName.toUpperCase()) {
-            case "LECTURER" -> ERole.ROLE_LECTURER;
+            case "LECTURER" -> {
+                if (user.getEmail() == null || !user.getEmail().endsWith("@gv.ut.edu.vn")) {
+                    throw new RuntimeException("Email của giảng viên phải có đuôi @gv.ut.edu.vn");
+                }
+                yield ERole.ROLE_LECTURER;
+            }
             case "ADMIN" -> ERole.ROLE_ADMIN;
             default -> ERole.ROLE_TEAM_MEMBER;
         };
@@ -115,8 +186,14 @@ public class AuthController {
     }
 
     @PostMapping("/refreshtoken")
-    public ResponseEntity<?> refreshToken(@Valid @RequestBody TokenRefreshRequest request) {
-        String requestRefreshToken = request.getRefreshToken();
+    public ResponseEntity<?> refreshToken(@RequestBody(required = false) TokenRefreshRequest request, HttpServletRequest httpRequest, HttpServletResponse response) {
+        String requestRefreshToken = request != null ? request.getRefreshToken() : null;
+        if (!StringUtils.hasText(requestRefreshToken)) {
+            requestRefreshToken = readCookieValue(httpRequest, REFRESH_TOKEN_COOKIE);
+        }
+        if (!StringUtils.hasText(requestRefreshToken)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Thiếu refresh token!");
+        }
 
         var verified = refreshTokenService.findByToken(requestRefreshToken)
                 .map(refreshTokenService::verifyExpiration);
@@ -125,8 +202,40 @@ public class AuthController {
                     .body("Refresh token không lưu trong database!");
         }
         var user = verified.get().getUser();
-        String token = jwtProvider.generateJwtToken(user.getEmail());
+        String token = jwtProvider.generateJwtToken(user);
+        response.addHeader("Set-Cookie", buildTokenCookie(ACCESS_TOKEN_COOKIE, token, accessTokenDurationMs).toString());
         return ResponseEntity.ok(new TokenRefreshResponse(token, requestRefreshToken));
+    }
+
+    private ResponseCookie buildTokenCookie(String name, String value, long maxAgeMs) {
+        return ResponseCookie.from(name, value)
+                .httpOnly(true)
+                .secure(false)
+                .sameSite("Lax")
+                .path("/")
+                .maxAge(maxAgeMs / 1000)
+                .build();
+    }
+
+    private ResponseCookie clearCookie(String name) {
+        return ResponseCookie.from(name, "")
+                .httpOnly(true)
+                .secure(false)
+                .sameSite("Lax")
+                .path("/")
+                .maxAge(0)
+                .build();
+    }
+
+    private String readCookieValue(HttpServletRequest request, String name) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) return null;
+        for (Cookie cookie : cookies) {
+            if (name.equals(cookie.getName())) {
+                return cookie.getValue();
+            }
+        }
+        return null;
     }
     
 }

@@ -1,47 +1,86 @@
-import { LayoutDashboard, Users, Clock3, Settings } from 'lucide-react'; // Dùng lucide-react cho icon
+import { 
+    LayoutDashboard, 
+    ListTodo, 
+    Layers, 
+    Users, 
+    GitBranch, 
+    RefreshCw, 
+    Bell, 
+    Settings, 
+    Briefcase,
+    ChevronDown 
+} from 'lucide-react';
 
-const navItems = [
-    { name: 'Dashboard', icon: LayoutDashboard, href: '/' },
-    { name: 'Teams', icon: Users, href: '/teams' },
-    { name: 'Recent', icon: Clock3, href: '/recent' },
-    { name: 'Settings', icon: Settings, href: '/settings' },
+const myProjectNav = [
+    { name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
+    { name: 'Bảng Task', icon: ListTodo, href: '/tasks' },
+    { name: 'Yêu cầu (Epic)', icon: Layers, href: '/requirements' },
+    { name: 'Thành viên nhóm', icon: Users, href: '/members' },
 ];
 
-// Mock data cho danh sách Project/Requirement
-const mockProjects = [
-    { id: 1, name: 'Engine' },
-    { id: 2, name: 'Mobile App' },
-    { id: 3, name: 'Web Portal' },
+const integrationNav = [
+    { name: 'GitHub Settings', icon: GitBranch, href: '/settings/github' },
+    { name: 'Jira Sync', icon: RefreshCw, href: '/settings/jira' },
+];
+
+const systemNav = [
+    { name: 'Thông báo', icon: Bell, href: '/notifications' },
+    { name: 'Cấu hình cá nhân', icon: Settings, href: '/profile' },
+    { name: 'Quản lý Workspace', icon: Briefcase, href: '/workspaces' },
 ];
 
 export default function Sidebar() {
     return (
-        <aside className="w-64 bg-slate-100 border-r border-slate-200 flex flex-col p-4">
-        {/* Logo hoặc tên App */}
-        <div className="text-xl font-bold text-slate-950 mb-8 px-2">Project Tracker</div>
-        
-        {/* Navigation chính */}
-        <nav className="space-y-1">
-            {navItems.map((item) => (
-            <a key={item.name} href={item.href} className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-200 hover:text-slate-950 transition-colors">
-                <item.icon className="w-5 h-5" />
-                {item.name}
-            </a>
-            ))}
-        </nav>
-
-        {/* Danh sách Project (Mock Data) */}
-        <div className="mt-10">
-            <h3 className="text-xs font-semibold text-slate-500 uppercase px-3 mb-2">Projects</h3>
-            <div className="space-y-1">
-            {mockProjects.map((project) => (
-                <a key={project.id} href={`/projects/${project.id}`} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-200 hover:text-slate-950 transition-colors">
-                <span className="w-2 h-2 rounded-full bg-slate-400"></span>
-                {project.name}
-                </a>
-            ))}
+        <aside className="w-64 bg-slate-100 border-r border-slate-200 flex flex-col p-4 h-full overflow-y-auto">
+            {/* Logo hoặc tên App */}
+            <div className="text-xl font-bold text-slate-950 mb-6 px-2">Project Tracker</div>
+            
+            {/* Dropdown: Chọn Group */}
+            <div className="mb-6 px-2">
+                <button className="w-full flex items-center justify-between bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors shadow-sm">
+                    <span className="font-medium truncate">Chọn Group</span>
+                    <ChevronDown className="w-4 h-4 text-slate-500" />
+                </button>
             </div>
-        </div>
+
+            {/* DỰ ÁN CỦA TÔI */}
+            <div className="mb-6">
+                <h3 className="text-xs font-semibold text-slate-500 uppercase px-3 mb-2">Dự án của tôi</h3>
+                <nav className="space-y-1">
+                    {myProjectNav.map((item) => (
+                        <a key={item.name} href={item.href} className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-200 hover:text-slate-950 transition-colors">
+                            <item.icon className="w-4 h-4" />
+                            {item.name}
+                        </a>
+                    ))}
+                </nav>
+            </div>
+
+            {/* TÍCH HỢP */}
+            <div className="mb-6">
+                <h3 className="text-xs font-semibold text-slate-500 uppercase px-3 mb-2">Tích hợp</h3>
+                <nav className="space-y-1">
+                    {integrationNav.map((item) => (
+                        <a key={item.name} href={item.href} className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-200 hover:text-slate-950 transition-colors">
+                            <item.icon className="w-4 h-4" />
+                            {item.name}
+                        </a>
+                    ))}
+                </nav>
+            </div>
+
+            {/* HỆ THỐNG */}
+            <div className="mt-auto">
+                <h3 className="text-xs font-semibold text-slate-500 uppercase px-3 mb-2">Hệ thống</h3>
+                <nav className="space-y-1">
+                    {systemNav.map((item) => (
+                        <a key={item.name} href={item.href} className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-200 hover:text-slate-950 transition-colors">
+                            <item.icon className="w-4 h-4" />
+                            {item.name}
+                        </a>
+                    ))}
+                </nav>
+            </div>
         </aside>
     );
 }

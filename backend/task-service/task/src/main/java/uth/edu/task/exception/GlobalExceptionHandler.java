@@ -22,7 +22,7 @@ public class GlobalExceptionHandler {
         response.put("status", HttpStatus.BAD_REQUEST.value());
 
         if (ex.getMessage() != null && ex.getMessage().contains("not one of the values accepted for Enum class")) {
-            response.put("error", "Giá trị bạn gửi lên không hợp lệ. Vui lòng kiểm tra lại các trường như Trạng thái hoặc Mức độ ưu tiên.");
+            response.put("error", "Giá trị bạn gửi lên không hợp lệ!");
         } else {
             response.put("error", "Dữ liệu JSON gửi lên bị sai định dạng.");
         }

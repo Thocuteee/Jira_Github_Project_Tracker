@@ -1,0 +1,119 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME_LOWER: ""
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: frontend
+            context: ./frontend
+            build-args: |
+              VITE_AUTH_SERVICE_URL=https://swp391.uth.today
+              VITE_API_GATEWAY_URL=https://swp391.uth.today
+          - service: api-gateway
+            context: ./backend/api-gateway/gateway
+          - service: auth-service
+            context: ./backend/auth-service/auth
+          - service: group-service
+            context: ./backend/group-service
+          - service: requirement-service
+            context: ./backend/requirement-service/requirement
+          - service: task-service
+            context: ./backend/task-service/task
+          - service: notification-service
+            context: ./backend/notification-service/notification
+          - service: report-service
+            context: ./backend/report-service/report
+          - service: github-service
+            context: ./backend/github-service/github
+          - service: jira-service
+            context: ./backend/jira-service/jira
+          - service: export-service
+            context: ./backend/export-service
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lowercase image name
+        run: echo "IMAGE_NAME_LOWER=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}/${{ matrix.service }}:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to VPS
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
+          GH_REPO: ${{ github.repository }}
+          ENV_FILE_CONTENT: ${{ secrets.ENV_FILE_CONTENT }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          echo "$SSH_PRIVATE_KEY" > deploy_rsa_key
+          chmod 600 deploy_rsa_key
+
+          ssh -i deploy_rsa_key -o StrictHostKeyChecking=no root@$VPS_HOST bash -s << EOF
+            set -e
+
+            mkdir -p ~/app
+            cd ~/app
+
+            # Update code — luôn hoạt động dù thư mục rỗng hay không
+            if [ ! -d ".git" ]; then
+              git init
+              git remote add origin https://github.com/$GH_REPO.git
+            else
+              git remote set-url origin https://github.com/$GH_REPO.git
+            fi
+            git fetch origin main
+            git reset --hard FETCH_HEAD
+
+            cd backend
+
+            # Cleanup: dừng và xóa toàn bộ containers cũ (kể cả orphan)
+            docker compose down --remove-orphans || true
+            docker stop \$(docker ps -aq) 2>/dev/null || true
+            docker rm -f \$(docker ps -aq) 2>/dev/null || true
+            printf '%s' "$ENV_FILE_CONTENT" > .env
+
+            # Login and Deploy
+            echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
+            docker compose pull
+            docker compose up -d
+
+            echo "Deployment successfully finalized!"
+          EOF

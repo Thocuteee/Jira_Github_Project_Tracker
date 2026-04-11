@@ -1,150 +1,213 @@
-version: '3.8'
-services:
-  # Database cho Auth Service
-  auth-db:
-    image: postgres:15
-    container_name: auth-db
-    ports:
-      - "5433:5432"
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-      POSTGRES_DB: auth_db
-    volumes:
-    - auth_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d auth_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+version: "3.8"
 
-  # Auth Service
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+  # ==========================================
+  # FRONTEND & GATEWAY (VPS 1)
+  # ==========================================
+  frontend:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/frontend:latest
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_GATEWAY_URL: ${VITE_API_GATEWAY_URL}
+        VITE_AUTH_SERVICE_URL: ${VITE_AUTH_SERVICE_URL}
+        VITE_GROUP_SERVICE_URL: ${VITE_GROUP_SERVICE_URL}
+        VITE_REQUIREMENT_SERVICE_URL: ${VITE_REQUIREMENT_SERVICE_URL}
+        VITE_TASK_SERVICE_URL: ${VITE_TASK_SERVICE_URL}
+        VITE_REPORT_SERVICE_URL: ${VITE_REPORT_SERVICE_URL}
+        VITE_NOTIFICATION_SERVICE_URL: ${VITE_NOTIFICATION_SERVICE_URL}
+        VITE_GITHUB_SERVICE_URL: ${VITE_GITHUB_SERVICE_URL}
+        VITE_JIRA_SERVICE_URL: ${VITE_JIRA_SERVICE_URL}
+        VITE_EXPORT_SERVICE_URL: ${VITE_EXPORT_SERVICE_URL}
+    container_name: frontend
+    restart: always
+    depends_on:
+      - api-gateway
+
+  api-gateway:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/api-gateway:latest
+    build:
+      context: ./api-gateway/gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    restart: always
+    environment:
+      SERVER_PORT: 8080
+      JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
+
+  # ==========================================
+  # CORE BACKEND SERVICES
+  # ==========================================
   auth-service:
-    build: 
-      context: ./auth-service/auth # Thư mục chứa Dockerfile
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/auth-service:latest
+    build:
+      context: ./auth-service/auth
       dockerfile: Dockerfile
     container_name: auth-service
-    restart: always 
-      - "8081:8081"
-    depends_on:
-        auth-db:
-          condition: service_healthy
+    restart: always
     environment:
       SERVER_PORT: 8081
-      SPRING_DATASOURCE_URL: jdbc:postgresql://auth-db:5432/auth_db
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_AUTH}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_AUTH}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_AUTH}
+      SPRING_DATA_REDIS_HOST: ${SPRING_DATA_REDIS_HOST:-redis}
+      SPRING_DATA_REDIS_PORT: ${SPRING_DATA_REDIS_PORT:-6379}
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      FRONTEND_URL: ${FRONTEND_URL}
+    depends_on:
+      - redis
 
-  # Database cho Notification Service
-  notification-db:
-    image: postgres:15
-    container_name: notification-db
-    ports:
-      - "5434:5432"
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-      POSTGRES_DB: notification_db
-    volumes:
-      - notification_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d notification_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  # # Notification Service
-  # notification-service:
-  #   build:
-  #     context: ./notification-service/notification # Thư mục chứa Dockerfile
-  #     dockerfile: Dockerfile
-  #   container_name: notification-service
-  #   restart: always
-  #   ports:
-  #     - "8086:8086"
-  #   depends_on:
-  #     notification-db:
-  #       condition: service_healthy
-  #   environment:
-  #     SERVER_PORT: 8086
-  #     SPRING_DATASOURCE_URL: jdbc:postgresql://notification-db:5432/notification_db
-  #     SPRING_DATASOURCE_USERNAME: ${DB_USER}
-  #     SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
-  #     SPRING_JPA_HIBERNATE_DDL_AUTO: update
-      # Optional FCM sending (FCM disabled nếu không set FIREBASE_CREDENTIALS_PATH)
-      # FIREBASE_CREDENTIALS_PATH: /app/firebase/serviceAccountKey.json
-
-  # # API Gateway
-  # api-gateway:
-  #   build:
-  #     context: ./api-gateway
-  #     dockerfile: Dockerfile
-  #   container_name: api-gateway
-  #   restart: always
-  #   ports:
-  #     - "8080:8080"
-  #   depends_on:
-  #     auth-service:
-  #       condition: service_started
-  #     group-service:
-  #       condition: service_started
-  #     #requirement-service:
-  #       #condition: service_started
-  #     #task-service:
-  #       #condition: service_started
-  #     notification-service:
-  #       condition: service_started
-  #   environment:
-  #     SERVER_PORT: 8080
-  #     AUTH_SERVICE_URL: http://auth-service:8081
-  #     NOTIFICATION_SERVICE_URL: http://notification-service:8086
-  #     JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
-  #     GATEWAY_CORS_ALLOWED_ORIGIN: ${GATEWAY_CORS_ALLOWED_ORIGIN:-http://localhost:5173}
-  #     GATEWAY_RATE_LIMIT_ENABLED: ${GATEWAY_RATE_LIMIT_ENABLED:-true}
-  #     GATEWAY_RATE_LIMIT_PER_MIN: ${GATEWAY_RATE_LIMIT_PER_MIN:-120}
-
-
-# Database cho Group Service
-  group-db:
-    image: postgres:15
-    container_name: group-db
-    ports:
-      - "5435:5432" # Dùng port 5435 để không đụng với 5433 (auth) và 5434 (notification)
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-      POSTGRES_DB: group_db
-    volumes:
-      - group_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d group_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  # Group Service
   group-service:
-    build: 
-      context: ./group-service # Trỏ đúng vào thư mục backend/group-service
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/group-service:latest
+    build:
+      context: ./group-service/
       dockerfile: Dockerfile
     container_name: group-service
     restart: always
-    ports:
-      - "8082:8082"
-    depends_on:
-      group-db:
-        condition: service_healthy
     environment:
       SERVER_PORT: 8082
-      SPRING_DATASOURCE_URL: jdbc:postgresql://group-db:5432/group_db
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
+      JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_GROUP}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_GROUP}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_GROUP}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
 
-volumes:
-  auth_db_data:
-  notification_db_data:
-  group_db_data:
+  requirement-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/requirement-service:latest
+    build:
+      context: ./requirement-service/requirement
+      dockerfile: Dockerfile
+    container_name: requirement-service
+    restart: always
+    environment:
+      SERVER_PORT: 8083
+      JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_REQUIREMENT}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_REQUIREMENT}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_REQUIREMENT}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+
+  task-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/task-service:latest
+    build:
+      context: ./task-service/task
+      dockerfile: Dockerfile
+    container_name: task-service
+    restart: always
+    environment:
+      SERVER_PORT: 8084
+      JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_TASK}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_TASK}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_TASK}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      CLOUDFLARE_R2_ENDPOINT: ${CLOUDFLARE_R2_ENDPOINT}
+      CLOUDFLARE_R2_PUBLIC_DOMAIN: ${CLOUDFLARE_R2_PUBLIC_DOMAIN}
+      CLOUDFLARE_R2_ACCESS_KEY: ${CLOUDFLARE_R2_ACCESS_KEY}
+      CLOUDFLARE_R2_SECRET_KEY: ${CLOUDFLARE_R2_SECRET_KEY}
+      CLOUDFLARE_R2_BUCKET_NAME: ${CLOUDFLARE_R2_BUCKET_NAME}
+
+  notification-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/notification-service:latest
+    build:
+      context: ./notification-service/notification
+      dockerfile: Dockerfile
+    container_name: notification-service
+    restart: always
+    environment:
+      SERVER_PORT: 8086
+      JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_NOTIFICATION}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_NOTIFICATION}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_NOTIFICATION}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+
+  report-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/report-service:latest
+    build:
+      context: ./report-service/report
+      dockerfile: Dockerfile
+    container_name: report-service
+    restart: always
+    environment:
+      SERVER_PORT: 8085
+      JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_REPORT}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_REPORT}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_REPORT}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+
+  github-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/github-service:latest
+    build:
+      context: ./github-service/github
+      dockerfile: Dockerfile
+    container_name: github-service
+    restart: always
+    environment:
+      SERVER_PORT: 8087
+      JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_GITHUB}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_GITHUB}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_GITHUB}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+
+  jira-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/jira-service:latest
+    build:
+      context: ./jira-service/jira
+      dockerfile: Dockerfile
+    container_name: jira-service
+    restart: always
+    environment:
+      SERVER_PORT: 8088
+      JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_JIRA}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_JIRA}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_JIRA}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      JIRA_API_URL: ${JIRA_API_URL}
+      JIRA_USERNAME: ${JIRA_USERNAME}
+      JIRA_API_TOKEN: ${JIRA_API_TOKEN}
+
+  export-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/export-service:latest
+    build:
+      context: ./export-service/
+      dockerfile: Dockerfile
+    container_name: export-service
+    restart: always
+    environment:
+      SERVER_PORT: 8089
+      JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_EXPORT}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_EXPORT}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_EXPORT}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - api-gateway
+      - auth-service

@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import uth.edu.task.config.UserContextHolder;
+import uth.edu.task.dto.event.TaskEvent;
 import uth.edu.task.dto.request.TaskAssignRequest;
 import uth.edu.task.dto.request.TaskCreateRequest;
 import uth.edu.task.dto.request.TaskStatusUpdateRequest;
@@ -19,7 +20,9 @@ import uth.edu.task.repository.TaskCommentRepository;
 import uth.edu.task.repository.TaskHistoryRepository;
 import uth.edu.task.repository.TaskRepository;
 import uth.edu.task.service.TaskService;
+import uth.edu.task.service.publisher.TaskEventPublisher;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -34,13 +37,14 @@ public class TaskServiceImpl implements TaskService {
     private final TaskHistoryRepository taskHistoryRepository;
     private final TaskCommentRepository taskCommentRepository;
     private final AttachmentRepository attachmentRepository;
+    private final TaskEventPublisher taskEventPublisher;
     private final TaskMapper taskMapper;
 
     @Override
     @Transactional
     public TaskResponse createTask(TaskCreateRequest request) {
         String role = UserContextHolder.getUserRole();
-        String currentUserId = UserContextHolder.getUserId();
+        UUID currentUserId = UserContextHolder.getUserId();
 
         // Kiểm tra quyền: Chỉ Leader mới được tạo Task
         if (!"TEAM_LEADER".equals(role)) {
@@ -48,12 +52,22 @@ public class TaskServiceImpl implements TaskService {
         }
 
         Task task = taskMapper.toEntity(request);
-        task.setStatus(ETaskStatus.TODO);
         task.setCreatedBy(currentUserId);
 
         Task savedTask = taskRepository.save(task);
 
-        saveTaskHistory(savedTask, currentUserId, "CREATE", "None", "Task Created");
+        saveTaskHistory(savedTask, currentUserId, "CREATE", "null", "Task Created");
+
+        TaskEvent event = TaskEvent.builder()
+                .taskId(savedTask.getTaskId())
+                .title(savedTask.getTitle())
+                .assignedTo(savedTask.getAssignedTo())
+                .requirementId(savedTask.getRequirementId())
+                .eventType("CREATED")
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        taskEventPublisher.publishTaskEvent(event);
 
         return taskMapper.toResponse(savedTask);
     }
@@ -66,7 +80,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
-    public List<TaskResponse> getTasksByRequirementId(String requirementId) {
+    public List<TaskResponse> getTasksByRequirementId(UUID requirementId) {
         List<Task> tasks = taskRepository.findByRequirementId(requirementId);
         return tasks.stream()
                 .map(taskMapper::toResponse)
@@ -77,7 +91,7 @@ public class TaskServiceImpl implements TaskService {
     @Transactional
     public TaskResponse updateTask(UUID taskId, TaskUpdateRequest request) {
         String role = UserContextHolder.getUserRole();
-        String currentUserId = UserContextHolder.getUserId();
+        UUID currentUserId = UserContextHolder.getUserId();
 
         Task existingTask = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy Task với ID: " + taskId));
@@ -126,7 +140,7 @@ public class TaskServiceImpl implements TaskService {
     @Transactional
     public TaskResponse assignTask(UUID taskId, TaskAssignRequest request) {
         String role = UserContextHolder.getUserRole();
-        String currentUserId = UserContextHolder.getUserId();
+        UUID currentUserId = UserContextHolder.getUserId();
 
         // Chỉ Leader mới được giao việc
         if (!"TEAM_LEADER".equals(role)) {
@@ -137,11 +151,23 @@ public class TaskServiceImpl implements TaskService {
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy Task!"));
 
         if (!Objects.equals(task.getAssignedTo(), request.getAssignedTo())) {
-            String oldAssign = task.getAssignedTo() != null ? task.getAssignedTo() : "null";
+            String oldAssign = task.getAssignedTo() != null ? task.getAssignedTo().toString() : "null";
 
-            saveTaskHistory(task, currentUserId, "ASSIGN_TO", oldAssign, request.getAssignedTo());
+            saveTaskHistory(task, currentUserId, "ASSIGN_TO", oldAssign, request.getAssignedTo().toString());
         }
         task.setAssignedTo(request.getAssignedTo());
+
+        TaskEvent event = TaskEvent.builder()
+                .taskId(task.getTaskId())
+                .title(task.getTitle())
+                .assignedTo(task.getAssignedTo())
+                .requirementId(task.getRequirementId())
+                .assignedTo(task.getAssignedTo())
+                .eventType("ASSIGN")
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        taskEventPublisher.publishTaskEvent(event);
 
         Task updatedTask = taskRepository.save(task);
         return taskMapper.toResponse(updatedTask);
@@ -150,7 +176,7 @@ public class TaskServiceImpl implements TaskService {
     @Override
     @Transactional
     public TaskResponse changeTaskStatus(UUID taskId, TaskStatusUpdateRequest request) {
-        String currentUserId = UserContextHolder.getUserId();
+        UUID currentUserId = UserContextHolder.getUserId();
         Task task = taskRepository.findById(taskId).orElseThrow(
                 ()-> new RuntimeException("Không tìm thấy Task!"));
 
@@ -191,7 +217,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     // Hàm phụ trợ
-    private void saveTaskHistory(Task task, String changedBy, String field, String oldVal, String newVal) {
+    private void saveTaskHistory(Task task, UUID changedBy, String field, String oldVal, String newVal) {
         TaskHistory history = TaskHistory.builder()
                 .task(task)
                 .changedBy(changedBy)

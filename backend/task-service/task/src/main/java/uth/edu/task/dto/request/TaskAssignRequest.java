@@ -1,10 +1,12 @@
 package uth.edu.task.dto.request;
 
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+
+import java.util.UUID;
 
 @Data
 public class TaskAssignRequest {
-    @NotBlank(message = "ID người nhận không được để trống")
-    private String assignedTo;
+    @NotNull(message = "ID người nhận không được để trống")
+    private UUID assignedTo;
 }
