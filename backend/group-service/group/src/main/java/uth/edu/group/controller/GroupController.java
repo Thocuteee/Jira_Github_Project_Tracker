@@ -23,7 +23,11 @@ public class GroupController {
     }
 
     @GetMapping
-    public ResponseEntity<List<GroupResponse>> getAll() {
+    public ResponseEntity<List<GroupResponse>> getAll(
+            @RequestHeader(value = "X-User-Role", required = false) String role) {
+        if (role == null || !"ROLE_ADMIN".equals(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         return ResponseEntity.ok(groupService.getAllGroups());
     }
 

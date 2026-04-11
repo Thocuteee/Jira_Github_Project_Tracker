@@ -18,6 +18,7 @@ import java.util.UUID;
 public class TaskResponse {
     private UUID taskId;
     private UUID requirementId;
+    private UUID groupId;
     private String title;
     private String description;
     private ETaskStatus status;

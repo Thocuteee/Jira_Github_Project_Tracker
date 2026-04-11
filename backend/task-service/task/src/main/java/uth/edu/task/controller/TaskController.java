@@ -11,6 +11,7 @@ import uth.edu.task.dto.request.TaskStatusUpdateRequest;
 import uth.edu.task.dto.request.TaskUpdateRequest;
 import uth.edu.task.dto.response.TaskResponse;
 import uth.edu.task.service.TaskService;
+import uth.edu.task.config.UserContextHolder;
 
 import java.util.List;
 import java.util.UUID;
@@ -43,6 +44,13 @@ public class TaskController {
     public ResponseEntity<List<TaskResponse>> getTaskByRequirementId(@PathVariable UUID requirementId){
         List<TaskResponse> responses = taskService.getTasksByRequirementId(requirementId);
 
+        return ResponseEntity.ok(responses);
+    }
+
+    @GetMapping("/group/{groupId}")
+    public ResponseEntity<List<TaskResponse>> getTasksByGroup(@PathVariable UUID groupId) {
+        UUID userId = UserContextHolder.getUserId();
+        List<TaskResponse> responses = taskService.getTasksForUserInGroup(groupId, userId);
         return ResponseEntity.ok(responses);
     }
 
