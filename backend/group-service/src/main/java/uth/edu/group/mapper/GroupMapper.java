@@ -32,7 +32,6 @@ public class GroupMapper {
     public MemberRequest toMemberDto(GroupMember member) {
         MemberRequest dto = new MemberRequest();
         dto.setUserId(member.getUserId());
-        dto.setRoleInGroup(member.getRoleInGroup());
         return dto;
     }
 }

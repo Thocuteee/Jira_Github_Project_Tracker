@@ -35,11 +35,8 @@ public class GroupServiceImpl implements IGroupService {
 
         Group saved = groupRepo.save(group);
 
-        // tự - add creator với vai trò LEADER
-        MemberRequest memberReq = new MemberRequest();
-        memberReq.setUserId(creatorId);
-        memberReq.setRoleInGroup("LEADER");
-        addMemberToGroup(saved.getGroupId(), memberReq);
+        // tự - add creator với vai trò LEADER (bỏ qua check quyền vì là internal call)
+        addMemberToGroupInternal(saved.getGroupId(), creatorId, "LEADER");
 
         return groupMapper.toResponse(saved);
     }
@@ -85,12 +82,28 @@ public class GroupServiceImpl implements IGroupService {
     }
 
     @Override
-    public void addMemberToGroup(UUID groupId, MemberRequest req) {
+    public void addMemberToGroup(UUID groupId, MemberRequest req, UUID callerId, String callerRole) {
+        Group group = groupRepo.findById(groupId).orElseThrow(() -> new RuntimeException("Không tìm thấy nhóm!"));
+        
+        // Kiểm tra quyền: Chỉ Leader của nhóm hoặc Admin mới được thêm thành viên
+        boolean isLeader = group.getLeaderId().equals(callerId);
+        boolean isAdmin = callerRole != null && callerRole.contains("ADMIN");
+
+        if (!isLeader && !isAdmin) {
+            throw new RuntimeException("Bạn không có quyền thêm thành viên vào nhóm này!");
+        }
+
+        // Luôn gán role là MEMBER cho thành viên mới được thêm qua API này
+        addMemberToGroupInternal(groupId, req.getUserId(), "MEMBER");
+    }
+
+    // Hàm nội bộ để thêm thành viên mà không qua kiểm tra quyền (dùng cho createGroup hoặc internal logic)
+    private void addMemberToGroupInternal(UUID groupId, UUID userId, String role) {
         Group group = groupRepo.findById(groupId).orElseThrow(() -> new RuntimeException("Không tìm thấy nhóm!"));
         GroupMember member = new GroupMember();
         member.setGroup(group);
-        member.setUserId(req.getUserId());
-        member.setRoleInGroup(req.getRoleInGroup() != null ? req.getRoleInGroup() : "MEMBER");
+        member.setUserId(userId);
+        member.setRoleInGroup(role);
         memberRepo.save(member);
     }
 

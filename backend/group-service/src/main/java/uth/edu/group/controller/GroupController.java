@@ -45,8 +45,12 @@ public class GroupController {
 
     // member endpoints
     @PostMapping("/{groupId}/members")
-    public ResponseEntity<String> addMember(@PathVariable UUID groupId, @RequestBody MemberRequest request) {
-        groupService.addMemberToGroup(groupId, request);
+    public ResponseEntity<String> addMember(
+            @PathVariable UUID groupId, 
+            @RequestBody MemberRequest request,
+            @RequestHeader("X-User-Id") UUID callerId,
+            @RequestHeader("X-User-Role") String callerRole) {
+        groupService.addMemberToGroup(groupId, request, callerId, callerRole);
         return ResponseEntity.status(HttpStatus.CREATED).body("Đã thêm Thành Viên!");
     }
 
