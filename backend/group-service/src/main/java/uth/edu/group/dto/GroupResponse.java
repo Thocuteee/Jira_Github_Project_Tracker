@@ -10,4 +10,6 @@ public class GroupResponse {
     private String groupName;
     private UUID leaderId;
     private LocalDateTime createdAt;
+    private String jiraProjectKey;
+    private String githubRepoUrl;
 }

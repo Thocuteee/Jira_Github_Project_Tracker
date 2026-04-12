@@ -7,4 +7,6 @@ import java.util.UUID;
 public class MemberRequest {
     private UUID userId;
     private String roleInGroup;
+    private String githubUsername;
+    private String jiraAccountId;
 }

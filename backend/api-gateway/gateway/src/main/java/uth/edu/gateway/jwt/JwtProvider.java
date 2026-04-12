@@ -7,7 +7,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PostConstruct;
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 @Component
 public class JwtProvider {
@@ -19,7 +22,13 @@ public class JwtProvider {
 
     @PostConstruct
     public void init() {
-        this.key = Keys.hmacShaKeyFor(jwtSecret.getBytes());
+        try {
+            byte[] keyBytes = MessageDigest.getInstance("SHA-256")
+                    .digest(jwtSecret.getBytes(StandardCharsets.UTF_8));
+            this.key = Keys.hmacShaKeyFor(keyBytes);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("Cannot initialize JWT signing key", e);
+        }
     }
 
     public boolean validateToken(String token) {

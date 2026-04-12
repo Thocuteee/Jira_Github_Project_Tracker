@@ -46,8 +46,10 @@ public class GithubCommit {
         }
     }
 
-    public Object getUrl() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getUrl'");
+    public String getUrl() {
+        if (this.repo != null && this.repo.getRepoUrl() != null) {
+            return this.repo.getRepoUrl() + "/commit/" + this.commitHash;
+        }
+        return "https://github.com/commit/" + this.commitHash;
     }
 }

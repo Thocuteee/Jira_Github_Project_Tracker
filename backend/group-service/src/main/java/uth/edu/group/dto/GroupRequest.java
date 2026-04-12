@@ -7,4 +7,6 @@ import java.util.UUID;
 public class GroupRequest {
     private String groupName;
     private UUID leaderId;
+    private String jiraProjectKey;
+    private String githubRepoUrl;
 }

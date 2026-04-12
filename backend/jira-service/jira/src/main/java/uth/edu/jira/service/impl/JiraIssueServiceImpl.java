@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.atlassian.jira.rest.client.api.JiraRestClient;
+import com.atlassian.jira.rest.client.api.domain.Comment;
 import com.atlassian.jira.rest.client.api.domain.SearchResult;
 
 import java.time.LocalDateTime;
@@ -187,5 +188,16 @@ public class JiraIssueServiceImpl implements JiraIssueService {
         return jiraIssueRepository.findById(id)
                 .orElseThrow(() ->
                     new ResourceNotFoundException("JiraIssue not found: " + id));
+    }
+
+    @Override
+    public void addCommentToIssue(String issueKey, String commentBody) {
+        try {
+            jiraRestClient.getIssueClient().addComment(
+                jiraRestClient.getIssueClient().getIssue(issueKey).claim().getCommentsUri(),Comment.valueOf(commentBody)
+            ).claim();
+        } catch(Exception e) {
+            throw new RuntimeException("Lỗi gọi Jira API: " + e.getMessage());
+        }
     }
 }

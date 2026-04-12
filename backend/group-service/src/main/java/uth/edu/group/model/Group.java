@@ -7,10 +7,12 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "groups")
-@Getter @Setter
-@NoArgsConstructor 
+@Getter
+@Setter
+@NoArgsConstructor
 @AllArgsConstructor
 public class Group {
+
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID groupId;
@@ -20,8 +22,11 @@ public class Group {
 
     private UUID leaderId;
 
-    @Column(name = "created_at", updatable = false)
+    private String jiraProjectKey;
+    private String githubRepoUrl;
+
+    @Column(updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
-    
+
     private UUID createdBy;
 }
