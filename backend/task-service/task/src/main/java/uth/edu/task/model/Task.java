@@ -25,6 +25,9 @@ public class Task {
     @Column(name = "requirement_id", nullable = false)
     private UUID requirementId;
 
+    @Column(name = "group_id")
+    private UUID groupId;
+
     @Column(nullable = false)
     private String title;
 

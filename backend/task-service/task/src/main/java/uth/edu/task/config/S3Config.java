@@ -24,11 +24,15 @@ public class S3Config {
 
     @Bean
     public S3Presigner s3Presigner() {
+        String finalEndpoint = (endpoint == null || endpoint.isBlank()) ? "https://dummy-endpoint.com" : endpoint;
+        String finalAccessKey = (accessKey == null || accessKey.isBlank()) ? "dummy-access-key" : accessKey;
+        String finalSecretKey = (secretKey == null || secretKey.isBlank()) ? "dummy-secret-key" : secretKey;
+
         return S3Presigner.builder()
-                .endpointOverride(URI.create(endpoint))
+                .endpointOverride(URI.create(finalEndpoint))
                 .region(Region.US_EAST_1)
                 .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(accessKey, secretKey)
+                        AwsBasicCredentials.create(finalAccessKey, finalSecretKey)
                 ))
                 .build();
     }

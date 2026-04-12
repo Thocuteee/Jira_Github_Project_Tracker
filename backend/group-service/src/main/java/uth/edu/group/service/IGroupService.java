@@ -8,12 +8,13 @@ public interface IGroupService {
     // Group operations
     GroupResponse createGroup(GroupRequest request, UUID creatorId);
     List<GroupResponse> getAllGroups();
+    List<GroupResponse> getMyGroups(UUID userId);
     GroupResponse getGroupById(UUID id);
     GroupResponse updateGroup(UUID id, GroupRequest request);
     void deleteGroup(UUID id);
 
     // Member operations
-    void addMemberToGroup(UUID groupId, MemberRequest memberRequest);
+    void addMemberToGroup(UUID groupId, MemberRequest memberRequest, UUID callerId, String callerRole);
     void removeMemberFromGroup(UUID groupId, UUID userId);
     List<MemberRequest> getMembersByGroupId(UUID groupId);
 }

@@ -15,30 +15,28 @@ import java.util.stream.Collectors;
 
 @Service
 public class GroupServiceImpl implements IGroupService {
-    
-    @Autowired 
+
+    @Autowired
     private GroupRepository groupRepo;
 
-    @Autowired 
+    @Autowired
     private GroupMemberRepository memberRepo;
-    
-    @Autowired 
-    private GroupMapper groupMapper; 
+
+    @Autowired
+    private GroupMapper groupMapper;
 
     @Override
     @Transactional
     public GroupResponse createGroup(GroupRequest request, UUID creatorId) {
         Group group = groupMapper.toEntity(request);
         group.setCreatedBy(creatorId);
-        if (group.getLeaderId() == null) group.setLeaderId(creatorId);
-        
+        if (group.getLeaderId() == null)
+            group.setLeaderId(creatorId);
+
         Group saved = groupRepo.save(group);
 
-        // tự - add creator với vai trò LEADER
-        MemberRequest memberReq = new MemberRequest();
-        memberReq.setUserId(creatorId);
-        memberReq.setRoleInGroup("LEADER");
-        addMemberToGroup(saved.getGroupId(), memberReq);
+        // tự - add creator với vai trò LEADER (bỏ qua check quyền vì là internal call)
+        addMemberToGroupInternal(saved.getGroupId(), creatorId, "LEADER");
 
         return groupMapper.toResponse(saved);
     }
@@ -47,6 +45,13 @@ public class GroupServiceImpl implements IGroupService {
     public List<GroupResponse> getAllGroups() {
         return groupRepo.findAll().stream()
                 .map(groupMapper::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<GroupResponse> getMyGroups(UUID userId) {
+        return memberRepo.findByUserId(userId).stream()
+                .map(m -> groupMapper.toResponse(m.getGroup()))
                 .collect(Collectors.toList());
     }
 
@@ -70,30 +75,47 @@ public class GroupServiceImpl implements IGroupService {
     @Override
     @Transactional
     public void deleteGroup(UUID id) {
-        // Xóa tất cả thành viên trước khi xóa group 
+        // Xóa tất cả thành viên trước khi xóa group
         List<GroupMember> members = memberRepo.findByGroupGroupId(id);
         memberRepo.deleteAll(members);
         groupRepo.deleteById(id);
     }
 
     @Override
-    public void addMemberToGroup(UUID groupId, MemberRequest req) {
+    public void addMemberToGroup(UUID groupId, MemberRequest req, UUID callerId, String callerRole) {
+        Group group = groupRepo.findById(groupId).orElseThrow(() -> new RuntimeException("Không tìm thấy nhóm!"));
+        
+        // Kiểm tra quyền: Chỉ Leader của nhóm hoặc Admin mới được thêm thành viên
+        boolean isLeader = group.getLeaderId().equals(callerId);
+        boolean isAdmin = callerRole != null && callerRole.contains("ADMIN");
+
+        if (!isLeader && !isAdmin) {
+            throw new RuntimeException("Bạn không có quyền thêm thành viên vào nhóm này!");
+        }
+
+        // Luôn gán role là MEMBER cho thành viên mới được thêm qua API này
+        addMemberToGroupInternal(groupId, req.getUserId(), "MEMBER");
+    }
+
+    // Hàm nội bộ để thêm thành viên mà không qua kiểm tra quyền (dùng cho createGroup hoặc internal logic)
+    private void addMemberToGroupInternal(UUID groupId, UUID userId, String role) {
         Group group = groupRepo.findById(groupId).orElseThrow(() -> new RuntimeException("Không tìm thấy nhóm!"));
         GroupMember member = new GroupMember();
         member.setGroup(group);
-        member.setUserId(req.getUserId());
-        member.setRoleInGroup(req.getRoleInGroup());
+        member.setUserId(userId);
+        member.setRoleInGroup(role);
         memberRepo.save(member);
     }
 
     @Override
     @Transactional
     public void removeMemberFromGroup(UUID groupId, UUID userId) {
-        
+
     }
 
     @Override
     public List<MemberRequest> getMembersByGroupId(UUID groupId) {
-        return memberRepo.findByGroupGroupId(groupId).stream().map(groupMapper::toMemberDto).collect(Collectors.toList());
+        return memberRepo.findByGroupGroupId(groupId).stream().map(groupMapper::toMemberDto)
+                .collect(Collectors.toList());
     }
 }

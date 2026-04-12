@@ -4,13 +4,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import uth.edu.auth.dto.UserResponse;
 import uth.edu.auth.model.User;
 import uth.edu.auth.repository.UserRepository;
 import java.util.stream.Collectors;
+import java.util.Map;
+import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/users")
@@ -35,5 +36,12 @@ public class UserController {
         );
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/names")
+    public ResponseEntity<Map<UUID, String>> getUserNames(@RequestBody List<UUID> userIds) {
+        Map<UUID, String> nameMap = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getUserId, User::getName));
+        return ResponseEntity.ok(nameMap);
     }
 }

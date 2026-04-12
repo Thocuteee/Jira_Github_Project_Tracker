@@ -7,5 +7,6 @@ import java.util.List;
 
 public interface GroupMemberRepository extends JpaRepository<GroupMember, UUID> {
     List<GroupMember> findByGroupGroupId(UUID groupId);
+    List<GroupMember> findByUserId(UUID userId);
     void deleteByGroupGroupIdAndUserId(UUID groupId, UUID userId);
 }

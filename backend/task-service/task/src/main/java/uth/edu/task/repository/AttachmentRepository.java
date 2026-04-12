@@ -15,7 +15,7 @@ public interface AttachmentRepository extends JpaRepository<Attachment, UUID> {
 
     List<Attachment> findByTask_TaskId(UUID taskId);
 
-    Optional<Attachment> findByIdAndTaskId(UUID id, UUID taskId);
+    Optional<Attachment> findByAttachmentIdAndTask_TaskId(UUID attachmentId, UUID taskId);
 
     void deleteAllByTask_TaskId(UUID taskId);
 
