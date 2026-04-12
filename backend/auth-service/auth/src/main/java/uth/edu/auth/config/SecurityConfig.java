@@ -66,7 +66,13 @@ public class SecurityConfig {
                                                                 "/api/auth/oauth2/authorization/**",
                                                                 "/api/auth/login/oauth2/code/**")
                                                 .permitAll()
-                                                .anyRequest().authenticated());
+                                                .anyRequest().authenticated())
+                                .exceptionHandling(exception -> exception
+                                                .authenticationEntryPoint((request, response, authException) -> {
+                                                        response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED);
+                                                        response.setContentType("application/json");
+                                                        response.getWriter().write("{\"status\": 401, \"message\": \"Unauthorized: Token expired or invalid\"}");
+                                                }));
 
                 http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

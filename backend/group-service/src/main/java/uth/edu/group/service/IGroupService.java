@@ -8,6 +8,7 @@ public interface IGroupService {
     // Group operations
     GroupResponse createGroup(GroupRequest request, UUID creatorId);
     List<GroupResponse> getAllGroups();
+    List<GroupResponse> getMyGroups(UUID userId);
     GroupResponse getGroupById(UUID id);
     GroupResponse updateGroup(UUID id, GroupRequest request);
     void deleteGroup(UUID id);

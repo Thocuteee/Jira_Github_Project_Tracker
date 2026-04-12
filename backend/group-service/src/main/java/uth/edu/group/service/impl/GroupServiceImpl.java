@@ -15,23 +15,24 @@ import java.util.stream.Collectors;
 
 @Service
 public class GroupServiceImpl implements IGroupService {
-    
-    @Autowired 
+
+    @Autowired
     private GroupRepository groupRepo;
 
-    @Autowired 
+    @Autowired
     private GroupMemberRepository memberRepo;
-    
-    @Autowired 
-    private GroupMapper groupMapper; 
+
+    @Autowired
+    private GroupMapper groupMapper;
 
     @Override
     @Transactional
     public GroupResponse createGroup(GroupRequest request, UUID creatorId) {
         Group group = groupMapper.toEntity(request);
         group.setCreatedBy(creatorId);
-        if (group.getLeaderId() == null) group.setLeaderId(creatorId);
-        
+        if (group.getLeaderId() == null)
+            group.setLeaderId(creatorId);
+
         Group saved = groupRepo.save(group);
 
         // tự - add creator với vai trò LEADER
@@ -47,6 +48,13 @@ public class GroupServiceImpl implements IGroupService {
     public List<GroupResponse> getAllGroups() {
         return groupRepo.findAll().stream()
                 .map(groupMapper::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<GroupResponse> getMyGroups(UUID userId) {
+        return memberRepo.findByUserId(userId).stream()
+                .map(m -> groupMapper.toResponse(m.getGroup()))
                 .collect(Collectors.toList());
     }
 
@@ -70,7 +78,7 @@ public class GroupServiceImpl implements IGroupService {
     @Override
     @Transactional
     public void deleteGroup(UUID id) {
-        // Xóa tất cả thành viên trước khi xóa group 
+        // Xóa tất cả thành viên trước khi xóa group
         List<GroupMember> members = memberRepo.findByGroupGroupId(id);
         memberRepo.deleteAll(members);
         groupRepo.deleteById(id);
@@ -82,18 +90,19 @@ public class GroupServiceImpl implements IGroupService {
         GroupMember member = new GroupMember();
         member.setGroup(group);
         member.setUserId(req.getUserId());
-        member.setRoleInGroup(req.getRoleInGroup());
+        member.setRoleInGroup(req.getRoleInGroup() != null ? req.getRoleInGroup() : "MEMBER");
         memberRepo.save(member);
     }
 
     @Override
     @Transactional
     public void removeMemberFromGroup(UUID groupId, UUID userId) {
-        
+
     }
 
     @Override
     public List<MemberRequest> getMembersByGroupId(UUID groupId) {
-        return memberRepo.findByGroupGroupId(groupId).stream().map(groupMapper::toMemberDto).collect(Collectors.toList());
+        return memberRepo.findByGroupGroupId(groupId).stream().map(groupMapper::toMemberDto)
+                .collect(Collectors.toList());
     }
 }

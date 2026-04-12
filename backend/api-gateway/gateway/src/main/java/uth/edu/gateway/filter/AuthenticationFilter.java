@@ -113,6 +113,7 @@ public class AuthenticationFilter implements GlobalFilter {
                         ServerHttpRequest finalRequest = requestBuilder
                                 .header("X-User-Id", userId)
                                 .header("X-User-Role", role)
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
                                 .build();
 
                         return chain.filter(exchange.mutate().request(finalRequest).build());

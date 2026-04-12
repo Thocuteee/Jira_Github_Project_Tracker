@@ -3,6 +3,7 @@ package uth.edu.task.service.impl;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import uth.edu.task.config.UserContextHolder;
 import uth.edu.task.dto.event.TaskEvent;
@@ -49,9 +50,9 @@ public class TaskServiceImpl implements TaskService {
         UUID currentUserId = UserContextHolder.getUserId();
         UUID groupId = UUID.fromString(request.getGroupId());
 
-        // Kiểm tra quyền: Chỉ Nhóm trưởng trong Group mới được tạo Task
-        if (!isLeaderInGroup(groupId, currentUserId)) {
-            throw new RuntimeException("Chỉ Nhóm trưởng mới có quyền tạo Task trong Group này!");
+        // Kiểm tra quyền: Chỉ Nhóm trưởng trong Group hoặc ADMIN mới được tạo Task
+        if (!isLeaderInGroup(groupId, currentUserId) && !isAdmin()) {
+            throw new RuntimeException("Chỉ Nhóm trưởng hoặc Admin mới có quyền tạo Task!");
         }
 
         Task task = taskMapper.toEntity(request);
@@ -80,12 +81,30 @@ public class TaskServiceImpl implements TaskService {
     public TaskResponse getTaskById(UUID taskId) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy Task với ID: " + taskId));
+        
+        UUID currentUserId = UserContextHolder.getUserId();
+        
+        // Kiểm tra quyền xem: Phải thuộc nhóm, hoặc là Admin/Lecturer
+        if (!isMemberOfGroup(task.getGroupId(), currentUserId) && !isAdmin() && !isLecturer()) {
+            throw new RuntimeException("Bạn không có quyền xem chi tiết Task này vì không thuộc Nhóm!");
+        }
+        
         return taskMapper.toResponse(task);
     }
 
     @Override
     public List<TaskResponse> getTasksByRequirementId(UUID requirementId) {
         List<Task> tasks = taskRepository.findByRequirementId(requirementId);
+        if (tasks.isEmpty()) return java.util.Collections.emptyList();
+
+        UUID currentUserId = UserContextHolder.getUserId();
+        UUID groupId = tasks.get(0).getGroupId();
+
+        // Kiểm tra quyền xem danh sách: Phải thuộc nhóm, hoặc là Admin/Lecturer
+        if (!isMemberOfGroup(groupId, currentUserId) && !isAdmin() && !isLecturer()) {
+            throw new RuntimeException("Bạn không có quyền xem danh sách Task của Requirement này!");
+        }
+
         return tasks.stream()
                 .map(taskMapper::toResponse)
                 .collect(Collectors.toList());
@@ -93,17 +112,15 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     public List<TaskResponse> getTasksForUserInGroup(UUID groupId, UUID userId) {
-        String roleInGroup = getUserRoleString(groupId, userId);
-        List<Task> tasks;
-        if (!"NONE".equalsIgnoreCase(roleInGroup)) {
-            // Mọi thành viên trong nhóm đều có thể xem toàn bộ Task của nhóm
-            tasks = taskRepository.findByGroupId(groupId);
-        } else {
-            return java.util.Collections.emptyList();
+        // Nếu là Admin hoặc Lecturer thì cho xem toàn bộ
+        if (isAdmin() || isLecturer() || ! "NONE".equalsIgnoreCase(getUserRoleString(groupId, userId))) {
+            List<Task> tasks = taskRepository.findByGroupId(groupId);
+            return tasks.stream()
+                    .map(taskMapper::toResponse)
+                    .collect(Collectors.toList());
         }
-        return tasks.stream()
-                .map(taskMapper::toResponse)
-                .collect(Collectors.toList());
+        
+        return java.util.Collections.emptyList();
     }
 
     @Override
@@ -116,11 +133,10 @@ public class TaskServiceImpl implements TaskService {
 
         UUID groupId = existingTask.getGroupId();
         boolean isLeader = isLeaderInGroup(groupId, currentUserId);
-        boolean isAssignee = existingTask.getAssignedTo() != null && existingTask.getAssignedTo().equals(currentUserId);
 
-        // Kiểm tra quyền Update: Theo yêu cầu mới, chỉ Leader mới được update thông tin Task
-        if (!isLeader) {
-            throw new RuntimeException("Lỗi phân quyền: Chỉ Nhóm trưởng mới có quyền chỉnh sửa thông tin Task!");
+        // Kiểm tra quyền Update: Chỉ Leader hoặc Admin mới được update thông tin Task
+        if (!isLeader && !isAdmin()) {
+            throw new RuntimeException("Lỗi phân quyền: Chỉ Nhóm trưởng hoặc Admin mới có quyền chỉnh sửa Task!");
         }
 
         // Kiểm tra xem trạng thái có thay đổi không để ghi lịch sử
@@ -157,9 +173,9 @@ public class TaskServiceImpl implements TaskService {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy Task!"));
 
-        // Chỉ Nhóm trưởng mới được giao việc
-        if (!isLeaderInGroup(task.getGroupId(), currentUserId)) {
-            throw new RuntimeException("Lỗi phân quyền: Chỉ Nhóm trưởng mới có quyền giao Task!");
+        // Chỉ Nhóm trưởng hoặc Admin mới được giao việc
+        if (!isLeaderInGroup(task.getGroupId(), currentUserId) && !isAdmin()) {
+            throw new RuntimeException("Lỗi phân quyền: Chỉ Nhóm trưởng hoặc Admin mới có quyền giao Task!");
         }
 
         if (!Objects.equals(task.getAssignedTo(), request.getAssignedTo())) {
@@ -174,7 +190,6 @@ public class TaskServiceImpl implements TaskService {
                 .title(task.getTitle())
                 .assignedTo(task.getAssignedTo())
                 .requirementId(task.getRequirementId())
-                .assignedTo(task.getAssignedTo())
                 .eventType("ASSIGN")
                 .timestamp(LocalDateTime.now())
                 .build();
@@ -192,11 +207,11 @@ public class TaskServiceImpl implements TaskService {
         Task task = taskRepository.findById(taskId).orElseThrow(
                 () -> new RuntimeException("Không tìm thấy Task!"));
 
-        // Chỉ người đang được giao Task và Nhóm trưởng mới được đổi Status
+        // Chỉ người đang được giao Task, Nhóm trưởng hoặc Admin mới được đổi Status
         boolean isAssignee = task.getAssignedTo() != null && currentUserId.equals(task.getAssignedTo());
         boolean isLeader = isLeaderInGroup(task.getGroupId(), currentUserId);
 
-        if (!isAssignee && !isLeader) {
+        if (!isAssignee && !isLeader && !isAdmin()) {
             throw new RuntimeException("Bạn không có quyền đổi trạng thái Task này!");
         }
 
@@ -217,8 +232,8 @@ public class TaskServiceImpl implements TaskService {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy Task để xóa!"));
 
-        if (!isLeaderInGroup(task.getGroupId(), currentUserId)) {
-            throw new RuntimeException("Chỉ Nhóm trưởng mới có quyền xóa Task!");
+        if (!isLeaderInGroup(task.getGroupId(), currentUserId) && !isAdmin()) {
+            throw new RuntimeException("Chỉ Nhóm trưởng hoặc Admin mới có quyền xóa Task!");
         }
 
         taskHistoryRepository.deleteAllByTask_TaskId(taskId);
@@ -245,13 +260,28 @@ public class TaskServiceImpl implements TaskService {
                     .findFirst()
                     .orElse("NONE");
         } catch (Exception e) {
-            log.error("Lỗi khi lấy Role từ group-service cho groupId {} (userId: {}): {}", groupId, userId, e.getMessage(), e);
+            log.error("Lỗi khi lấy Role từ group-service cho groupId {} (userId: {}): {}", groupId, userId, e.getMessage());
             return "NONE";
         }
     }
 
     private boolean isLeaderInGroup(UUID groupId, UUID userId) {
         return "LEADER".equalsIgnoreCase(getUserRoleString(groupId, userId));
+    }
+
+    private boolean isMemberOfGroup(UUID groupId, UUID userId) {
+        String role = getUserRoleString(groupId, userId);
+        return !"NONE".equalsIgnoreCase(role);
+    }
+
+    private boolean isAdmin() {
+        return SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+    }
+
+    private boolean isLecturer() {
+        return SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_LECTURER"));
     }
 
     private void saveTaskHistory(Task task, UUID changedBy, String field, String oldVal, String newVal) {
