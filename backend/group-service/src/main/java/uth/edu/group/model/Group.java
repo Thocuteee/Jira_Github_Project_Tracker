@@ -7,7 +7,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "groups")
-@Getter @Setter
+@Getter 
+@Setter
 @NoArgsConstructor 
 @AllArgsConstructor
 public class Group {
