@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { GroupProvider } from './contexts/GroupContext'
 import Dashboard from '@/pages/Dashboard'
 import Login from '@/pages/Login'
 import Register from '@/pages/Register'
 import OAuth2Redirect from './pages/OAuth2Redirect'
 
 //Test 
+import WorkspaceList from './pages/WorkspaceList';
 import WorkspaceDashboard from './pages/WorkspaceDashboard';
 import AdminWorkspace from './pages/AdminWorkspace';
 import LecturerManagement from './pages/LecturerManagement';
@@ -28,8 +30,6 @@ function isMockAuthed() {
   }
 }
 
-import { GroupProvider } from './context/GroupContext';
-
 export default function App() {
   const [authed, setAuthed] = useState<boolean>(() => isMockAuthed())
 
@@ -46,8 +46,8 @@ export default function App() {
   }, [])
 
   return (
-    <GroupProvider>
-      <Router>
+    <Router>
+      <GroupProvider>
         <Routes>
           <Route path="/" element={<Navigate to={authed ? '/dashboard' : '/login'} replace />} />
           <Route path="/dashboard" element={authed ? <Dashboard /> : <Navigate to="/login" replace />} />
@@ -57,17 +57,18 @@ export default function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/oauth2/redirect" element={<OAuth2Redirect />} />
 
-          {/* Core App */}
-          <Route path="/workspace/:groupId" element={<WorkspaceDashboard />} />
-          <Route path="/admin/workspace" element={<AdminWorkspace />} />
-          <Route path="/admin/lecturers" element={<LecturerManagement />} />
-          <Route path="/members/:groupId" element={<GroupMembers />} />
-          <Route path="/members" element={<GroupMembers />} />
-          <Route path="/settings/integrations" element={<Integrations />} />
+        {/* Test */}
+        <Route path="/workspaces" element={<WorkspaceList />} />
+        <Route path="/workspace/:groupId" element={<WorkspaceDashboard />} />
+        <Route path="/admin/workspace" element={<AdminWorkspace />} />
+        <Route path="/admin/lecturers" element={<LecturerManagement />} />
+        <Route path="/members/:groupId" element={<GroupMembers />} />
+        <Route path="/members" element={<GroupMembers />} />
+        <Route path="/settings/integrations" element={<Integrations />} />
 
           <Route path="*" element={<Navigate to={authed ? '/dashboard' : '/login'} replace />} />
         </Routes>
-      </Router>
-    </GroupProvider>
+      </GroupProvider>
+    </Router>
   )
 }

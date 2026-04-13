@@ -1,10 +1,11 @@
 services:
+  # ==========================================
+  # HẠ TẦNG DÙNG CHUNG
+  # ==========================================
   redis:
     image: redis:7-alpine
     container_name: redis
     restart: always
-    ports:
-      - "6379:6379"
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
@@ -18,13 +19,12 @@ services:
       - "15672:15672"
 
   # ==========================================
-  # FRONTEND & GATEWAY (VPS 1)
+  # FRONTEND & API GATEWAY
   # ==========================================
   frontend:
     image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/frontend:latest
     build:
       context: ../frontend
-      dockerfile: Dockerfile
       args:
         VITE_API_GATEWAY_URL: ${VITE_API_GATEWAY_URL}
         VITE_AUTH_SERVICE_URL: ${VITE_AUTH_SERVICE_URL}
@@ -38,30 +38,34 @@ services:
         VITE_EXPORT_SERVICE_URL: ${VITE_EXPORT_SERVICE_URL}
     container_name: frontend
     restart: always
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
     depends_on:
       - api-gateway
 
   api-gateway:
     image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/api-gateway:latest
-    build:
-      context: ./api-gateway/gateway
-      dockerfile: Dockerfile
+    build: ./api-gateway/gateway
     container_name: api-gateway
     restart: always
+    ports:
+      - "${API_GATEWAY_PORT:-8080}:8080"
     environment:
       SERVER_PORT: 8080
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
+      SPRING_DATA_REDIS_HOST: ${SPRING_DATA_REDIS_HOST:-redis}
+      SPRING_DATA_REDIS_PORT: ${SPRING_DATA_REDIS_PORT:-6379}
 
   # ==========================================
-  # CORE BACKEND SERVICES
+  # CORE SERVICES (Microservices)
   # ==========================================
   auth-service:
     image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/auth-service:latest
-    build:
-      context: ./auth-service/auth
-      dockerfile: Dockerfile
+    build: ./auth-service/auth
     container_name: auth-service
     restart: always
+    ports:
+      - "${AUTH_SERVICE_PORT:-8081}:8081"
     environment:
       SERVER_PORT: 8081
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_AUTH}
@@ -69,6 +73,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASS_AUTH}
       SPRING_DATA_REDIS_HOST: ${SPRING_DATA_REDIS_HOST:-redis}
       SPRING_DATA_REDIS_PORT: ${SPRING_DATA_REDIS_PORT:-6379}
+      SPRING_RABBITMQ_HOST: ${SPRING_RABBITMQ_HOST:-rabbitmq}
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
       JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-604800000}
@@ -80,14 +85,15 @@ services:
       FRONTEND_URL: ${FRONTEND_URL}
     depends_on:
       - redis
+      - rabbitmq
 
   group-service:
     image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/group-service:latest
-    build:
-      context: ./group-service/
-      dockerfile: Dockerfile
+    build: ./group-service
     container_name: group-service
     restart: always
+    ports:
+      - "${GROUP_SERVICE_PORT:-8082}:8082"
     environment:
       SERVER_PORT: 8082
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -95,14 +101,15 @@ services:
       SPRING_DATASOURCE_USERNAME: ${DB_USER_GROUP}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASS_GROUP}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_RABBITMQ_HOST: ${SPRING_RABBITMQ_HOST:-rabbitmq}
 
   requirement-service:
     image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/requirement-service:latest
-    build:
-      context: ./requirement-service/requirement
-      dockerfile: Dockerfile
+    build: ./requirement-service/requirement
     container_name: requirement-service
     restart: always
+    ports:
+      - "${REQUIREMENT_SERVICE_PORT:-8083}:8083"
     environment:
       SERVER_PORT: 8083
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -110,14 +117,15 @@ services:
       SPRING_DATASOURCE_USERNAME: ${DB_USER_REQUIREMENT}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASS_REQUIREMENT}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_RABBITMQ_HOST: ${SPRING_RABBITMQ_HOST:-rabbitmq}
 
   task-service:
     image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/task-service:latest
-    build:
-      context: ./task-service/task
-      dockerfile: Dockerfile
+    build: ./task-service/task
     container_name: task-service
     restart: always
+    ports:
+      - "${TASK_SERVICE_PORT:-8084}:8084"
     environment:
       SERVER_PORT: 8084
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -125,34 +133,20 @@ services:
       SPRING_DATASOURCE_USERNAME: ${DB_USER_TASK}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASS_TASK}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_RABBITMQ_HOST: ${SPRING_RABBITMQ_HOST:-rabbitmq}
       CLOUDFLARE_R2_ENDPOINT: ${CLOUDFLARE_R2_ENDPOINT}
       CLOUDFLARE_R2_PUBLIC_DOMAIN: ${CLOUDFLARE_R2_PUBLIC_DOMAIN}
       CLOUDFLARE_R2_ACCESS_KEY: ${CLOUDFLARE_R2_ACCESS_KEY}
       CLOUDFLARE_R2_SECRET_KEY: ${CLOUDFLARE_R2_SECRET_KEY}
       CLOUDFLARE_R2_BUCKET_NAME: ${CLOUDFLARE_R2_BUCKET_NAME}
 
-  notification-service:
-    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/notification-service:latest
-    build:
-      context: ./notification-service/notification
-      dockerfile: Dockerfile
-    container_name: notification-service
-    restart: always
-    environment:
-      SERVER_PORT: 8086
-      JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_NOTIFICATION}
-      SPRING_DATASOURCE_USERNAME: ${DB_USER_NOTIFICATION}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_NOTIFICATION}
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
-
   report-service:
     image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/report-service:latest
-    build:
-      context: ./report-service/report
-      dockerfile: Dockerfile
+    build: ./report-service/report
     container_name: report-service
     restart: always
+    ports:
+      - "${REPORT_SERVICE_PORT:-8085}:8085"
     environment:
       SERVER_PORT: 8085
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -160,14 +154,31 @@ services:
       SPRING_DATASOURCE_USERNAME: ${DB_USER_REPORT}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASS_REPORT}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_RABBITMQ_HOST: ${SPRING_RABBITMQ_HOST:-rabbitmq}
+
+  notification-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/notification-service:latest
+    build: ./notification-service/notification
+    container_name: notification-service
+    restart: always
+    ports:
+      - "${NOTIFICATION_SERVICE_PORT:-8086}:8086"
+    environment:
+      SERVER_PORT: 8086
+      JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_NOTIFICATION}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_NOTIFICATION}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_NOTIFICATION}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_RABBITMQ_HOST: ${SPRING_RABBITMQ_HOST:-rabbitmq}
 
   github-service:
     image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/github-service:latest
-    build:
-      context: ./github-service/github
-      dockerfile: Dockerfile
+    build: ./github-service/github
     container_name: github-service
     restart: always
+    ports:
+      - "${GITHUB_SERVICE_PORT:-8087}:8087"
     environment:
       SERVER_PORT: 8087
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -178,17 +189,16 @@ services:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
-      SPRING_RABBITMQ_HOST: rabbitmq
     depends_on:
       - rabbitmq
 
   jira-service:
     image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/jira-service:latest
-    build:
-      context: ./jira-service/jira
-      dockerfile: Dockerfile
+    build: ./jira-service/jira
     container_name: jira-service
     restart: always
+    ports:
+      - "${JIRA_SERVICE_PORT:-8088}:8088"
     environment:
       SERVER_PORT: 8088
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -196,23 +206,23 @@ services:
       SPRING_DATASOURCE_USERNAME: ${DB_USER_JIRA}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASS_JIRA}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_RABBITMQ_HOST: ${SPRING_RABBITMQ_HOST:-rabbitmq}
       JIRA_API_URL: ${JIRA_API_URL}
       JIRA_USERNAME: ${JIRA_USERNAME}
       JIRA_API_TOKEN: ${JIRA_API_TOKEN}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
-      SPRING_RABBITMQ_HOST: rabbitmq
     depends_on:
       - rabbitmq
 
   export-service:
     image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/export-service:latest
-    build:
-      context: ./export-service/
-      dockerfile: Dockerfile
+    build: ./export-service/
     container_name: export-service
     restart: always
+    ports:
+      - "${EXPORT_SERVICE_PORT:-8089}:8089"
     environment:
       SERVER_PORT: 8089
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -220,6 +230,7 @@ services:
       SPRING_DATASOURCE_USERNAME: ${DB_USER_EXPORT}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASS_EXPORT}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_RABBITMQ_HOST: ${SPRING_RABBITMQ_HOST:-rabbitmq}
 
   nginx:
     image: nginx:alpine
