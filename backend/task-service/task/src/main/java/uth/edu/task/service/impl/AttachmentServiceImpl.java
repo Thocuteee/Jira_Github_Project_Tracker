@@ -101,9 +101,10 @@ public class AttachmentServiceImpl implements AttachmentService {
 
     @Override
     @Transactional
-    public AttachmentResponse updateAttachment(UUID attachmentId, AttachmentRequest request) {
-        Attachment existing = attachmentRepository.findById(attachmentId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy attachment!"));
+    public AttachmentResponse updateAttachment(UUID taskId, UUID attachmentId, AttachmentRequest request) {
+        Attachment existing = attachmentRepository.findByAttachmentIdAndTask_TaskId(attachmentId, taskId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy file đính kèm, hoặc file không thuộc về công việc này!"));
+
         String currentUserId = UserContextHolder.getUserId().toString();
         if (!existing.getUploadedBy().toString().equals(currentUserId)) {
             throw new RuntimeException("Bạn không có quyền sửa attachment này!");
@@ -115,7 +116,7 @@ public class AttachmentServiceImpl implements AttachmentService {
     @Override
     @Transactional
     public void deleteAttachment(UUID taskId, UUID attachmentId) {
-        Attachment existing = attachmentRepository.findByIdAndTaskId(attachmentId, taskId)
+        Attachment existing = attachmentRepository.findByAttachmentIdAndTask_TaskId(attachmentId, taskId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy file đính kèm, hoặc file không thuộc về công việc này!"));
 
         String currentUserId = UserContextHolder.getUserId().toString();

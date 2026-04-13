@@ -1,6 +1,6 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 
-const authBaseUrl = import.meta.env.VITE_AUTH_SERVICE_URL || 'http://localhost:8081';
+const authBaseUrl = import.meta.env.VITE_API_GATEWAY_URL || window.location.origin;
 
 type RetryableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
@@ -20,22 +20,22 @@ axiosClient.interceptors.response.use(
         if (!originalRequest) return Promise.reject(error);
         // Nếu lỗi 401 và chưa retry lần nào
         if (error.response?.status === 401 && !originalRequest._retry) {
-        originalRequest._retry = true;
-        try {
-            await axios.post(`${authBaseUrl}/api/auth/refreshtoken`, {}, { withCredentials: true });
-            
-            // Thực hiện lại request ban đầu với token mới
-            return axiosClient(originalRequest);
-        } catch (refreshError) {
-            // Nếu refresh thất bại -> Logout
-            localStorage.removeItem('userEmail');
-            localStorage.removeItem('userName');
-            localStorage.removeItem('userSubtitle');
-            localStorage.removeItem('userRoles');
-            window.dispatchEvent(new Event('auth-changed'));
-            window.location.href = '/login';
-            return Promise.reject(refreshError);
-        }
+            originalRequest._retry = true;
+            try {
+                await axios.post(`${authBaseUrl}/api/auth/refreshtoken`, {}, { withCredentials: true });
+
+                // Thực hiện lại request ban đầu với token mới
+                return axiosClient(originalRequest);
+            } catch (refreshError) {
+                // Nếu refresh thất bại -> Logout
+                localStorage.removeItem('userEmail');
+                localStorage.removeItem('userName');
+                localStorage.removeItem('userSubtitle');
+                localStorage.removeItem('userRoles');
+                window.dispatchEvent(new Event('auth-changed'));
+                window.location.href = '/login';
+                return Promise.reject(refreshError);
+            }
         }
         return Promise.reject(error);
     }

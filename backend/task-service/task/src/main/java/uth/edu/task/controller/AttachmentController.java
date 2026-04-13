@@ -51,7 +51,7 @@ public class AttachmentController {
             @PathVariable UUID taskId,
             @PathVariable UUID attachmentId,
             @Valid @RequestBody AttachmentRequest request) {
-        return ResponseEntity.ok(attachmentService.updateAttachment(attachmentId, request));
+        return ResponseEntity.ok(attachmentService.updateAttachment(taskId, attachmentId, request));
     }
 
     @DeleteMapping("/{taskId}/attachments/{attachmentId}")

@@ -32,4 +32,6 @@ public interface JiraIssueService {
     JiraIssueResponse unlinkFromTask(UUID jiraIssueId);
 
     void deleteJiraIssue(UUID jiraIssueId);
+
+    void addCommentToIssue(String issueKey, String commentBody);
 }

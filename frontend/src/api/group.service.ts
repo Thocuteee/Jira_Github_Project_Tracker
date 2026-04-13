@@ -1,69 +1,60 @@
-import axios from 'axios';
+import axiosClient from './authClient';
 
-// Giả sử API Gateway chạy ở 8080
-const API_URL = 'http://localhost:8080/api/groups';
+const BASE_PATH = '/api/groups';
 
 class GroupService {
   // --- Group Endpoints ---
 
-  async createGroup(data: { groupName: string; leaderId?: string; course?: string; semester?: string }) {
+  async createGroup(data: { groupName: string; leaderId?: string; course?: string; semester?: string }): Promise<any> {
     // Để mock theo API hiện tại có (groupName, leaderId)
-    const token = localStorage.getItem('accessToken');
-    const response = await axios.post(API_URL, {
+    return (await axiosClient.post(BASE_PATH, {
       groupName: data.groupName,
       leaderId: data.leaderId
-    }, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    });
-    return response.data;
+    })) as any;
   }
 
-  async getAllGroups() {
-    const response = await axios.get(API_URL);
-    return response.data;
+  /** Chỉ ROLE_ADMIN (BE trả 403 nếu không phải admin). */
+  async getAllGroups(): Promise<any> {
+    return (await axiosClient.get(BASE_PATH)) as any;
   }
 
-  async getGroupById(groupId: string) {
-    const response = await axios.get(`${API_URL}/${groupId}`);
-    return response.data;
+  /** Nhóm mà user đang đăng nhập tham gia (JWT qua gateway). */
+  async getMyGroups(): Promise<any> {
+    return (await axiosClient.get(`${BASE_PATH}/my-groups`)) as any;
   }
 
-  async deleteGroup(groupId: string) {
-    const response = await axios.delete(`${API_URL}/${groupId}`);
-    return response.data;
+  async getGroupById(groupId: string): Promise<any> {
+    return (await axiosClient.get(`${BASE_PATH}/${groupId}`)) as any;
+  }
+
+  async deleteGroup(groupId: string): Promise<any> {
+    return (await axiosClient.delete(`${BASE_PATH}/${groupId}`)) as any;
   }
 
   // Cập nhật Leader
-  async setGroupLeader(groupId: string, leaderId: string) {
-    const response = await axios.put(`${API_URL}/${groupId}/leader`, { leaderId });
-    return response.data;
+  async setGroupLeader(groupId: string, leaderId: string): Promise<any> {
+    return (await axiosClient.put(`${BASE_PATH}/${groupId}/leader`, { leaderId })) as any;
   }
 
   // --- Member Endpoints ---
 
-  async addMember(groupId: string, userId: string, roleInGroup: string) {
-    const response = await axios.post(`${API_URL}/${groupId}/members`, {
+  async addMember(groupId: string, userId: string, roleInGroup: string): Promise<any> {
+    return (await axiosClient.post(`${BASE_PATH}/${groupId}/members`, {
       userId,
       roleInGroup
-    });
-    return response.data;
+    })) as any;
   }
 
-  async getMembers(groupId: string) {
-    const response = await axios.get(`${API_URL}/${groupId}/members`);
-    return response.data;
+  async getMembers(groupId: string): Promise<any> {
+    return (await axiosClient.get(`${BASE_PATH}/${groupId}/members`)) as any;
   }
 
-  async updateMemberRole(groupId: string, userId: string, role: string) {
-    const response = await axios.put(`${API_URL}/${groupId}/members/${userId}/role`, { roleInGroup: role });
-    return response.data;
+  async updateMemberRole(groupId: string, userId: string, role: string): Promise<any> {
+    return (await axiosClient.put(`${BASE_PATH}/${groupId}/members/${userId}/role`, { roleInGroup: role })) as any;
   }
 
-  async removeMember(groupId: string, userId: string) {
-    const response = await axios.delete(`${API_URL}/${groupId}/members/${userId}`);
-    return response.data;
+  async removeMember(groupId: string, userId: string): Promise<any> {
+    return (await axiosClient.delete(`${BASE_PATH}/${groupId}/members/${userId}`)) as any;
   }
 }
 

@@ -6,8 +6,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  # Use the repository name for the image namespace
   IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME_LOWER: ""
 
 jobs:
   build-and-push:
@@ -17,10 +17,14 @@ jobs:
       packages: write
 
     strategy:
+      fail-fast: false
       matrix:
         include:
           - service: frontend
             context: ./frontend
+            build-args: |
+              VITE_AUTH_SERVICE_URL=https://swp391.uth.today
+              VITE_API_GATEWAY_URL=https://swp391.uth.today
           - service: api-gateway
             context: ./backend/api-gateway/gateway
           - service: auth-service
@@ -67,39 +71,49 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository (needed for docker-compose file)
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Deploy to VPS
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
+          GH_REPO: ${{ github.repository }}
           ENV_FILE_CONTENT: ${{ secrets.ENV_FILE_CONTENT }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
         run: |
-          # Lưu RSA private key ra file tạm
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > deploy_rsa_key
+          echo "$SSH_PRIVATE_KEY" > deploy_rsa_key
           chmod 600 deploy_rsa_key
-          
-          # Thực thi lệnh SSH trực tiếp
-          ssh -i deploy_rsa_key -o StrictHostKeyChecking=no root@${{ secrets.VPS_HOST }} << 'EOF'
+
+          ssh -i deploy_rsa_key -o StrictHostKeyChecking=no root@$VPS_HOST bash -s << EOF
+            set -e
+
             mkdir -p ~/app
             cd ~/app
-            
-            # Khởi tạo hoặc cập nhật code từ GitHub
+
+            # Update code — luôn hoạt động dù thư mục rỗng hay không
             if [ ! -d ".git" ]; then
-              git clone https://github.com/${{ github.repository }}.git .
+              git init
+              git remote add origin https://github.com/$GH_REPO.git
             else
-              git pull origin main
+              git remote set-url origin https://github.com/$GH_REPO.git
             fi
-            
+            git fetch origin main
+            git reset --hard FETCH_HEAD
+
             cd backend
-            # Tạo file .env từ Secret
-            echo "${{ secrets.ENV_FILE_CONTENT }}" > .env
-            echo "✅ .env file created successfully"
-            
-            # Login to GHCR on VPS để pull image mới
-            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            
-            # Pull image mới nhất và khởi động lại
+
+            # Cleanup: dừng và xóa toàn bộ containers cũ (kể cả orphan)
+            docker compose down --remove-orphans || true
+            docker stop \$(docker ps -aq) 2>/dev/null || true
+            docker rm -f \$(docker ps -aq) 2>/dev/null || true
+            printf '%s' "$ENV_FILE_CONTENT" > .env
+
+            # Login and Deploy
+            echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
             docker compose pull
             docker compose up -d
-          EOF
 
+            echo "Deployment successfully finalized!"
+          EOF

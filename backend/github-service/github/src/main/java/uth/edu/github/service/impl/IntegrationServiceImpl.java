@@ -10,6 +10,8 @@ import uth.edu.github.repository.IntegrationRepo;
 import uth.edu.github.service.IIntegrationService;
 
 import java.util.UUID;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -35,8 +37,9 @@ public class IntegrationServiceImpl implements IIntegrationService {
 
     @Override
     public IntegrationResponse getByGroupId(UUID groupId) {
-        return mapper.toResponse(integrationRepo.findByGroupId(groupId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy Integration cho group này!")));
+        return integrationRepo.findByGroupId(groupId)
+                .map(mapper::toResponse)
+                .orElse(null);
     }
 
     @Override
@@ -44,8 +47,16 @@ public class IntegrationServiceImpl implements IIntegrationService {
         Integration entity = integrationRepo.findById(integrationId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy Integration!"));
         entity.setGithubToken(request.getGithubToken());
+        entity.setGithubRepo(request.getGithubRepo());
         entity.setJiraProjectKey(request.getJiraProjectKey());
         return mapper.toResponse(integrationRepo.save(entity));
+    }
+
+    @Override
+    public List<IntegrationResponse> getAll() {
+        return integrationRepo.findAll().stream()
+                .map(mapper::toResponse)
+                .collect(Collectors.toList());
     }
 
     @Override

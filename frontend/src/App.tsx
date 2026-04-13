@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { GroupProvider } from './contexts/GroupContext'
 import Dashboard from '@/pages/Dashboard'
 import Login from '@/pages/Login'
 import Register from '@/pages/Register'
@@ -11,6 +12,7 @@ import WorkspaceDashboard from './pages/WorkspaceDashboard';
 import AdminWorkspace from './pages/AdminWorkspace';
 import LecturerManagement from './pages/LecturerManagement';
 import GroupMembers from './pages/GroupMembers';
+import Integrations from './pages/Integrations';
 
 function isMockAuthed() {
   try {
@@ -45,14 +47,15 @@ export default function App() {
 
   return (
     <Router>
-      <Routes>
-        <Route path="/" element={<Navigate to={authed ? '/dashboard' : '/login'} replace />} />
-        <Route path="/dashboard" element={authed ? <Dashboard /> : <Navigate to="/login" replace />} />
-        <Route path="/login" element={authed ? <Navigate to="/dashboard" replace /> : <Login />} />
-        <Route path="/signin" element={<Navigate to="/login" replace />} />
-        <Route path="/auth/login" element={<Navigate to="/login" replace />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/oauth2/redirect" element={<OAuth2Redirect />} />
+      <GroupProvider>
+        <Routes>
+          <Route path="/" element={<Navigate to={authed ? '/dashboard' : '/login'} replace />} />
+          <Route path="/dashboard" element={authed ? <Dashboard /> : <Navigate to="/login" replace />} />
+          <Route path="/login" element={authed ? <Navigate to="/dashboard" replace /> : <Login />} />
+          <Route path="/signin" element={<Navigate to="/login" replace />} />
+          <Route path="/auth/login" element={<Navigate to="/login" replace />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/oauth2/redirect" element={<OAuth2Redirect />} />
 
         {/* Test */}
         <Route path="/workspaces" element={<WorkspaceList />} />
@@ -61,9 +64,11 @@ export default function App() {
         <Route path="/admin/lecturers" element={<LecturerManagement />} />
         <Route path="/members/:groupId" element={<GroupMembers />} />
         <Route path="/members" element={<GroupMembers />} />
+        <Route path="/settings/integrations" element={<Integrations />} />
 
-        <Route path="*" element={<Navigate to={authed ? '/dashboard' : '/login'} replace />} />
-      </Routes>
+          <Route path="*" element={<Navigate to={authed ? '/dashboard' : '/login'} replace />} />
+        </Routes>
+      </GroupProvider>
     </Router>
   )
 }

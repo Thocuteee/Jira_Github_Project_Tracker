@@ -1,10 +1,10 @@
-# BƯỚC 1: Build file JAR bằng Maven (Sử dụng Image có sẵn Maven)
+# BƯỚC 1: Build file JAR bằng Maven
 FROM maven:3.9.6-amazoncorretto-17 AS build
 WORKDIR /app
 
 # Copy pom.xml và tải dependencies trước (để cache)
 COPY pom.xml .
-RUN mvn dependency:go-offline
+RUN mvn dependency:go-offline -B
 
 # Copy code và build
 COPY src ./src

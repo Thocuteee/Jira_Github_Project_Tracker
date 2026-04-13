@@ -22,10 +22,6 @@ export default function Login() {
         try {
         const response = await authService.login({ email: email.trim(), password })
 
-        // Lưu Token vào localStorage để Gateway có thể xác thực
-        localStorage.setItem('accessToken', response.token || '')
-        localStorage.setItem('refreshToken', response.refreshToken || '')
-
         localStorage.setItem('userEmail', response.email)
         localStorage.setItem('userName', response.email.split('@')[0] || response.email)
         localStorage.setItem('userSubtitle', getPrimaryRole(response.roles ?? []))
@@ -50,13 +46,13 @@ export default function Login() {
     }
 
     const handleOAuth = (provider: string) => {
-        const authBaseUrl = import.meta.env.VITE_AUTH_SERVICE_URL || 'http://localhost:8081'
+        const authBaseUrl = import.meta.env.VITE_AUTH_SERVICE_URL || window.location.origin
         if (provider === 'google') {
-            window.location.href = `${authBaseUrl}/oauth2/authorization/google`
+            window.location.href = `${authBaseUrl}/api/auth/oauth2/authorization/google`
             return
         }
         if (provider === 'github') {
-            window.location.href = `${authBaseUrl}/oauth2/authorization/github`
+            window.location.href = `${authBaseUrl}/api/auth/oauth2/authorization/github`
             return
         }
         alert(`OAuth (${provider}) chưa tích hợp vào BE hiện tại.`)

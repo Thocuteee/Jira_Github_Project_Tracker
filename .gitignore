@@ -36,10 +36,18 @@ target/
 # --- Security & Config ---
 .env
 .env.local
+.env.*
 .env.development.local
 .env.test.local
 .env.production.local
 
+# Explicitly ignore backend env files (defense-in-depth)
+backend/.env
+backend/.env.local
+backend/.env.*
+
 # --- Docker ---
 */postgres_data/
 */mysql_data/
+.ai_docs/
+.cursor/

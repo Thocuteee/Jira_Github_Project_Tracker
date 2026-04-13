@@ -1,10 +1,10 @@
-package uth.edu.group.dto;
+package uth.edu.task.dto.response.external;
 
 import lombok.Data;
 import java.util.UUID;
 
 @Data
-public class MemberRequest {
+public class GroupMemberResponse {
     private UUID userId;
     private String roleInGroup;
 }
