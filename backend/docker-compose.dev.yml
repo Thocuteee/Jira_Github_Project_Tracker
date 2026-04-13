@@ -15,6 +15,13 @@ services:
         VITE_GITHUB_SERVICE_URL: http://localhost/api/github
         VITE_JIRA_SERVICE_URL: http://localhost/api/jira
         VITE_EXPORT_SERVICE_URL: http://localhost/api/export
+        VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY:-}
+        VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN:-}
+        VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID:-}
+        VITE_FIREBASE_STORAGE_BUCKET: ${VITE_FIREBASE_STORAGE_BUCKET:-}
+        VITE_FIREBASE_MESSAGING_SENDER_ID: ${VITE_FIREBASE_MESSAGING_SENDER_ID:-}
+        VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID:-}
+        VITE_FIREBASE_VAPID_KEY: ${VITE_FIREBASE_VAPID_KEY:-}
     ports:
       - "5173:80"
 
@@ -181,6 +188,9 @@ services:
       SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      FIREBASE_CREDENTIALS_PATH: ${FIREBASE_CREDENTIALS_PATH:-}
+    volumes:
+      - ${FIREBASE_CREDENTIALS_HOST_PATH:-/dev/null}:/app/firebase-credentials.json:ro
     depends_on:
       - postgres
       - rabbitmq

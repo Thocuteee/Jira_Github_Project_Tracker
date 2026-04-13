@@ -220,8 +220,19 @@ public class TaskServiceImpl implements TaskService {
         }
 
         task.setStatus(request.getStatus());
+        Task saved = taskRepository.save(task);
 
-        return taskMapper.toResponse(taskRepository.save(task));
+        TaskEvent event = TaskEvent.builder()
+                .taskId(saved.getTaskId())
+                .title(saved.getTitle())
+                .assignedTo(saved.getAssignedTo())
+                .requirementId(saved.getRequirementId())
+                .eventType(request.getStatus().name())
+                .timestamp(LocalDateTime.now())
+                .build();
+        taskEventPublisher.publishTaskEvent(event);
+
+        return taskMapper.toResponse(saved);
     }
 
     @Override

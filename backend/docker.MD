@@ -11,6 +11,18 @@ docker compose --env-file .env.local -f docker-compose.yml -f docker-compose.dev
 
 ```
 
+## Firebase Cloud Messaging (FCM) Setup
+- Vào [Firebase Console](https://console.firebase.google.com/) tạo project (hoặc dùng project hiện có).
+- Bật **Cloud Messaging** trong Project Settings > Cloud Messaging.
+- Tạo Web App, copy các giá trị config vào biến `VITE_FIREBASE_*` trong `.env.local` / `.env`.
+- Vào Project Settings > Cloud Messaging > Web Push certificates, tạo VAPID key, copy vào `VITE_FIREBASE_VAPID_KEY`.
+- Tạo Service Account JSON (Project Settings > Service accounts > Generate new private key), lưu file vào thư mục an toàn.
+- Trong `.env.local` / `.env` thêm:
+  ```
+  FIREBASE_CREDENTIALS_PATH=/app/firebase-credentials.json
+  FIREBASE_CREDENTIALS_HOST_PATH=./path/to/your-service-account.json
+  ```
+
 ## VPS/Production
 - Tạo `backend/.env` trên VPS (không commit), rồi:
 

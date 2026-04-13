@@ -2,12 +2,14 @@ package uth.edu.notification.service.impl;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,6 +20,7 @@ import uth.edu.notification.dto.CreateNotificationRequest;
 import uth.edu.notification.fcm.FcmSender;
 import uth.edu.notification.model.Notification;
 import uth.edu.notification.repository.NotificationRepository;
+import uth.edu.notification.service.IFcmTokenService;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationServiceImplTest {
@@ -26,6 +29,9 @@ class NotificationServiceImplTest {
 
     @Mock
     private FcmSender fcmSender;
+
+    @Mock
+    private IFcmTokenService fcmTokenService;
 
     @InjectMocks
     private NotificationServiceImpl service;
@@ -41,6 +47,7 @@ class NotificationServiceImplTest {
         req.setFcmToken("device-token-1");
 
         when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(fcmSender.send(anyString(), anyString(), anyString())).thenReturn(true);
 
         Notification created = service.createNotification(req);
 
@@ -49,7 +56,7 @@ class NotificationServiceImplTest {
     }
 
     @Test
-    void createNotification_withoutFcmToken_shouldNotSend() {
+    void createNotification_withoutFcmToken_shouldLookupRegisteredTokens() {
         UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000002");
 
         CreateNotificationRequest req = new CreateNotificationRequest();
@@ -59,6 +66,29 @@ class NotificationServiceImplTest {
         req.setFcmToken(null);
 
         when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(fcmTokenService.getTokensByUserId(userId)).thenReturn(List.of("token-a", "token-b"));
+        when(fcmSender.send(anyString(), anyString(), anyString())).thenReturn(true);
+
+        Notification created = service.createNotification(req);
+
+        assertNotNull(created);
+        verify(fcmTokenService, times(1)).getTokensByUserId(userId);
+        verify(fcmSender, times(1)).send("Test2", "Hello2", "token-a");
+        verify(fcmSender, times(1)).send("Test2", "Hello2", "token-b");
+    }
+
+    @Test
+    void createNotification_withoutFcmToken_noRegisteredTokens_shouldNotSend() {
+        UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000003");
+
+        CreateNotificationRequest req = new CreateNotificationRequest();
+        req.setUserId(userId);
+        req.setTitle("Test3");
+        req.setMessage("Hello3");
+        req.setFcmToken(null);
+
+        when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(fcmTokenService.getTokensByUserId(userId)).thenReturn(Collections.emptyList());
 
         Notification created = service.createNotification(req);
 

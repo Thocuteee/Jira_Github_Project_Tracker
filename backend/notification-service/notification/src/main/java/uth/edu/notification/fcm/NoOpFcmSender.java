@@ -5,8 +5,8 @@ package uth.edu.notification.fcm;
  */
 public class NoOpFcmSender implements FcmSender {
     @Override
-    public void send(String title, String message, String fcmToken) {
-        // Intentionally do nothing.
+    public boolean send(String title, String message, String fcmToken) {
+        return true;
     }
 }
 
