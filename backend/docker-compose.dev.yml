@@ -72,17 +72,6 @@ services:
     container_name: rabbitmq
     restart: unless-stopped
     environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: 123
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
-    container_name: rabbitmq
-    restart: unless-stopped
-    environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-guest}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
     ports:

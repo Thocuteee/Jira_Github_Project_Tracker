@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { GroupProvider } from './contexts/GroupContext'
+import { FcmProvider } from './contexts/FcmContext'
 import Dashboard from '@/pages/Dashboard'
 import Login from '@/pages/Login'
 import Register from '@/pages/Register'
@@ -47,6 +48,7 @@ export default function App() {
 
   return (
     <Router>
+      <FcmProvider>
       <GroupProvider>
         <Routes>
           <Route path="/" element={<Navigate to={authed ? '/dashboard' : '/login'} replace />} />
@@ -69,6 +71,7 @@ export default function App() {
           <Route path="*" element={<Navigate to={authed ? '/dashboard' : '/login'} replace />} />
         </Routes>
       </GroupProvider>
+      </FcmProvider>
     </Router>
   )
 }
