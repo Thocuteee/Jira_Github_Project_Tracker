@@ -58,6 +58,13 @@ public class AuthServiceImpl implements IAuthService {
         return userRepository.save(user);
     }
 
+    @Override
+    public void updateUserStatus(UUID id, String status) {
+        User user = getUserById(id);
+        user.setStatus(status);
+        userRepository.save(user);
+    }
+
     // Dang Ky tai khoan
     @Override
     public User registerUser(User user, String roleName) {
@@ -118,6 +125,10 @@ public class AuthServiceImpl implements IAuthService {
 
         // 1. Kiểm tra User có tồn tại không
         User user = userRepository.findByEmail(normalizedEmail).orElseThrow(() -> new RuntimeException("Error: Không tìm thấy User!"));
+
+        if ("DISABLED".equalsIgnoreCase(user.getStatus())) {
+            throw new RuntimeException("Error: Tài khoản của bạn đã bị khóa!");
+        }
 
         // 2. Kiểm tra mật khẩu 
         if (!passwordEncoder.matches(rawPassword, user.getPassword())) {

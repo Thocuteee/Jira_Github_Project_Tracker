@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
     LayoutDashboard,
     ListTodo,
-    Layers,
     Users,
     RefreshCw,
     Bell,
@@ -15,10 +14,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import authService from '@/api/auth.service';
 import { getPrimaryRole } from '@/utils/authDisplay';
 
+import { useGroup } from '@/context/GroupContext';
+
 export default function MainLayout({ children }: { children: ReactNode }) {
     const navigate = useNavigate();
+    const { selectedGroup, setSelectedGroup, myGroups, loading } = useGroup();
     const [menuOpen, setMenuOpen] = useState(false);
+    const [groupDropdownOpen, setGroupDropdownOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement | null>(null);
+    const dropdownRef = useRef<HTMLDivElement | null>(null);
 
     const authed = (() => {
         try {
@@ -57,37 +61,45 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     })();
 
     useEffect(() => {
-        if (!menuOpen) return;
-
         const handleClickOutside = (event: MouseEvent) => {
-            if (!menuRef.current?.contains(event.target as Node)) {
+            if (menuOpen && !menuRef.current?.contains(event.target as Node)) {
                 setMenuOpen(false);
+            }
+            if (groupDropdownOpen && !dropdownRef.current?.contains(event.target as Node)) {
+                setGroupDropdownOpen(false);
             }
         };
 
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [menuOpen]);
-
-    const handleUserInfo = () => {
-        setMenuOpen(false);
-        alert(`Tên: ${userName}\nEmail: ${localStorage.getItem('userEmail') || '-'}\nVai trò: ${userSubtitle}`);
-    };
+    }, [menuOpen, groupDropdownOpen]);
 
     const handleLogout = async () => {
         setMenuOpen(false);
         try {
             await authService.logout();
         } catch {
-            // Nếu BE logout lỗi thì vẫn clear local state để người dùng thoát phiên.
+            // ignore
         } finally {
             localStorage.removeItem('userEmail');
             localStorage.removeItem('userName');
             localStorage.removeItem('userSubtitle');
             localStorage.removeItem('userRoles');
+            localStorage.removeItem('selectedGroupId');
             window.dispatchEvent(new Event('auth-changed'));
             navigate('/login', { replace: true });
         }
+    };
+
+    const handleSelectGroup = (group: any) => {
+        setSelectedGroup(group);
+        setGroupDropdownOpen(false);
+        navigate(`/workspace/${group.groupId}`);
+    };
+
+    const handleUserInfo = () => {
+        setMenuOpen(false);
+        navigate('/dashboard');
     };
 
     const initials = userName
@@ -99,7 +111,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
 
     return (
         <div className="flex h-screen min-h-0 w-full bg-[#eef0f4] text-[#171c28]">
-            <aside className="flex w-64 shrink-0 flex-col bg-white border-r border-slate-200/80 px-3 py-5 text-slate-700 overflow-y-auto">
+            {/* Sidebar */}
+            <aside className="flex w-64 shrink-0 flex-col bg-white border-r border-slate-200/80 px-3 py-5 text-slate-700 overflow-y-auto relative">
                 <div className="mb-6 flex items-center gap-3 px-2">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-sm font-bold text-white">
                         P
@@ -107,57 +120,111 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                     <span className="text-lg font-semibold tracking-tight text-slate-900">Project Tracker</span>
                 </div>
                 
-                <div className="mb-6 px-2">
-                    <button className="flex w-full items-center justify-between rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100 hover:text-slate-900">
-                        <span className="font-medium truncate">Chọn Group</span>
-                        <ChevronDown size={16} className="text-slate-400" />
+                {/* Group Selector Dropdown */}
+                <div className="mb-6 px-2 relative" ref={dropdownRef}>
+                    <button 
+                        onClick={() => setGroupDropdownOpen(!groupDropdownOpen)}
+                        className="flex w-full items-center justify-between rounded-lg bg-white border border-slate-300 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                    >
+                        <span className="font-medium truncate">
+                            {selectedGroup ? selectedGroup.groupName : 'Chọn Group'}
+                        </span>
+                        <ChevronDown size={16} className={`text-slate-400 transition-transform ${groupDropdownOpen ? 'rotate-180' : ''}`} />
                     </button>
+
+                    {groupDropdownOpen && (
+                        <div className="absolute left-2 right-2 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
+                            {loading ? (
+                                <div className="px-3 py-2 text-xs text-slate-400">Đang tải...</div>
+                            ) : myGroups.length === 0 ? (
+                                <div className="px-3 py-2 text-xs text-slate-400">Không có group nào</div>
+                            ) : (
+                                myGroups.map((group: any) => (
+                                    <button
+                                        key={group.groupId}
+                                        onClick={() => handleSelectGroup(group)}
+                                        className={`w-full rounded-lg px-3 py-2 text-left text-sm transition ${
+                                            selectedGroup?.groupId === group.groupId 
+                                                ? 'bg-slate-100 text-slate-900 font-semibold'
+                                                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                                        }`}
+                                    >
+                                        {group.groupName}
+                                    </button>
+                                ))
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 <nav className="flex flex-1 flex-col gap-6">
                     <div>
                         <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                            Dự án của tôi
+                            Hệ thống tổng quan
                         </h3>
                         <div className="flex flex-col gap-0.5">
-                            <NavItem icon={<LayoutDashboard size={18} />} label="Dashboard" active />
-                            <NavItem icon={<ListTodo size={18} />} label="Bảng Task" />
-                            <NavItem icon={<Layers size={18} />} label="Yêu cầu (Epic)" />
-                            <NavItem icon={<Users size={18} />} label="Thành viên nhóm" />
+                            <NavItem icon={<LayoutDashboard size={18} />} label="Tổng quan (Global)" to="/dashboard" active={!selectedGroup} />
                         </div>
                     </div>
+
+                    {selectedGroup && (
+                        <div>
+                            <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-600">
+                                {selectedGroup.groupName}
+                            </h3>
+                            <div className="flex flex-col gap-0.5">
+                                <NavItem 
+                                    icon={<LayoutDashboard size={18} />} 
+                                    label="Dashboard Nhóm" 
+                                    to={`/workspace/${selectedGroup.groupId}`} 
+                                    active 
+                                />
+                                <NavItem 
+                                    icon={<ListTodo size={18} />} 
+                                    label="Bảng Task" 
+                                    to={`/workspace/${selectedGroup.groupId}/tasks`} 
+                                />
+                                <NavItem 
+                                    icon={<Users size={18} />} 
+                                    label="Thành viên" 
+                                    to={`/members/${selectedGroup.groupId}`} 
+                                />
+                                <NavItem 
+                                    icon={<Settings size={18} />} 
+                                    label="Cấu hình GitHub" 
+                                    to={`/settings/integrations`} 
+                                />
+                            </div>
+                        </div>
+                    )}
 
                     <div>
                         <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                            Tích hợp
+                            Tích hợp & Hệ thống
                         </h3>
                         <div className="flex flex-col gap-0.5">
                             <NavItem icon={<RefreshCw size={18} />} label="Trung tâm Tích hợp" to="/settings/integrations" />
-                        </div>
-                    </div>
-
-                    <div className="mt-auto">
-                        <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                            Hệ thống
-                        </h3>
-                        <div className="flex flex-col gap-0.5">
                             <NavItem icon={<Bell size={18} />} label="Thông báo" />
-                            <NavItem icon={<Settings size={18} />} label="Cấu hình cá nhân" />
+                            <NavItem icon={<Settings size={18} />} label="Hồ sơ cá nhân" />
                             {(() => {
                                 try {
                                     const rawRoles = localStorage.getItem('userRoles');
                                     if (rawRoles) {
-                                        const parsed = JSON.parse(rawRoles);
-                                        return Array.isArray(parsed) && parsed.map(String).includes('ROLE_ADMIN');
+                                        return JSON.parse(rawRoles).includes('ROLE_ADMIN');
                                     }
-                                } catch (e) {
-                                    return false;
-                                }
+                                } catch (e) { return false; }
                                 return false;                                
                             })() && (
-                                <NavItem icon={<Users size={18} />} label="Quản lý Lecturer" to="/admin/lecturers" />
+                                <>
+                                    <div className="pt-4 mt-2 border-t border-slate-100">
+                                        <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-red-500">
+                                            Admin Control
+                                        </h3>
+                                        <NavItem icon={<Users size={18} />} label="Quản lý Lecturer" to="/admin/lecturers" />
+                                        <NavItem icon={<Briefcase size={18} />} label="Quản lý Workspace" to="/admin/workspace" />
+                                    </div>
+                                </>
                             )}
-                            <NavItem icon={<Briefcase size={18} />} label="Quản lý Workspace" to="/workspaces" />
                         </div>
                     </div>
                 </nav>

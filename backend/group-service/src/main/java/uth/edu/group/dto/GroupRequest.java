@@ -9,4 +9,7 @@ public class GroupRequest {
     private UUID leaderId;
     private String jiraProjectKey;
     private String githubRepoUrl;
+    private String workspaceId;
+    private String description;
+    private String status;
 }

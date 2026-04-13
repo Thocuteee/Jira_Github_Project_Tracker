@@ -123,11 +123,12 @@ export default function Integrations() {
         }
     };
 
-    const openEditMapping = (mapping: any) => {
+    const openEditMapping = (item: any) => {
+        const mapping = item?.mapping ?? null;
         setMappingForm({
-            groupId: mapping.groupId,
-            jiraProjectKey: mapping.jiraProjectKey,
-            githubRepo: mapping.githubRepo
+            groupId: mapping?.groupId || item?.groupId || '',
+            jiraProjectKey: mapping?.jiraProjectKey || item?.jiraProjectKey || '',
+            githubRepo: mapping?.githubRepo || item?.githubRepoUrl || ''
         });
         setEditingMapping(mapping);
         setShowMappingForm(true);
@@ -344,20 +345,20 @@ export default function Integrations() {
                                         <tr key={item.groupId} className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors group">
                                             <td className="px-4 py-3 font-medium text-slate-900">{item.groupName}</td>
                                             <td className="px-4 py-3">
-                                                {item.mapping ? (
+                                                {(item.mapping?.jiraProjectKey || item.jiraProjectKey) ? (
                                                     <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-[11px] border border-blue-100 font-bold uppercase tracking-wider">
-                                                        {item.mapping.jiraProjectKey}
+                                                        {item.mapping?.jiraProjectKey || item.jiraProjectKey}
                                                     </span>
                                                 ) : <span className="text-slate-300 text-xs italic">Chưa gán</span>}
                                             </td>
                                             <td className="px-4 py-3 text-slate-600 font-mono text-xs">
-                                                {item.mapping ? item.mapping.githubRepo : <span className="text-slate-300">---</span>}
+                                                {item.mapping?.githubRepo || item.githubRepoUrl || <span className="text-slate-300">---</span>}
                                             </td>
                                             <td className="px-4 py-3 text-right">
                                                 {hasPermission && (
                                                     <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                         <button 
-                                                            onClick={() => openEditMapping(item.mapping || {groupId: item.groupId})}
+                                                            onClick={() => openEditMapping(item)}
                                                             className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded"
                                                         >
                                                             <Settings className="w-3.5 h-3.5" />

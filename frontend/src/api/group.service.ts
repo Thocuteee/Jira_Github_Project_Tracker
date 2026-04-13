@@ -6,12 +6,9 @@ const API_URL = `${apiGatewayBaseUrl}/api/groups`;
 class GroupService {
   // --- Group Endpoints ---
 
-  async createGroup(data: { groupName: string; leaderId?: string; course?: string; semester?: string }) {
+  async createGroup(data: { groupName: string; leaderId?: string; githubRepoUrl?: string; description?: string }) {
     // Để mock theo API hiện tại có (groupName, leaderId)
-    const response = await axios.post(API_URL, {
-      groupName: data.groupName,
-      leaderId: data.leaderId
-    }, {
+    const response = await axios.post(API_URL, data, {
       withCredentials: true,
     });
     return response.data;
@@ -34,7 +31,7 @@ class GroupService {
 
   // Cập nhật Leader
   async setGroupLeader(groupId: string, leaderId: string) {
-    const response = await axios.put(`${API_URL}/${groupId}/leader`, { leaderId }, { withCredentials: true });
+    const response = await axios.put(`${API_URL}/${groupId}/leader`, { userId: leaderId }, { withCredentials: true });
     return response.data;
   }
 
@@ -60,6 +57,16 @@ class GroupService {
 
   async removeMember(groupId: string, userId: string) {
     const response = await axios.delete(`${API_URL}/${groupId}/members/${userId}`, { withCredentials: true });
+    return response.data;
+  }
+
+  async getMyGroups() {
+    const response = await axios.get(`${API_URL}/my-groups`, { withCredentials: true });
+    return response.data;
+  }
+
+  async checkLeader(groupId: string) {
+    const response = await axios.get(`${API_URL}/${groupId}/checkLeader`, { withCredentials: true });
     return response.data;
   }
 }

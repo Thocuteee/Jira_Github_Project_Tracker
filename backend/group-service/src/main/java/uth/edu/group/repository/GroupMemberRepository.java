@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import uth.edu.group.model.GroupMember;
 import java.util.UUID;
 import java.util.List;
+import java.util.Optional;
 
 public interface GroupMemberRepository extends JpaRepository<GroupMember, UUID> {
 
@@ -12,6 +13,10 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, UUID> 
     List<GroupMember> findByUserId(UUID userId);
 
     void deleteByGroupGroupId(UUID groupId);
+    void deleteByGroupGroupIdAndUserId(UUID groupId, UUID userId);
 
     boolean existsByGroupGroupIdAndUserId(UUID groupId, UUID userId);
+    Optional<GroupMember> findByGroupGroupIdAndUserId(UUID groupId, UUID userId);
+
+    long countByGroupGroupId(UUID groupId);
 }

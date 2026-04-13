@@ -15,6 +15,9 @@ public class GroupMapper {
         group.setLeaderId(request.getLeaderId());
         group.setJiraProjectKey(request.getJiraProjectKey());
         group.setGithubRepoUrl(request.getGithubRepoUrl());
+        group.setWorkspaceId(request.getWorkspaceId());
+        group.setDescription(request.getDescription());
+        group.setStatus(request.getStatus() != null ? request.getStatus() : "ACTIVE");
 
         return group;
     }
@@ -29,6 +32,9 @@ public class GroupMapper {
         res.setCreatedAt(group.getCreatedAt());
         res.setJiraProjectKey(group.getJiraProjectKey());
         res.setGithubRepoUrl(group.getGithubRepoUrl());
+        res.setWorkspaceId(group.getWorkspaceId());
+        res.setDescription(group.getDescription());
+        res.setStatus(group.getStatus());
 
         return res;
     }

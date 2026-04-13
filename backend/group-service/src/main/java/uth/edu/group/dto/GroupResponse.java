@@ -12,4 +12,7 @@ public class GroupResponse {
     private LocalDateTime createdAt;
     private String jiraProjectKey;
     private String githubRepoUrl;
+    private String workspaceId;
+    private String description;
+    private String status;
 }

@@ -16,11 +16,28 @@ const WorkspaceList = () => {
   const apiGatewayBaseUrl = import.meta.env.VITE_API_GATEWAY_URL || window.location.origin;
 
   useEffect(() => {
-    // Gọi API lấy danh sách Group mà User này tham gia
     const fetchWorkspaces = async () => {
       try {
-        const response = await axios.get(`${apiGatewayBaseUrl}/api/groups/my-groups`);
-        setWorkspaces(response.data);
+        const rolesStr = localStorage.getItem('userRoles') || '[]';
+        const roles = JSON.parse(rolesStr);
+        const isAdmin = roles.includes('ROLE_ADMIN');
+        
+        // Admin see all, others see their own
+        const endpoint = isAdmin 
+          ? `${apiGatewayBaseUrl}/api/groups` 
+          : `${apiGatewayBaseUrl}/api/groups/my-groups`;
+          
+        const response = await axios.get(endpoint, { withCredentials: true });
+        
+        // Map backend fields to frontend interface
+        const mapped = (response.data || []).map((item: any) => ({
+          id: item.groupId,
+          name: item.groupName,
+          groupPrefix: item.jiraProjectKey || 'N/A',
+          memberCount: 0 // Will be updated later
+        }));
+        
+        setWorkspaces(mapped);
       } catch (error) {
         console.error("Lỗi lấy danh sách nhóm:", error);
       }
@@ -34,7 +51,11 @@ const WorkspaceList = () => {
         <div className="flex justify-between items-center mb-10">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Không gian làm việc</h1>
-            <p className="text-slate-500">Chọn một dự án để bắt đầu quản lý</p>
+            <p className="text-slate-500">
+              {localStorage.getItem('userSubtitle') === 'Admin' 
+                ? 'Tổng hợp danh sách các Workspace trong hệ thống' 
+                : 'Chọn một dự án để bắt đầu quản lý'}
+            </p>
           </div>
           <button onClick={() => navigate('/admin/workspace')} className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all">
             <Plus size={20} /> Tạo Workspace mới
