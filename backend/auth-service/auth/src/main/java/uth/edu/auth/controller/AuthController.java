@@ -119,6 +119,18 @@ public class AuthController {
         return ResponseEntity.ok(authService.updateUser(id, request));
     }
 
+    // 5.1 Cập nhật trạng thái User
+    @PatchMapping("/users/{id}/status")
+    public ResponseEntity<?> updateUserStatus(@PathVariable UUID id, @RequestBody java.util.Map<String, String> body) {
+        try {
+            String status = body.get("status");
+            authService.updateUserStatus(id, status);
+            return ResponseEntity.ok("Cập nhật trạng thái thành công");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
     //6. Dang Nhap
     @PostMapping("/login-user")
     public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest, HttpServletResponse response) {

@@ -34,9 +34,10 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
   const loadRequirements = async () => {
     try {
-      const data = await requirementService.getRequirementsByGroup(groupId);
-      setRequirements(data || []);
-      if (data && data.length > 0) {
+      const response = await requirementService.getRequirementsByGroup(groupId);
+      const data = response?.data || [];
+      setRequirements(data);
+      if (data.length > 0) {
         setRequirementId(data[0].id);
       }
     } catch (err) {

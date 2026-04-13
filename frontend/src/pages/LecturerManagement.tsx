@@ -155,9 +155,10 @@ export default function LecturerManagement() {
         if (!window.confirm(`Bạn có chắc chắn muốn ${actionText.toLowerCase()} giảng viên này?`)) return;
 
         try {
-            await authService.updateUserStatus(lecturer.id, newStatus);
+            const currentId = lecturer.userId || lecturer.id;
+            await authService.updateUserStatus(currentId, newStatus);
             setLecturers(prev => prev.map(l =>
-                l.id === lecturer.id ? { ...l, status: newStatus } : l
+                (l.userId || l.id) === currentId ? { ...l, status: newStatus } : l
             ));
         } catch (err: any) {
             alert('Lỗi: Không thể thay đổi trạng thái!');

@@ -14,4 +14,5 @@ public interface IAuthService {
     User updateUser(UUID id, RegisterRequest request);
     User registerUser(User user, String roleName);
     JwtResponse login(LoginRequest loginRequest);
+    void updateUserStatus(UUID id, String status);
 }

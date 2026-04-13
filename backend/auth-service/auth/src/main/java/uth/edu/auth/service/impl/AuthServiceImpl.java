@@ -58,6 +58,14 @@ public class AuthServiceImpl implements IAuthService {
         return userRepository.save(user);
     }
 
+    @Override
+    public void updateUserStatus(UUID id, String status) {
+        User user = getUserById(id);
+        user.setStatus(status);
+        user.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(user);
+    }
+
     // Dang Ky tai khoan
     @Override
     public User registerUser(User user, String roleName) {
