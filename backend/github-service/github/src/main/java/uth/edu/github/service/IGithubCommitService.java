@@ -2,6 +2,8 @@ package uth.edu.github.service;
 
 import uth.edu.github.dto.GithubCommitRequest;
 import uth.edu.github.dto.GithubCommitResponse;
+import uth.edu.github.model.GithubCommit;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -12,4 +14,5 @@ public interface IGithubCommitService {
     List<GithubCommitResponse> getByGroupId(UUID groupId);
     List<GithubCommitResponse> getByUserId(UUID userId);
     void delete(UUID commitId);
+    void saveCommit(GithubCommit commit);
 }

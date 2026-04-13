@@ -21,6 +21,11 @@ public class IntegrationController {
         return new ResponseEntity<>(service.create(request), HttpStatus.CREATED);
     }
 
+    @GetMapping("/all")
+    public ResponseEntity<?> getAll() {
+        return ResponseEntity.ok(service.getAll());
+    }
+
     @GetMapping("/{integrationId}")
     public ResponseEntity<?> getById(@PathVariable UUID integrationId) {
         return ResponseEntity.ok(service.getById(integrationId));

@@ -12,7 +12,7 @@ import WorkspaceDashboard from './pages/WorkspaceDashboard';
 import AdminWorkspace from './pages/AdminWorkspace';
 import LecturerManagement from './pages/LecturerManagement';
 import GroupMembers from './pages/GroupMembers';
-import TaskTable from './pages/TaskTable';
+import Integrations from './pages/Integrations';
 
 function isMockAuthed() {
   try {
@@ -57,14 +57,14 @@ export default function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/oauth2/redirect" element={<OAuth2Redirect />} />
 
-          {/* Test */}
-          <Route path="/workspaces" element={<WorkspaceList />} />
-          <Route path="/workspace/:groupId" element={<WorkspaceDashboard />} />
-          <Route path="/admin/workspace" element={<AdminWorkspace />} />
-          <Route path="/admin/lecturers" element={<LecturerManagement />} />
-          <Route path="/members/:groupId" element={<GroupMembers />} />
-          <Route path="/members" element={<GroupMembers />} />
-          <Route path="/tasks" element={<TaskTable />} />
+        {/* Test */}
+        <Route path="/workspaces" element={<WorkspaceList />} />
+        <Route path="/workspace/:groupId" element={<WorkspaceDashboard />} />
+        <Route path="/admin/workspace" element={<AdminWorkspace />} />
+        <Route path="/admin/lecturers" element={<LecturerManagement />} />
+        <Route path="/members/:groupId" element={<GroupMembers />} />
+        <Route path="/members" element={<GroupMembers />} />
+        <Route path="/settings/integrations" element={<Integrations />} />
 
           <Route path="*" element={<Navigate to={authed ? '/dashboard' : '/login'} replace />} />
         </Routes>

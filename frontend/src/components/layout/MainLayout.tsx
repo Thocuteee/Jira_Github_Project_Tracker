@@ -4,7 +4,6 @@ import {
     ListTodo,
     Layers,
     Users,
-    GitBranch,
     RefreshCw,
     Bell,
     Settings,
@@ -167,8 +166,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                             Tích hợp
                         </h3>
                         <div className="flex flex-col gap-0.5">
-                            <NavItem icon={<GitBranch size={18} />} label="GitHub Settings" active={isActive('/settings/github')} to="/settings/github" />
-                            <NavItem icon={<RefreshCw size={18} />} label="Jira Sync" active={isActive('/settings/jira')} to="/settings/jira" />
+                            <NavItem icon={<RefreshCw size={18} />} label="Trung tâm Tích hợp" to="/settings/integrations" />
                         </div>
                     </div>
 

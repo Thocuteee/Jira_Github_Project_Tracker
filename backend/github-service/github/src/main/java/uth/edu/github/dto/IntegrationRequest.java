@@ -10,8 +10,9 @@ public class IntegrationRequest {
     @NotNull(message = "groupId không được để trống")
     private UUID groupId;
 
-    @NotBlank(message = "githubToken không được để trống")
     private String githubToken;
+
+    private String githubRepo;
 
     private String jiraProjectKey;
 }

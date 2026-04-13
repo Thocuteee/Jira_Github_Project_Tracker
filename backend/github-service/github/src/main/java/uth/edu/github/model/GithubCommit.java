@@ -45,4 +45,11 @@ public class GithubCommit {
             this.committedAt = LocalDateTime.now();
         }
     }
+
+    public String getUrl() {
+        if (this.repo != null && this.repo.getRepoUrl() != null) {
+            return this.repo.getRepoUrl() + "/commit/" + this.commitHash;
+        }
+        return "https://github.com/commit/" + this.commitHash;
+    }
 }

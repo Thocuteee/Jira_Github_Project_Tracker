@@ -6,6 +6,9 @@
 ```bash
 cd backend
 docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.local up -d --build
+
+docker compose --env-file .env.local -f docker-compose.yml -f docker-compose.dev.yml up --build -d frontend
+
 ```
 
 ## VPS/Production
@@ -18,6 +21,8 @@ docker compose --env-file .env up -d --build
 
 docker-compose up --build -d
 docker compose -f docker-compose.yml -f docker-compose.dev.yml down -v
+docker exec -it postgres psql -U postgres -c "CREATE DATABASE ...;"
+# ...Create DB
 
 # 1. Truy cập vào giao diện lệnh của Redis
 docker exec -it redis redis-cli
