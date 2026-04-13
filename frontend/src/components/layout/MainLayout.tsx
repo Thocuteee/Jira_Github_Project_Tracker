@@ -11,14 +11,19 @@ import {
     ChevronDown,
     Search
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import authService from '@/api/auth.service';
 import { getPrimaryRole } from '@/utils/authDisplay';
+import { useGroupContext } from '@/contexts/GroupContext';
 
 export default function MainLayout({ children }: { children: ReactNode }) {
     const navigate = useNavigate();
+    const location = useLocation();
     const [menuOpen, setMenuOpen] = useState(false);
+    const [groupDropdownOpen, setGroupDropdownOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement | null>(null);
+    const groupDropdownRef = useRef<HTMLDivElement | null>(null);
+    const { groups, selectedGroup, setSelectedGroup, loading: groupsLoading } = useGroupContext();
 
     const authed = (() => {
         try {
@@ -57,17 +62,18 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     })();
 
     useEffect(() => {
-        if (!menuOpen) return;
-
         const handleClickOutside = (event: MouseEvent) => {
-            if (!menuRef.current?.contains(event.target as Node)) {
+            if (menuOpen && menuRef.current && !menuRef.current.contains(event.target as Node)) {
                 setMenuOpen(false);
+            }
+            if (groupDropdownOpen && groupDropdownRef.current && !groupDropdownRef.current.contains(event.target as Node)) {
+                setGroupDropdownOpen(false);
             }
         };
 
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [menuOpen]);
+    }, [menuOpen, groupDropdownOpen]);
 
     const handleUserInfo = () => {
         setMenuOpen(false);
@@ -97,6 +103,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
         .map((part) => part[0]?.toUpperCase())
         .join('');
 
+    const isActive = (path: string) => location.pathname.startsWith(path);
+
     return (
         <div className="flex h-screen min-h-0 w-full bg-[#eef0f4] text-[#171c28]">
             <aside className="flex w-64 shrink-0 flex-col bg-white border-r border-slate-200/80 px-3 py-5 text-slate-700 overflow-y-auto">
@@ -107,11 +115,37 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                     <span className="text-lg font-semibold tracking-tight text-slate-900">Project Tracker</span>
                 </div>
                 
-                <div className="mb-6 px-2">
-                    <button className="flex w-full items-center justify-between rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100 hover:text-slate-900">
-                        <span className="font-medium truncate">Chọn Group</span>
-                        <ChevronDown size={16} className="text-slate-400" />
+                <div className="mb-6 px-2 relative" ref={groupDropdownRef}>
+                    <button 
+                        onClick={() => setGroupDropdownOpen(!groupDropdownOpen)}
+                        className="flex w-full items-center justify-between rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
+                    >
+                        <span className="font-medium truncate">
+                            {groupsLoading ? 'Đang tải...' : (selectedGroup?.groupName || 'Chọn Group')}
+                        </span>
+                        <ChevronDown size={16} className={`text-slate-400 transition-transform ${groupDropdownOpen ? 'rotate-180' : ''}`} />
                     </button>
+                    
+                    {groupDropdownOpen && (
+                        <div className="absolute top-12 left-2 right-2 z-20 rounded-xl border border-slate-200 bg-white py-1.5 shadow-lg max-h-60 overflow-y-auto">
+                            {groups && groups.length > 0 ? (
+                                groups.map(group => (
+                                    <button
+                                        key={group.groupId}
+                                        onClick={() => {
+                                            setSelectedGroup(group);
+                                            setGroupDropdownOpen(false);
+                                        }}
+                                        className={`w-full text-left px-3 py-2 text-sm transition-colors ${selectedGroup?.groupId === group.groupId ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-700 hover:bg-slate-50'}`}
+                                    >
+                                        <div className="truncate">{group.groupName}</div>
+                                    </button>
+                                ))
+                            ) : (
+                                <div className="px-3 py-2 text-sm text-slate-500 italic">Không có group nào</div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 <nav className="flex flex-1 flex-col gap-6">
@@ -120,10 +154,10 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                             Dự án của tôi
                         </h3>
                         <div className="flex flex-col gap-0.5">
-                            <NavItem icon={<LayoutDashboard size={18} />} label="Dashboard" active />
-                            <NavItem icon={<ListTodo size={18} />} label="Bảng Task" />
-                            <NavItem icon={<Layers size={18} />} label="Yêu cầu (Epic)" />
-                            <NavItem icon={<Users size={18} />} label="Thành viên nhóm" />
+                            <NavItem icon={<LayoutDashboard size={18} />} label="Dashboard" active={isActive('/dashboard')} to="/dashboard" />
+                            <NavItem icon={<ListTodo size={18} />} label="Bảng Task" active={isActive('/tasks')} to="/tasks" />
+                            <NavItem icon={<Layers size={18} />} label="Yêu cầu (Epic)" active={isActive('/requirements')} to="/requirements" />
+                            <NavItem icon={<Users size={18} />} label="Thành viên nhóm" active={isActive('/members')} to="/members" />
                         </div>
                     </div>
 
@@ -141,8 +175,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                             Hệ thống
                         </h3>
                         <div className="flex flex-col gap-0.5">
-                            <NavItem icon={<Bell size={18} />} label="Thông báo" />
-                            <NavItem icon={<Settings size={18} />} label="Cấu hình cá nhân" />
+                            <NavItem icon={<Bell size={18} />} label="Thông báo" active={isActive('/notifications')} to="/notifications" />
+                            <NavItem icon={<Settings size={18} />} label="Cấu hình cá nhân" active={isActive('/profile')} to="/profile" />
                             {(() => {
                                 try {
                                     const rawRoles = localStorage.getItem('userRoles');
@@ -155,9 +189,9 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                                 }
                                 return false;                                
                             })() && (
-                                <NavItem icon={<Users size={18} />} label="Quản lý Lecturer" to="/admin/lecturers" />
+                                <NavItem icon={<Users size={18} />} label="Quản lý Lecturer" active={isActive('/admin/lecturers')} to="/admin/lecturers" />
                             )}
-                            <NavItem icon={<Briefcase size={18} />} label="Quản lý Workspace" to="/workspaces" />
+                            <NavItem icon={<Briefcase size={18} />} label="Quản lý Workspace" active={isActive('/workspaces')} to="/workspaces" />
                         </div>
                     </div>
                 </nav>

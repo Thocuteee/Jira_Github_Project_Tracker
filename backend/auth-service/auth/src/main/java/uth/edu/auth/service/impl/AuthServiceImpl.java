@@ -43,7 +43,7 @@ public class AuthServiceImpl implements IAuthService {
 
     @Override
     public User getUserById(UUID id) {
-        return userRepository.findById(id).orElseThrow(()-> new RuntimeException("Không tìm thấy User!"));
+        return userRepository.findById(id).orElseThrow(() -> new RuntimeException("Không tìm thấy User!"));
     }
 
     @Override
@@ -79,32 +79,33 @@ public class AuthServiceImpl implements IAuthService {
         // 3. Xử lý quyền (Role)
         ERole eRole = ERole.ROLE_TEAM_MEMBER; // Gán mặc định là MEMBER nếu không truyền gì
 
-    if (roleName != null && !roleName.isEmpty()) {
-        switch (roleName.toUpperCase()) {
-            case "LECTURER":
-                eRole = ERole.ROLE_LECTURER;
-                if (!normalizedEmail.endsWith("@gv.ut.edu.vn")) {
-                    throw new RuntimeException("Lỗi: Email giảng viên phải có đuôi @gv.ut.edu.vn");
-                }
-                break;
-            case "ADMIN":
-                eRole = ERole.ROLE_ADMIN;
-                break;
-            default:
-                eRole = ERole.ROLE_TEAM_MEMBER;
+        if (roleName != null && !roleName.isEmpty()) {
+            switch (roleName.toUpperCase()) {
+                case "LECTURER":
+                    eRole = ERole.ROLE_LECTURER;
+                    if (!normalizedEmail.endsWith("@gv.ut.edu.vn")) {
+                        throw new RuntimeException("Lỗi: Email giảng viên phải có đuôi @gv.ut.edu.vn");
+                    }
+                    break;
+                case "ADMIN":
+                    eRole = ERole.ROLE_ADMIN;
+                    break;
+                default:
+                    eRole = ERole.ROLE_TEAM_MEMBER;
+            }
         }
-    }
 
-    final ERole assignedERole = eRole;
-    Role assignedRole = roleRepository.findByName(assignedERole)
-            .orElseThrow(() -> new RuntimeException("Lỗi: Không tìm thấy Role " + assignedERole + " trong hệ thống."));
-    
-    Set<Role> roles = new HashSet<>();
-    roles.add(assignedRole);
-    user.setRoles(roles);
-    // --- KẾT THÚC SỬA ---
+        final ERole assignedERole = eRole;
+        Role assignedRole = roleRepository.findByName(assignedERole)
+                .orElseThrow(
+                        () -> new RuntimeException("Lỗi: Không tìm thấy Role " + assignedERole + " trong hệ thống."));
 
-    return userRepository.save(user);
+        Set<Role> roles = new HashSet<>();
+        roles.add(assignedRole);
+        user.setRoles(roles);
+        // --- KẾT THÚC SỬA ---
+
+        return userRepository.save(user);
     }
 
     // Dang nhap
@@ -117,9 +118,10 @@ public class AuthServiceImpl implements IAuthService {
         }
 
         // 1. Kiểm tra User có tồn tại không
-        User user = userRepository.findByEmail(normalizedEmail).orElseThrow(() -> new RuntimeException("Error: Không tìm thấy User!"));
+        User user = userRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new RuntimeException("Error: Không tìm thấy User!"));
 
-        // 2. Kiểm tra mật khẩu 
+        // 2. Kiểm tra mật khẩu
         if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
             throw new RuntimeException("Error: Sai mật khẩu!");
         }
@@ -128,9 +130,9 @@ public class AuthServiceImpl implements IAuthService {
         String jwt = jwtProvider.generateJwtToken(user);
         String refreshToken = refreshTokenService.createRefreshToken(user.getUserId()).getToken();
 
-        // 4. Lấy danh sách Role để trả về 
+        // 4. Lấy danh sách Role để trả về
         List<String> roles = user.getRoles().stream().map(role -> role.getName().name()).collect(Collectors.toList());
 
         return new JwtResponse(jwt, refreshToken, user.getEmail(), roles);
     }
-} 
+}

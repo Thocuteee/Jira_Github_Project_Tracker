@@ -18,7 +18,10 @@ public class UserContextInterceptor implements HandlerInterceptor {
         if (userIdStr != null && !userIdStr.trim().isEmpty()) {
             try {
                 UUID userId = UUID.fromString(userIdStr);
-                UserContextHolder.setUserId(userId);
+                // Chỉ set nếu Filter chưa set (để ưu tiên dữ liệu từ Token)
+                if (UserContextHolder.getUserId() == null) {
+                    UserContextHolder.setUserId(userId);
+                }
             } catch (IllegalArgumentException e) {
                 throw new RuntimeException("X-User-Id không đúng định dạng UUID!");
             }

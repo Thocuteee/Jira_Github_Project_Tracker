@@ -19,6 +19,9 @@ public class TaskCreateRequest {
     @NotNull(message = "ID của Requirement không được để trống")
     private String requirementId;
 
+    @NotNull(message = "ID của Group không được để trống")
+    private String groupId;
+
     @NotBlank(message = "Tiêu đề Task không được để trống")
     private String title;
 
