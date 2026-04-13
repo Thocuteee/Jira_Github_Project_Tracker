@@ -114,8 +114,9 @@ public class GroupServiceImpl implements IGroupService {
     }
 
     @Override
-    public List<MemberRequest> getMembersByGroupId(UUID groupId) {
-        return memberRepo.findByGroupGroupId(groupId).stream().map(groupMapper::toMemberDto)
+    public List<GroupMemberResponse> getMembersByGroupId(UUID groupId) {
+        return memberRepo.findByGroupGroupId(groupId).stream()
+                .map(groupMapper::toMemberResponse)
                 .collect(Collectors.toList());
     }
 }

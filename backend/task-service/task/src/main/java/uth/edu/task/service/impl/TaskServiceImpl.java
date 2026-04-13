@@ -2,7 +2,6 @@ package uth.edu.task.service.impl;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import uth.edu.task.config.UserContextHolder;
@@ -23,6 +22,7 @@ import uth.edu.task.repository.TaskRepository;
 import uth.edu.task.service.TaskService;
 import uth.edu.task.service.publisher.TaskEventPublisher;
 import uth.edu.task.client.GroupClient;
+import uth.edu.task.client.FileServiceClient;
 import uth.edu.task.dto.response.external.GroupMemberResponse;
 
 import java.time.LocalDateTime;
@@ -33,7 +33,6 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class TaskServiceImpl implements TaskService {
 
     private final TaskRepository taskRepository;
@@ -43,6 +42,7 @@ public class TaskServiceImpl implements TaskService {
     private final TaskEventPublisher taskEventPublisher;
     private final TaskMapper taskMapper;
     private final GroupClient groupClient;
+    private final FileServiceClient fileServiceClient;
 
     @Override
     @Transactional
@@ -238,6 +238,10 @@ public class TaskServiceImpl implements TaskService {
 
         taskHistoryRepository.deleteAllByTask_TaskId(taskId);
         taskCommentRepository.deleteAllByTask_TaskId(taskId);
+        
+        // Gọi File Service để xóa toàn bộ file vật lý liên quan tới Task này
+        fileServiceClient.deleteFilesByReference(taskId.toString(), "TASK");
+        
         attachmentRepository.deleteAllByTask_TaskId(taskId);
         taskRepository.delete(task);
     }
@@ -245,13 +249,11 @@ public class TaskServiceImpl implements TaskService {
     // Hàm phụ trợ
     private String getUserRoleString(UUID groupId, UUID userId) {
         if (userId == null) {
-            log.warn("getUserRoleString: userId is null, returning NONE for groupId: {}", groupId);
             return "NONE";
         }
         try {
             List<GroupMemberResponse> members = groupClient.getGroupMembers(groupId);
             if (members == null) {
-                log.error("getUserRoleString: groupClient returned null members list for groupId: {}", groupId);
                 return "NONE";
             }
             return members.stream()
@@ -260,7 +262,6 @@ public class TaskServiceImpl implements TaskService {
                     .findFirst()
                     .orElse("NONE");
         } catch (Exception e) {
-            log.error("Lỗi khi lấy Role từ group-service cho groupId {} (userId: {}): {}", groupId, userId, e.getMessage());
             return "NONE";
         }
     }

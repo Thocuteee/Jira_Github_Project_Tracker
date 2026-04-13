@@ -3,7 +3,7 @@ import axiosClient from './authClient';
 const BASE_PATH = '/api/requirements';
 
 export interface Requirement {
-  id: string;
+  requirementId: string;
   groupId: string;
   title: string;
   description: string;

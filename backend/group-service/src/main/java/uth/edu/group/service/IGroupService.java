@@ -16,5 +16,5 @@ public interface IGroupService {
     // Member operations
     void addMemberToGroup(UUID groupId, MemberRequest memberRequest, UUID callerId, String callerRole);
     void removeMemberFromGroup(UUID groupId, UUID userId);
-    List<MemberRequest> getMembersByGroupId(UUID groupId);
+    List<GroupMemberResponse> getMembersByGroupId(UUID groupId);
 }

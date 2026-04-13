@@ -49,8 +49,7 @@ export function GroupProvider({ children }: { children: ReactNode }) {
                 if (matched) {
                     setSelectedGroup(matched);
                 } else {
-                    setSelectedGroup(data[0]);
-                    localStorage.setItem('selectedGroupId', data[0].groupId);
+                    setSelectedGroup(null);
                 }
             } else {
                 setSelectedGroup(null);

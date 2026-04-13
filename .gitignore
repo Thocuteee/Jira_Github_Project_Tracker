@@ -51,3 +51,4 @@ backend/.env.*
 */mysql_data/
 .ai_docs/
 .cursor/
+Jira And Github API

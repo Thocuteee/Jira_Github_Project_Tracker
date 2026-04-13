@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, ClipboardList, AlertCircle, Calendar, Hash } from 'lucide-react';
+import { X, Plus, ClipboardList, AlertCircle, Calendar, Hash, Paperclip, Trash2, FileText } from 'lucide-react';
 import taskService from '../api/task.service';
+import fileService from '../api/file.service';
 import type { Requirement } from '../api/requirement.service';
 import requirementService from '../api/requirement.service';
 
@@ -8,6 +9,9 @@ interface CreateTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
   groupId: string;
+  groupMembers: { userId: string; roleInGroup: string }[];
+  currentUserId: string | null;
+  userNameMap: Record<string, string>;
   onCreated: () => void;
 }
 
@@ -15,16 +19,21 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   isOpen,
   onClose,
   groupId,
+  groupMembers,
+  currentUserId,
+  userNameMap,
   onCreated
 }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('MEDIUM');
   const [requirementId, setRequirementId] = useState('');
+  const [assignedTo, setAssignedTo] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   useEffect(() => {
     if (isOpen && groupId) {
@@ -37,11 +46,22 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       const data = await requirementService.getRequirementsByGroup(groupId);
       setRequirements(data || []);
       if (data && data.length > 0) {
-        setRequirementId(data[0].id);
+        setRequirementId(data[0].requirementId);
       }
     } catch (err) {
       console.error('Lỗi tải requirements', err);
     }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const filesArray = Array.from(e.target.files);
+      setSelectedFiles((prev: File[]) => [...prev, ...filesArray]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles((prev: File[]) => prev.filter((_, i: number) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -54,18 +74,49 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     setLoading(true);
     setError('');
     try {
-      await taskService.createTask({
+      const newTask = await taskService.createTask({
         groupId,
         requirementId,
         title,
         description,
         priority,
+        assignedTo: assignedTo || undefined,
         dueDate: dueDate || undefined
       });
+
+      // Nếu có file đính kèm, thực hiện upload
+      if (selectedFiles.length > 0) {
+        for (const file of selectedFiles) {
+          try {
+            // 1. Lấy Pre-signed URL từ Task Service (thông qua file-service)
+            const { presignedUrl, fileKey, fileUrl } = await taskService.generateAttachmentPresignedUrl(
+              newTask.taskId,
+              file.name,
+              file.type
+            );
+
+            // 2. Upload trực tiếp lên R2
+            await fileService.uploadToR2(presignedUrl, file);
+
+            // 3. Lưu metadata vào task-service
+            await taskService.saveAttachment(newTask.taskId, {
+              fileKey,
+              fileName: file.name,
+              fileUrl
+            });
+          } catch (uploadErr) {
+            console.error(`Lỗi upload file ${file.name}:`, uploadErr);
+            // Có thể thông báo cho người dùng nhưng không chặn việc tạo hoàn tất Task
+          }
+        }
+      }
+
       onCreated();
       handleClose();
     } catch (err: any) {
-      setError('Lỗi khi tạo Task. Vui lòng thử lại.');
+      console.error('Task creation error:', err);
+      const msg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Lỗi khi tạo Task. Vui lòng thử lại.';
+      setError(typeof msg === 'object' ? JSON.stringify(msg) : msg);
     } finally {
       setLoading(false);
     }
@@ -75,7 +126,9 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     setTitle('');
     setDescription('');
     setPriority('MEDIUM');
+    setAssignedTo('');
     setDueDate('');
+    setSelectedFiles([]);
     setError('');
     onClose();
   };
@@ -138,7 +191,7 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
               >
                 <option value="" disabled>Chọn Requirement</option>
                 {requirements.map((req: Requirement) => (
-                  <option key={req.id} value={req.id}>{req.title}</option>
+                  <option key={req.requirementId} value={req.requirementId}>{req.title}</option>
                 ))}
               </select>
             </div>
@@ -159,16 +212,36 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-              <Calendar size={14} /> Hạn chót (Tùy chọn)
-            </label>
-            <input
-              type="date"
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-slate-700"
-              value={dueDate}
-              onChange={e => setDueDate(e.target.value)}
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                <Calendar size={14} /> Hạn chót (Tùy chọn)
+              </label>
+              <input
+                type="date"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-slate-700 font-medium"
+                value={dueDate}
+                onChange={e => setDueDate(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                <Plus size={14} className="text-blue-500" /> Giao việc cho
+              </label>
+              <select
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-slate-700 font-bold"
+                value={assignedTo}
+                onChange={e => setAssignedTo(e.target.value)}
+              >
+                <option value="">Chưa giao (Trống)</option>
+                {groupMembers.map(m => (
+                  <option key={m.userId} value={m.userId}>
+                    {m.userId === currentUserId ? 'Giao cho Bạn' : (userNameMap[m.userId] || `Thành viên: ${m.userId.slice(0, 8)}...`)}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -181,6 +254,40 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
               value={description}
               onChange={e => setDescription(e.target.value)}
             />
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center justify-between">
+              <span className="flex items-center gap-1.5"><Paperclip size={14} /> Tệp đính kèm</span>
+              <span className="text-[10px] lowercase font-medium bg-slate-100 px-2 py-0.5 rounded-full">{selectedFiles.length} file</span>
+            </label>
+            
+            <div className="flex flex-wrap gap-2">
+              {selectedFiles.map((file: File, idx: number) => (
+                <div key={idx} className="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg border border-blue-100 text-sm font-medium pr-1">
+                  <FileText size={14} />
+                  <span className="max-w-[120px] truncate">{file.name}</span>
+                  <button 
+                    type="button" 
+                    onClick={() => removeFile(idx)}
+                    className="p-1 hover:bg-blue-100 rounded-full text-blue-400 hover:text-blue-600 transition-colors"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+              
+              <label className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 text-slate-500 px-3 py-1.5 rounded-lg border border-dashed border-slate-300 text-sm font-medium cursor-pointer transition-colors">
+                <Plus size={14} />
+                <span>Thêm tệp</span>
+                <input 
+                  type="file" 
+                  multiple 
+                  className="hidden" 
+                  onChange={handleFileChange} 
+                />
+              </label>
+            </div>
           </div>
 
           <div className="pt-4 flex gap-3">

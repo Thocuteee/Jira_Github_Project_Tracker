@@ -71,17 +71,6 @@ services:
       - "5672:5672"
       - "15672:15672"
 
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
-    container_name: rabbitmq
-    restart: unless-stopped
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-guest}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-
   auth-service:
     build: ./auth-service/auth
     container_name: auth-service
@@ -91,14 +80,13 @@ services:
       - .env
     environment:
       FRONTEND_URL: http://localhost
-      SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth_db
       SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
     depends_on:
-      - postgres
-      - rabbitmq
+      db-init:
+        condition: service_completed_successfully
 
   group-service:
     build: ./group-service/group
@@ -108,14 +96,13 @@ services:
     env_file:
       - .env
     environment:
-      SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/group_db
       SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
     depends_on:
-      - postgres
-      - rabbitmq
+      db-init:
+        condition: service_completed_successfully
 
   requirement-service:
     build: ./requirement-service/requirement
@@ -125,14 +112,13 @@ services:
     env_file:
       - .env
     environment:
-      SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/requirement_db
       SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
     depends_on:
-      - postgres
-      - rabbitmq
+      db-init:
+        condition: service_completed_successfully
 
   task-service:
     build: ./task-service/task
@@ -142,14 +128,13 @@ services:
     env_file:
       - .env
     environment:
-      SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/task_db
       SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
     depends_on:
-      - postgres
-      - rabbitmq
+      db-init:
+        condition: service_completed_successfully
 
   report-service:
     build: ./report-service/report
@@ -159,14 +144,13 @@ services:
     env_file:
       - .env
     environment:
-      SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/report_db
       SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
     depends_on:
-      - postgres
-      - rabbitmq
+      db-init:
+        condition: service_completed_successfully
 
   notification-service:
     build: ./notification-service/notification
@@ -176,14 +160,13 @@ services:
     env_file:
       - .env
     environment:
-      SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification_db
       SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
     depends_on:
-      - postgres
-      - rabbitmq
+      db-init:
+        condition: service_completed_successfully
 
   github-service:
     build: ./github-service/github
@@ -193,14 +176,13 @@ services:
     env_file:
       - .env
     environment:
-      SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/github_db
       SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
     depends_on:
-      - postgres
-      - rabbitmq
+      db-init:
+        condition: service_completed_successfully
 
   jira-service:
     build: ./jira-service/jira
@@ -210,14 +192,13 @@ services:
     env_file:
       - .env
     environment:
-      SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/jira_db
       SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
     depends_on:
-      - postgres
-      - rabbitmq
+      db-init:
+        condition: service_completed_successfully
 
   export-service:
     build: ./export-service
@@ -227,12 +208,10 @@ services:
     env_file:
       - .env
     environment:
-      SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/export_db
       SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
     depends_on:
-      - postgres
-      - rabbitmq
-
+      db-init:
+        condition: service_completed_successfully

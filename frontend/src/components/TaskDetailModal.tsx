@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, MessageSquare, History, Info, Save, User, AlertCircle, Calendar, CheckCircle2, Clock, Circle, ArrowRight } from 'lucide-react';
 import type { Task, TaskComment, TaskHistory } from '../api/task.service';
 import taskService from '../api/task.service';
+import authService from '../api/auth.service';
 
 interface TaskDetailModalProps {
   task: Task;
@@ -11,6 +12,7 @@ interface TaskDetailModalProps {
   role: 'LEADER' | 'MEMBER';
   groupMembers: { userId: string; roleInGroup: string }[];
   currentUserId: string | null;
+  userNameMap: Record<string, string>;
 }
 
 const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
@@ -20,7 +22,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   onUpdate,
   role,
   groupMembers,
-  currentUserId
+  currentUserId,
+  userNameMap
 }) => {
   const [activeTab, setActiveTab] = useState<'details' | 'comments' | 'history'>('details');
   const [editedTask, setEditedTask] = useState<Partial<Task>>({});
@@ -29,6 +32,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [localNames, setLocalNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (isOpen) {
@@ -53,6 +57,16 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       ]);
       setComments(commentsData || []);
       setHistory(historyData || []);
+
+      // Fetch user names for comments and history
+      const allUserIds = new Set<string>();
+      if (commentsData) commentsData.forEach((c: TaskComment) => allUserIds.add(c.userId));
+      if (historyData) historyData.forEach((h: TaskHistory) => allUserIds.add(h.changedBy));
+      
+      if (allUserIds.size > 0) {
+        const names = await authService.getUserNames(Array.from(allUserIds));
+        setLocalNames(names);
+      }
     } catch (error) {
       console.error('Lỗi khi tải dữ liệu bổ sung:', error);
     } finally {
@@ -215,12 +229,12 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                           <option value="">Chưa giao</option>
                           {groupMembers.map(m => (
                             <option key={m.userId} value={m.userId}>
-                              {m.userId === currentUserId ? 'Bạn' : `User: ${m.userId.slice(0, 8)}...`}
+                              {m.userId === currentUserId ? 'Bạn' : (localNames[m.userId] || userNameMap[m.userId] || `User: ${m.userId.slice(0, 8)}...`)}
                             </option>
                           ))}
                         </select>
                       ) : (
-                        <span className="text-sm font-bold text-slate-700">{task.assignedTo ? `Member ID: ${task.assignedTo.slice(0, 8)}` : 'Chưa giao'}</span>
+                        <span className="text-sm font-bold text-slate-700">{task.assignedTo ? (localNames[task.assignedTo] || userNameMap[task.assignedTo] || `User: ${task.assignedTo.slice(0, 8)}`) : 'Chưa giao'}</span>
                       )}
                     </div>
                   </div>
@@ -300,7 +314,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       </div>
                       <div className="flex-1 space-y-1">
                         <div className="flex items-center gap-3">
-                          <span className="text-sm font-black text-slate-900">{c.userId === currentUserId ? 'Bạn' : `User ${c.userId.slice(0, 4)}`}</span>
+                          <span className="text-sm font-black text-slate-900">{c.userId === currentUserId ? 'Bạn' : (localNames[c.userId] || userNameMap[c.userId] || `User: ${c.userId.slice(0, 8)}`)}</span>
                           <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                         </div>
                         <div className="bg-white px-5 py-4 rounded-[1.5rem] rounded-tl-none border border-slate-100 shadow-sm text-slate-600 text-[15px] font-medium leading-relaxed">
@@ -327,7 +341,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       <div className="absolute left-[13px] top-1.5 h-3.5 w-3.5 rounded-full bg-blue-600 border-[3px] border-white ring-4 ring-blue-50"></div>
                       <div className="space-y-1">
                         <div className="flex items-center gap-3">
-                          <span className="text-xs font-black text-slate-900">{h.changedBy === currentUserId ? 'Bạn' : `User ${h.changedBy.slice(0, 4)}`}</span>
+                          <span className="text-xs font-black text-slate-900">{h.changedBy === currentUserId ? 'Bạn' : (localNames[h.changedBy] || userNameMap[h.changedBy] || `User: ${h.changedBy.slice(0, 8)}`)}</span>
                           <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{new Date(h.changedAt).toLocaleString()}</span>
                         </div>
                         <p className="text-sm text-slate-500 font-medium">
