@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   frontend:
     build:
@@ -57,19 +55,6 @@ services:
     image: redis:7-alpine
     container_name: redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
-
-  rabbitmq:
-    image: rabbitmq:3-management-alpine # Bản management có tích hợp sẵn giao diện Web
-    container_name: rabbitmq
-    restart: unless-stopped
-    environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: 123
-    ports:
-      - "5672:5672"
-      - "15672:15672"
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
@@ -101,7 +86,7 @@ services:
       - rabbitmq
 
   group-service:
-    build: ./group-service/group
+    build: ./group-service
     container_name: group-service
     ports:
       - "8082:8082"

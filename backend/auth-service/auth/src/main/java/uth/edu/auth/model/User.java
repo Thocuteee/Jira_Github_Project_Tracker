@@ -46,6 +46,9 @@ public class User {
     @Column(name = "avatar_url")
     private String avatarUrl;
 
+    @Column(name = "status")
+    private String status = "ACTIVE";
+
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 }

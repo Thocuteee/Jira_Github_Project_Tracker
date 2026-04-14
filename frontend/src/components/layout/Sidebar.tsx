@@ -10,6 +10,7 @@ import {
     ChevronDown 
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { useGroupContext } from '@/contexts/GroupContext';
 
 const myProjectNav = [
@@ -30,6 +31,7 @@ const systemNav = [
 ];
 
 export default function Sidebar() {
+    const location = useLocation();
     const [groupDropdownOpen, setGroupDropdownOpen] = useState(false);
     const groupDropdownRef = useRef<HTMLDivElement | null>(null);
     const { groups, selectedGroup, setSelectedGroup, loading: groupsLoading } = useGroupContext();
@@ -89,10 +91,14 @@ export default function Sidebar() {
                 <h3 className="text-xs font-semibold text-slate-500 uppercase px-3 mb-2">Dự án của tôi</h3>
                 <nav className="space-y-1">
                     {myProjectNav.map((item) => (
-                        <a key={item.name} href={item.href} className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-200 hover:text-slate-950 transition-colors">
-                            <item.icon className="w-4 h-4" />
+                        <Link 
+                            key={item.name} 
+                            to={item.href} 
+                            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${location.pathname === item.href ? 'bg-blue-600 text-white shadow-md shadow-blue-100' : 'text-slate-700 hover:bg-slate-200 hover:text-slate-950'}`}
+                        >
+                            <item.icon className={`w-4 h-4 ${location.pathname === item.href ? 'text-white' : ''}`} />
                             {item.name}
-                        </a>
+                        </Link>
                     ))}
                 </nav>
             </div>
@@ -102,10 +108,14 @@ export default function Sidebar() {
                 <h3 className="text-xs font-semibold text-slate-500 uppercase px-3 mb-2">Tích hợp</h3>
                 <nav className="space-y-1">
                     {integrationNav.map((item) => (
-                        <a key={item.name} href={item.href} className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-200 hover:text-slate-950 transition-colors">
-                            <item.icon className="w-4 h-4" />
+                        <Link 
+                            key={item.name} 
+                            to={item.href} 
+                            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${location.pathname === item.href ? 'bg-blue-600 text-white shadow-md shadow-blue-100' : 'text-slate-700 hover:bg-slate-200 hover:text-slate-950'}`}
+                        >
+                            <item.icon className={`w-4 h-4 ${location.pathname === item.href ? 'text-white' : ''}`} />
                             {item.name}
-                        </a>
+                        </Link>
                     ))}
                 </nav>
             </div>
@@ -115,10 +125,14 @@ export default function Sidebar() {
                 <h3 className="text-xs font-semibold text-slate-500 uppercase px-3 mb-2">Hệ thống</h3>
                 <nav className="space-y-1">
                     {systemNav.map((item) => (
-                        <a key={item.name} href={item.href} className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-200 hover:text-slate-950 transition-colors">
-                            <item.icon className="w-4 h-4" />
+                        <Link 
+                            key={item.name} 
+                            to={item.href} 
+                            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${location.pathname === item.href ? 'bg-blue-600 text-white shadow-md shadow-blue-100' : 'text-slate-700 hover:bg-slate-200 hover:text-slate-950'}`}
+                        >
+                            <item.icon className={`w-4 h-4 ${location.pathname === item.href ? 'text-white' : ''}`} />
                             {item.name}
-                        </a>
+                        </Link>
                     ))}
                 </nav>
             </div>

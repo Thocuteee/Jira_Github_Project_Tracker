@@ -21,6 +21,7 @@ export interface Group {
 
 interface GroupContextProps {
     groups: Group[];
+    myGroups: Group[]; // Alias for compatibility with some components
     selectedGroup: Group | null;
     setSelectedGroup: (group: Group | null) => void;
     loading: boolean;
@@ -40,7 +41,14 @@ export function GroupProvider({ children }: { children: ReactNode }) {
         setLoading(true);
         setError(null);
         try {
-            const data: Group[] = await groupService.getMyGroups();
+            const rawRoles = localStorage.getItem('userRoles');
+            const roles = rawRoles ? JSON.parse(rawRoles) : [];
+            const isAdmin = Array.isArray(roles) && roles.includes('ROLE_ADMIN');
+
+            const data: Group[] = isAdmin 
+                ? await groupService.getAllGroups() 
+                : await groupService.getMyGroups();
+            
             setGroups(data || []);
 
             if (data && data.length > 0) {
@@ -48,7 +56,8 @@ export function GroupProvider({ children }: { children: ReactNode }) {
                 const matched = data.find(g => g.groupId === savedId);
                 if (matched) {
                     setSelectedGroup(matched);
-                } else {
+                } else if (!savedId) {
+                    // Chỉ tự chọn group đầu tiên nếu chưa có cái nào được lưu
                     setSelectedGroup(data[0]);
                     localStorage.setItem('selectedGroupId', data[0].groupId);
                 }
@@ -103,6 +112,7 @@ export function GroupProvider({ children }: { children: ReactNode }) {
         <GroupContext.Provider
             value={{
                 groups,
+                myGroups: groups, // provide as alias
                 selectedGroup,
                 setSelectedGroup: handleSetSelectedGroup,
                 loading,
@@ -122,3 +132,6 @@ export function useGroupContext() {
     }
     return context;
 }
+
+// Alias for compatibility with old components
+export const useGroup = useGroupContext;

@@ -14,6 +14,8 @@ export interface Requirement {
 export const requirementService = {
     getByGroup: (groupId: string) => 
         axios.get<Requirement[]>(`/api/requirements/group/${groupId}`),
+    getRequirementsByGroup: (groupId: string) =>
+        axios.get<Requirement[]>(`/api/requirements/group/${groupId}`),
     
     create: (data: Partial<Requirement>) => 
         axios.post<Requirement>('/api/requirements', data),
@@ -24,3 +26,5 @@ export const requirementService = {
     delete: (id: string) => 
         axios.delete(`/api/requirements/${id}`),
 };
+
+export default requirementService;
