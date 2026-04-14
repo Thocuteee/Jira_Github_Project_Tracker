@@ -4,9 +4,8 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import software.amazon.awssdk.services.s3.model.PutObjectRequest;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
-import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
+import uth.edu.task.client.FileServiceClient;
+import uth.edu.task.dto.response.file.PresignedUrlResponse;
 import uth.edu.task.config.UserContextHolder;
 import uth.edu.task.dto.request.AttachmentRequest;
 import uth.edu.task.dto.request.GenerateUrlRequest;
@@ -32,41 +31,24 @@ public class AttachmentServiceImpl implements AttachmentService {
 
     private final TaskRepository taskRepository;
     private final AttachmentRepository attachmentRepository;
-    private final S3Presigner s3Presigner;
+    private final FileServiceClient fileServiceClient;
 
-    @Value("${cloudflare.r2.bucket-name}")
-    private String bucketName;
-
-    @Value("${cloudflare.r2.public-domain}")
-    private String publicDomain;
 
     private final AttachmentMapper attachmentMapper;
 
     @Override
     public Map<String, String> generatePresignedUrl(UUID taskId, GenerateUrlRequest request) {
-        // Kiểm tra xem Task có tồn tại không và User có quyền không
-
-        String fileKey = "tasks/" + taskId.toString() + "/" + UUID.randomUUID();
-
-        PutObjectRequest objectRequest = PutObjectRequest.builder()
-                .bucket(bucketName)
-                .key(fileKey)
-                .contentType(request.getContentType())
-                .build();
-
-        PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
-                .signatureDuration(Duration.ofMinutes(15))
-                .putObjectRequest(objectRequest)
-                .build();
-
-        String presignedUrl = s3Presigner.presignPutObject(presignRequest).url().toString();
-
-        String fileAccessUrl = publicDomain + "/" + bucketName + "/" + fileKey;
+        PresignedUrlResponse fileResponse = fileServiceClient.getUploadUrl(
+                request.getFileName(),
+                request.getContentType(),
+                "TASK",
+                taskId.toString()
+        );
 
         Map<String, String> response = new HashMap<>();
-        response.put("presignedUrl", presignedUrl);
-        response.put("fileKey", fileKey);
-        response.put("fileUrl", fileAccessUrl);
+        response.put("presignedUrl", fileResponse.getUploadUrl());
+        response.put("fileKey", fileResponse.getFileKey());
+        response.put("fileUrl", fileResponse.getFileUrl());
 
         return response;
     }
@@ -121,11 +103,15 @@ public class AttachmentServiceImpl implements AttachmentService {
 
         String currentUserId = UserContextHolder.getUserId().toString();
         String role = UserContextHolder.getUserRole();
-        boolean owner = currentUserId != null && existing.getUploadedBy().equals(currentUserId);
+        boolean owner = currentUserId != null && existing.getUploadedBy().toString().equals(currentUserId);
         boolean leader = "TEAM_LEADER".equals(role);
         if (!owner && !leader) {
             throw new RuntimeException("Bạn không có quyền xóa attachment này!");
         }
+
+        // Gọi File Service để xóa file vật lý trên R2
+        fileServiceClient.deleteFile(existing.getFileKey());
+
         attachmentRepository.delete(existing);
     }
 }

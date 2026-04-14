@@ -54,4 +54,12 @@ public class GroupMapper {
         dto.setJiraAccountId(member.getJiraAccountId());
         return dto;
     }
+
+    public GroupMemberResponse toMemberResponse(GroupMember member) {
+        if (member == null) return null;
+        GroupMemberResponse response = new GroupMemberResponse();
+        response.setUserId(member.getUserId());
+        response.setRoleInGroup(member.getRoleInGroup());
+        return response;
+    }
 }

@@ -70,7 +70,7 @@ public class GroupController {
     }
 
     @GetMapping("/{groupId}/members")
-    public ResponseEntity<List<MemberRequest>> getMembers(@PathVariable UUID groupId) {
+    public ResponseEntity<List<GroupMemberResponse>> getMembers(@PathVariable UUID groupId) {
         return ResponseEntity.ok(groupService.getMembersByGroupId(groupId));
     }
 

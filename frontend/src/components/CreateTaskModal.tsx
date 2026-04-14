@@ -8,6 +8,9 @@ interface CreateTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
   groupId: string;
+  groupMembers: { userId: string; roleInGroup: string }[];
+  currentUserId: string | null;
+  userNameMap: Record<string, string>;
   onCreated: () => void;
   initialRequirementId?: string;
 }
@@ -16,6 +19,9 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   isOpen,
   onClose,
   groupId,
+  groupMembers,
+  currentUserId,
+  userNameMap,
   onCreated,
   initialRequirementId
 }) => {
@@ -23,6 +29,7 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('MEDIUM');
   const [requirementId, setRequirementId] = useState('');
+  const [assignedTo, setAssignedTo] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [loading, setLoading] = useState(false);
@@ -68,6 +75,7 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         title,
         description,
         priority,
+        assignedTo: assignedTo || undefined,
         dueDate: dueDate || undefined
       });
       onCreated();
@@ -83,6 +91,7 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     setTitle('');
     setDescription('');
     setPriority('MEDIUM');
+    setAssignedTo('');
     setDueDate('');
     setError('');
     onClose();
@@ -165,6 +174,25 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 <option value="HIGH">Cao (High)</option>
               </select>
             </div>
+          </div>
+
+          {/* New Assignee Selection */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+              Người nhận việc (Assignee)
+            </label>
+            <select
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-slate-700 font-medium"
+              value={assignedTo}
+              onChange={e => setAssignedTo(e.target.value)}
+            >
+              <option value="">Chưa giao (Unassigned)</option>
+              {groupMembers.map(member => (
+                <option key={member.userId} value={member.userId}>
+                  {member.userId === currentUserId ? 'Bạn (Cá nhân)' : (userNameMap[member.userId] || `Thành viên: ${member.userId.slice(0, 8)}`)}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="space-y-2">

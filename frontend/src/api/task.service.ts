@@ -16,6 +16,16 @@ export interface Task {
   createdBy?: string;
 }
 
+export interface Attachment {
+  attachmentId: string;
+  taskId: string;
+  uploadedBy: string;
+  fileName: string;
+  fileKey: string;
+  fileUrl: string;
+  uploadedAt: string;
+}
+
 export interface TaskComment {
   commentId: string;
   taskId: string;
@@ -73,6 +83,15 @@ class TaskService {
 
   async getTaskHistory(taskId: string): Promise<TaskHistory[]> {
     return (await axiosClient.get(`${BASE_PATH}/${taskId}/history`)) as TaskHistory[];
+  }
+
+  // --- Attachments ---
+  async generateAttachmentPresignedUrl(taskId: string, fileName: string, contentType: string): Promise<{ presignedUrl: string, fileKey: string, fileUrl: string }> {
+    return (await axiosClient.post(`${BASE_PATH}/${taskId}/attachments/presigned-url`, { fileName, contentType })) as { presignedUrl: string, fileKey: string, fileUrl: string };
+  }
+
+  async saveAttachment(taskId: string, data: { fileKey: string, fileName: string, fileUrl: string }): Promise<Attachment> {
+    return (await axiosClient.post(`${BASE_PATH}/${taskId}/attachments`, data)) as Attachment;
   }
 }
 

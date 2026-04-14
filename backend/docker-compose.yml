@@ -232,6 +232,26 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_RABBITMQ_HOST: ${SPRING_RABBITMQ_HOST:-rabbitmq}
 
+  file-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/file-service:latest
+    build: ./file-service
+    container_name: file-service
+    restart: always
+    ports:
+      - "${FILE_SERVICE_PORT:-8090}:8090"
+    environment:
+      SERVER_PORT: 8090
+      JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_FILE}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER_FILE}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS_FILE}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      CLOUDFLARE_R2_ENDPOINT: ${CLOUDFLARE_R2_ENDPOINT}
+      CLOUDFLARE_R2_PUBLIC_DOMAIN: ${CLOUDFLARE_R2_PUBLIC_DOMAIN}
+      CLOUDFLARE_R2_ACCESS_KEY: ${CLOUDFLARE_R2_ACCESS_KEY}
+      CLOUDFLARE_R2_SECRET_KEY: ${CLOUDFLARE_R2_SECRET_KEY}
+      CLOUDFLARE_R2_BUCKET_NAME: ${CLOUDFLARE_R2_BUCKET_NAME}
+
   nginx:
     image: nginx:alpine
     container_name: nginx
