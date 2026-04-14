@@ -48,8 +48,8 @@ const authService = {
         return axiosClient.put(`/api/auth/users/${id}`, data);
     },
 
-    // chưa có api thật trong authcontroller
-    updateUserStatus: (id: number, status: string): Promise<any> => {
+    // Đã thêm api thật trong authcontroller
+    updateUserStatus: (id: string | number, status: string): Promise<any> => {
         return axiosClient.patch(`/api/auth/users/${id}/status`, { status });
     },
 

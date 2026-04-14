@@ -1,19 +1,30 @@
-import axiosClient from './authClient';
-
-const BASE_PATH = '/api/requirements';
+import axios from './authClient'; 
 
 export interface Requirement {
-  requirementId: string;
-  groupId: string;
-  title: string;
-  description: string;
-  createdAt?: string;
+    id: string;
+    title: string;
+    description: string;
+    priority: 'HIGH' | 'MEDIUM' | 'LOW';
+    status: 'ANALYSIS' | 'DESIGN' | 'CODING' | 'DONE';
+    jiraIssueKey?: string;
+    progress: number; // Phần trăm hoàn thành
+    groupId: string;
 }
 
-class RequirementService {
-  async getRequirementsByGroup(groupId: string): Promise<Requirement[]> {
-    return (await axiosClient.get(`${BASE_PATH}/group/${groupId}`)) as Requirement[];
-  }
-}
+export const requirementService = {
+    getByGroup: (groupId: string) => 
+        axios.get<Requirement[]>(`/api/requirements/group/${groupId}`),
+    getRequirementsByGroup: (groupId: string) =>
+        axios.get<Requirement[]>(`/api/requirements/group/${groupId}`),
+    
+    create: (data: Partial<Requirement>) => 
+        axios.post<Requirement>('/api/requirements', data),
+        
+    update: (id: string, data: Partial<Requirement>) => 
+        axios.put<Requirement>(`/api/requirements/${id}`, data),
+    
+    delete: (id: string) => 
+        axios.delete(`/api/requirements/${id}`),
+};
 
-export default new RequirementService();
+export default requirementService;

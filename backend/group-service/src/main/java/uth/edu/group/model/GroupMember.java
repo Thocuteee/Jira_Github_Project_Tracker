@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor @AllArgsConstructor
 public class GroupMember {
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID memberId;
 
     @ManyToOne
@@ -23,5 +23,14 @@ public class GroupMember {
 
     private String roleInGroup;
 
+    //github username
+    @Column(name = "github_username")
+    private String githubUsername;
+    //jira account
+    @Column(name = "jira_account_id")
+    private String jiraAccountId;
+
+
+    @Column(name = "joined_at", updatable = false)
     private LocalDateTime joinedAt = LocalDateTime.now();
 }
