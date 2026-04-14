@@ -2,14 +2,6 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import type { ReactNode } from 'react';
 import groupService from '../api/group.service';
 
-function isAuthedLocally(): boolean {
-    try {
-        return Boolean(localStorage.getItem('userEmail') || localStorage.getItem('userName'));
-    } catch {
-        return false;
-    }
-}
-
 export interface Group {
     groupId: string;
     groupName: string;
@@ -75,21 +67,9 @@ export function GroupProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
-    const clearGroupsState = useCallback(() => {
-        setLoading(false);
-        setError(null);
-        setGroups([]);
-        setSelectedGroup(null);
-        localStorage.removeItem('selectedGroupId');
-    }, []);
-
     useEffect(() => {
         const sync = () => {
-            if (isAuthedLocally()) {
-                void fetchGroups();
-            } else {
-                clearGroupsState();
-            }
+            void fetchGroups();
         };
 
         sync();
@@ -99,7 +79,7 @@ export function GroupProvider({ children }: { children: ReactNode }) {
             window.removeEventListener('auth-changed', sync);
             window.removeEventListener('storage', sync);
         };
-    }, [fetchGroups, clearGroupsState]);
+    }, [fetchGroups]);
 
     const handleSetSelectedGroup = (group: Group | null) => {
         setSelectedGroup(group);

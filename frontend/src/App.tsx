@@ -67,6 +67,8 @@ export default function App() {
         <Route path="/members/:groupId" element={<GroupMembers />} />
         <Route path="/members" element={<GroupMembers />} />
         <Route path="/settings/integrations" element={<Integrations />} />
+        <Route path="/settings/github" element={<Navigate to="/settings/integrations" replace />} />
+        <Route path="/settings/jira" element={<Navigate to="/settings/integrations" replace />} />
         <Route path="/requirements" element={<RequirementTable />} />
         <Route path="/workspace/:groupId/tasks" element={<TaskTable />} />
 

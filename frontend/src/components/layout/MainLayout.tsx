@@ -199,11 +199,11 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                                     to="/requirements" 
                                     active={location.pathname === '/requirements'}
                                 />
-                                <NavItem 
-                                    icon={<Settings size={18} />} 
-                                    label="Cấu hình GitHub" 
-                                    to={`/settings/integrations`} 
-                                    active={location.pathname === `/settings/integrations`}
+                                <NavItem
+                                    icon={<Settings size={18} />}
+                                    label="Cấu hình tích hợp"
+                                    to="/settings/integrations"
+                                    active={location.pathname === '/settings/integrations' || location.pathname === '/settings/github' || location.pathname === '/settings/jira'}
                                 />
                             </div>
                         </div>
@@ -214,7 +214,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                             Tích hợp & Hệ thống
                         </h3>
                         <div className="flex flex-col gap-0.5">
-                            <NavItem icon={<RefreshCw size={18} />} label="Trung tâm Tích hợp" to="/settings/integrations" active={location.pathname === '/settings/integrations'} />
+                            <NavItem icon={<RefreshCw size={18} />} label="Trung tâm Tích hợp" to="/settings/integrations" active={location.pathname === '/settings/integrations' || location.pathname === '/settings/github' || location.pathname === '/settings/jira'} />
                             <NavItem icon={<Bell size={18} />} label="Thông báo" active={location.pathname === '/notifications'} />
                             <NavItem icon={<Settings size={18} />} label="Hồ sơ cá nhân" active={location.pathname === '/profile'} />
                             {(() => {

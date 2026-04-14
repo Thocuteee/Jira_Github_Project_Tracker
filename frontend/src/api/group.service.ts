@@ -6,8 +6,15 @@ const API_URL = `${apiGatewayBaseUrl}/api/groups`;
 class GroupService {
   // --- Group Endpoints ---
 
-  async createGroup(data: { groupName: string; leaderId?: string; githubRepoUrl?: string; description?: string }) {
-    // Để mock theo API hiện tại có (groupName, leaderId)
+  async createGroup(data: {
+    groupName: string;
+    leaderId?: string;
+    githubRepoUrl?: string;
+    description?: string;
+    workspaceId: string;
+    status?: 'ACTIVE' | 'LOCKED';
+    maxMembers?: number;
+  }) {
     const response = await axios.post(API_URL, data, {
       withCredentials: true,
     });
@@ -47,6 +54,11 @@ class GroupService {
 
   async getMembers(groupId: string) {
     const response = await axios.get(`${API_URL}/${groupId}/members`, { withCredentials: true });
+    return response.data;
+  }
+
+  async getMemberIds(groupId: string) {
+    const response = await axios.get(`${API_URL}/${groupId}/members/ids`, { withCredentials: true });
     return response.data;
   }
 
