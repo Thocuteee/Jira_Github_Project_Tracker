@@ -1,14 +1,16 @@
 import axios from './authClient'; 
 
 export interface Requirement {
-    id: string;
+    requirementId: string;
     title: string;
     description: string;
-    priority: 'HIGH' | 'MEDIUM' | 'LOW';
-    status: 'ANALYSIS' | 'DESIGN' | 'CODING' | 'DONE';
+    priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+    status: 'NEW' | 'IN_PROGRESS' | 'DONE' | 'REJECTED';
     jiraIssueKey?: string;
-    progress: number; // Phần trăm hoàn thành
+    progress: number;
     groupId: string;
+    createdBy: string;
+    createdAt?: string;
 }
 
 export const requirementService = {

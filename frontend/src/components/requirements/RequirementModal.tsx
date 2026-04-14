@@ -14,7 +14,7 @@ const RequirementModal: React.FC<RequirementModalProps> = ({ isOpen, onClose, on
         title: '',
         description: '',
         priority: 'MEDIUM',
-        status: 'ANALYSIS',
+        status: 'NEW',
         progress: 0
     });
 
@@ -26,7 +26,7 @@ const RequirementModal: React.FC<RequirementModalProps> = ({ isOpen, onClose, on
                 title: '',
                 description: '',
                 priority: 'MEDIUM',
-                status: 'ANALYSIS',
+                status: 'NEW',
                 progress: 0
             });
         }
@@ -81,11 +81,12 @@ const RequirementModal: React.FC<RequirementModalProps> = ({ isOpen, onClose, on
                             <select
                                 value={formData.priority}
                                 onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-bold text-slate-600"
                             >
-                                <option value="HIGH">HIGH</option>
-                                <option value="MEDIUM">MEDIUM</option>
                                 <option value="LOW">LOW</option>
+                                <option value="MEDIUM">MEDIUM</option>
+                                <option value="HIGH">HIGH</option>
+                                <option value="CRITICAL">CRITICAL</option>
                             </select>
                         </div>
                         <div>
@@ -93,12 +94,12 @@ const RequirementModal: React.FC<RequirementModalProps> = ({ isOpen, onClose, on
                             <select
                                 value={formData.status}
                                 onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-bold text-slate-600"
                             >
-                                <option value="ANALYSIS">ANALYSIS</option>
-                                <option value="DESIGN">DESIGN</option>
-                                <option value="CODING">CODING</option>
-                                <option value="DONE">DONE</option>
+                                <option value="NEW">NEW (Mới)</option>
+                                <option value="IN_PROGRESS">IN_PROGRESS (Đang làm)</option>
+                                <option value="DONE">DONE (Hoàn thành)</option>
+                                <option value="REJECTED">REJECTED (Từ chối)</option>
                             </select>
                         </div>
                     </div>

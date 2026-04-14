@@ -13,4 +13,5 @@ public class RequirementRequest {
     private String createdBy;
     private String priority;
     private String status;
+    private String jiraIssueKey;
 }

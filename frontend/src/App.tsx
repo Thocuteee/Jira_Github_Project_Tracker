@@ -14,6 +14,7 @@ import LecturerManagement from './pages/LecturerManagement';
 import GroupMembers from './pages/GroupMembers';
 import Integrations from './pages/Integrations';
 import RequirementTable from './pages/RequirementTable';
+import TaskTable from './pages/TaskTable';
 
 function isMockAuthed() {
   try {
@@ -67,6 +68,7 @@ export default function App() {
         <Route path="/members" element={<GroupMembers />} />
         <Route path="/settings/integrations" element={<Integrations />} />
         <Route path="/requirements" element={<RequirementTable />} />
+        <Route path="/workspace/:groupId/tasks" element={<TaskTable />} />
 
           <Route path="*" element={<Navigate to={authed ? '/dashboard' : '/login'} replace />} />
         </Routes>
