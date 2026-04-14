@@ -11,7 +11,7 @@ import {
     Search,
     Layers
 } from 'lucide-react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import authService from '@/api/auth.service';
 import { getPrimaryRole } from '@/utils/authDisplay';
 
