@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Building2, BookOpen, CheckCircle2, AlertCircle, Briefcase, Trash2 } from 'lucide-react';
 import groupService from '../api/group.service';
 import MainLayout from '../components/layout/MainLayout';
-import { useGroupContext } from '@/contexts/GroupContext';
+import { useGroup } from '@/contexts/GroupContext';
 
 const Github = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
     <svg
@@ -25,12 +25,22 @@ const Github = ({ size = 24, className = "" }: { size?: number, className?: stri
 
 const AdminWorkspace = () => {
     const navigate = useNavigate();
-    const { refreshGroups, setSelectedGroup, selectedGroup } = useGroupContext();
+    const { refreshGroups, setSelectedGroup, selectedGroup } = useGroup();
     const [step, setStep] = useState(1);
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<{
+        groupName: string;
+        workspaceId: string;
+        description: string;
+        githubRepo: string;
+        maxMembers: number;
+        status: 'ACTIVE' | 'LOCKED';
+    }>({
         groupName: '',
-        course: '',
-        githubRepo: ''
+        workspaceId: '',
+        description: '',
+        githubRepo: '',
+        maxMembers: 8,
+        status: 'ACTIVE'
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -57,8 +67,12 @@ const AdminWorkspace = () => {
         fetchAll();
     }, []);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        setFormData((prev) => ({
+            ...prev,
+            [name]: name === 'maxMembers' ? Number(value) : value
+        }));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -69,11 +83,14 @@ const AdminWorkspace = () => {
             const payload = {
                 groupName: formData.groupName,
                 githubRepoUrl: formData.githubRepo,
-                description: formData.course // we use course as description for now
+                description: formData.description,
+                workspaceId: formData.workspaceId,
+                maxMembers: formData.maxMembers,
+                status: formData.status
             };
             const response = await groupService.createGroup(payload);
             const newGroupId = response.groupId || response.id;
-            setSuccess('Đã tạo Group thành công! Bạn có thể thêm Lecturer sau bằng tìm email trong trang Thành viên.');
+            setSuccess('Đã tạo Group thành công! Bạn có thể thêm thành viên ngay tại trang Thành viên.');
             setCreatedGroupId(newGroupId);
             await refreshGroups();
             if (newGroupId) {
@@ -205,18 +222,57 @@ const AdminWorkspace = () => {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-1">
-                                            <BookOpen size={14} /> Semester / Course *
+                                            <BookOpen size={14} /> Workspace ID *
                                         </label>
                                         <input
                                             required
                                             type="text"
-                                            name="course"
-                                            placeholder="vd: SP25 - SWP391"
-                                            value={formData.course}
+                                            name="workspaceId"
+                                            placeholder="vd: SWP391-SP25"
+                                            value={formData.workspaceId}
                                             onChange={(e) => { handleChange(e); setStep(Math.max(step, 1)); }}
                                             className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
                                         />
-                                        <p className="text-xs text-slate-500 mt-1">Nhập tự do, không cần chọn từ danh sách</p>
+                                        <p className="text-xs text-slate-500 mt-1">Định danh học kỳ/môn học để tích hợp service khác.</p>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Mô tả nhóm</label>
+                                    <textarea
+                                        name="description"
+                                        value={formData.description}
+                                        onChange={handleChange}
+                                        rows={3}
+                                        placeholder="Mô tả ngắn về nhóm hoặc mục tiêu project"
+                                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Số thành viên tối đa</label>
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            max={20}
+                                            name="maxMembers"
+                                            value={formData.maxMembers}
+                                            onChange={handleChange}
+                                            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Trạng thái</label>
+                                        <select
+                                            name="status"
+                                            value={formData.status}
+                                            onChange={handleChange}
+                                            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                        >
+                                            <option value="ACTIVE">ACTIVE</option>
+                                            <option value="LOCKED">LOCKED</option>
+                                        </select>
                                     </div>
                                 </div>
 
@@ -250,7 +306,7 @@ const AdminWorkspace = () => {
                                 )}
                                 <button
                                     type="submit"
-                                    disabled={loading || !formData.groupName}
+                                    disabled={loading || !formData.groupName || !formData.workspaceId}
                                     className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow transition-colors disabled:opacity-50"
                                 >
                                     {loading ? 'Đang tạo...' : 'Tạo Group Mới'}

@@ -23,7 +23,9 @@ import uth.edu.task.repository.TaskRepository;
 import uth.edu.task.service.TaskService;
 import uth.edu.task.service.publisher.TaskEventPublisher;
 import uth.edu.task.client.GroupClient;
+import uth.edu.task.client.RequirementClient;
 import uth.edu.task.dto.response.external.GroupMemberResponse;
+import uth.edu.task.dto.response.external.RequirementResponse;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -43,6 +45,7 @@ public class TaskServiceImpl implements TaskService {
     private final TaskEventPublisher taskEventPublisher;
     private final TaskMapper taskMapper;
     private final GroupClient groupClient;
+    private final RequirementClient requirementClient;
 
     @Override
     @Transactional
@@ -63,16 +66,7 @@ public class TaskServiceImpl implements TaskService {
 
         saveTaskHistory(savedTask, currentUserId, "CREATE", "null", "Task Created");
 
-        TaskEvent event = TaskEvent.builder()
-                .taskId(savedTask.getTaskId())
-                .title(savedTask.getTitle())
-                .assignedTo(savedTask.getAssignedTo())
-                .requirementId(savedTask.getRequirementId())
-                .eventType("CREATED")
-                .timestamp(LocalDateTime.now())
-                .build();
-
-        taskEventPublisher.publishTaskEvent(event);
+        publishTaskEvent(savedTask, "CREATED");
 
         return taskMapper.toResponse(savedTask);
     }
@@ -112,10 +106,23 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     public List<TaskResponse> getTasksForUserInGroup(UUID groupId, UUID userId) {
-        // Nếu là Admin hoặc Lecturer thì cho xem toàn bộ
-        if (isAdmin() || isLecturer() || ! "NONE".equalsIgnoreCase(getUserRoleString(groupId, userId))) {
+        String roleInGroup = getUserRoleString(groupId, userId);
+        boolean isLeader = "LEADER".equalsIgnoreCase(roleInGroup);
+        boolean isMember = "MEMBER".equalsIgnoreCase(roleInGroup);
+
+        // 1. Admin & Lecturer & Group Leader: Xem toàn bộ Task của nhóm
+        if (isAdmin() || isLecturer() || isLeader) {
             List<Task> tasks = taskRepository.findByGroupId(groupId);
             return tasks.stream()
+                    .map(taskMapper::toResponse)
+                    .collect(Collectors.toList());
+        }
+
+        // 2. Team Member: Theo yêu cầu chỉ xem các task được giao cho mình
+        if (isMember) {
+            List<Task> tasks = taskRepository.findByGroupId(groupId);
+            return tasks.stream()
+                    .filter(t -> userId.equals(t.getAssignedTo())) // Chỉ lấy task của mình
                     .map(taskMapper::toResponse)
                     .collect(Collectors.toList());
         }
@@ -185,16 +192,7 @@ public class TaskServiceImpl implements TaskService {
         }
         task.setAssignedTo(request.getAssignedTo());
 
-        TaskEvent event = TaskEvent.builder()
-                .taskId(task.getTaskId())
-                .title(task.getTitle())
-                .assignedTo(task.getAssignedTo())
-                .requirementId(task.getRequirementId())
-                .eventType("ASSIGN")
-                .timestamp(LocalDateTime.now())
-                .build();
-
-        taskEventPublisher.publishTaskEvent(event);
+        publishTaskEvent(task, "ASSIGN");
 
         Task updatedTask = taskRepository.save(task);
         return taskMapper.toResponse(updatedTask);
@@ -207,12 +205,11 @@ public class TaskServiceImpl implements TaskService {
         Task task = taskRepository.findById(taskId).orElseThrow(
                 () -> new RuntimeException("Không tìm thấy Task!"));
 
-        // Chỉ người đang được giao Task, Nhóm trưởng hoặc Admin mới được đổi Status
-        boolean isAssignee = task.getAssignedTo() != null && currentUserId.equals(task.getAssignedTo());
+        // Chỉ Leader của group hiện tại hoặc Admin mới được đổi trạng thái
         boolean isLeader = isLeaderInGroup(task.getGroupId(), currentUserId);
 
-        if (!isAssignee && !isLeader && !isAdmin()) {
-            throw new RuntimeException("Bạn không có quyền đổi trạng thái Task này!");
+        if (!isLeader && !isAdmin()) {
+            throw new RuntimeException("Chỉ Nhóm trưởng của group hoặc Admin mới được đổi trạng thái Task!");
         }
 
         if (!Objects.equals(task.getStatus(), request.getStatus())) {
@@ -220,8 +217,11 @@ public class TaskServiceImpl implements TaskService {
         }
 
         task.setStatus(request.getStatus());
+        Task savedTask = taskRepository.save(task);
+        
+        publishTaskEvent(savedTask, "STATUS_UPDATE");
 
-        return taskMapper.toResponse(taskRepository.save(task));
+        return taskMapper.toResponse(savedTask);
     }
 
     @Override
@@ -292,6 +292,31 @@ public class TaskServiceImpl implements TaskService {
                 .oldValue(oldVal)
                 .newValue(newVal)
                 .build();
-        taskHistoryRepository.save(history);
+        TaskHistory savedHistory = taskHistoryRepository.save(history);
+    }
+
+    private void publishTaskEvent(Task task, String eventType) {
+        String jiraIssueKey = null;
+        try {
+            RequirementResponse reqResponse = requirementClient.getRequirementById(task.getRequirementId());
+            if (reqResponse != null) {
+                jiraIssueKey = reqResponse.getJiraIssueKey();
+            }
+        } catch (Exception e) {
+            log.warn("Could not fetch requirement details for Jira sync: {}", e.getMessage());
+        }
+
+        TaskEvent event = TaskEvent.builder()
+                .taskId(task.getTaskId())
+                .title(task.getTitle())
+                .assignedTo(task.getAssignedTo())
+                .requirementId(task.getRequirementId())
+                .jiraIssueKey(jiraIssueKey)
+                .eventType(eventType)
+                .status(task.getStatus() != null ? task.getStatus().name() : null)
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        taskEventPublisher.publishTaskEvent(event);
     }
 }

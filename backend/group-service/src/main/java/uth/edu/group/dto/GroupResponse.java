@@ -15,4 +15,5 @@ public class GroupResponse {
     private String workspaceId;
     private String description;
     private String status;
+    private Integer maxMembers;
 }

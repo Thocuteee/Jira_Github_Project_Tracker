@@ -55,6 +55,8 @@ services:
     image: redis:7-alpine
     container_name: redis
     restart: unless-stopped
+    ports:
+      - "6380:6379"
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
@@ -127,6 +129,7 @@ services:
     env_file:
       - .env
     environment:
+      JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/task_db
       SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}

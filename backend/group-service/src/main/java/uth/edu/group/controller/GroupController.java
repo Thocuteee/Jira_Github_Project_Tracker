@@ -73,6 +73,11 @@ public class GroupController {
     public ResponseEntity<List<MemberRequest>> getMembers(@PathVariable UUID groupId) {
         return ResponseEntity.ok(groupService.getMembersByGroupId(groupId));
     }
+
+    @GetMapping("/{groupId}/members/ids")
+    public ResponseEntity<List<UUID>> getMemberIds(@PathVariable UUID groupId) {
+        return ResponseEntity.ok(groupService.getMemberIdsByGroupId(groupId));
+    }
     @PutMapping("/{groupId}/members/{userId}/role")
     public ResponseEntity<String> updateMemberRole(
             @PathVariable UUID groupId,
@@ -90,10 +95,11 @@ public class GroupController {
     public ResponseEntity<String> setLeader(
             @PathVariable UUID groupId,
             @RequestBody MemberRequest request,
+            @RequestHeader(value = "X-User-Id", required = false) UUID userId,
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
             @RequestHeader(value = "X-User-Roles", required = false) String userRoles
     ) {
-        requireAdmin(userRole, userRoles);
+        requireAdminOrLeader(groupId, userId, userRole, userRoles);
         groupService.setGroupLeader(groupId, request.getUserId());
         return ResponseEntity.ok("Đã cập nhật leader!");
     }
@@ -113,6 +119,11 @@ public class GroupController {
 
     @GetMapping("/{id}/checkLeader")
     public ResponseEntity<Boolean> checkLeader(@PathVariable UUID id, @RequestHeader("X-User-Id") UUID userId) {
+        return ResponseEntity.ok(groupService.checkLeader(id, userId));
+    }
+
+    @GetMapping("/{id}/checkLeader/{userId}")
+    public ResponseEntity<Boolean> checkLeaderByUserId(@PathVariable UUID id, @PathVariable UUID userId) {
         return ResponseEntity.ok(groupService.checkLeader(id, userId));
     }
 

@@ -9,13 +9,15 @@ interface CreateTaskModalProps {
   onClose: () => void;
   groupId: string;
   onCreated: () => void;
+  initialRequirementId?: string;
 }
 
 const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   isOpen,
   onClose,
   groupId,
-  onCreated
+  onCreated,
+  initialRequirementId
 }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -29,16 +31,21 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   useEffect(() => {
     if (isOpen && groupId) {
       loadRequirements();
+      if (initialRequirementId) {
+        setRequirementId(initialRequirementId);
+      }
     }
-  }, [isOpen, groupId]);
+  }, [isOpen, groupId, initialRequirementId]);
 
   const loadRequirements = async () => {
     try {
       const response = await requirementService.getRequirementsByGroup(groupId);
-      const data = response?.data || [];
+      const data = (response as any) || [];
       setRequirements(data);
-      if (data.length > 0) {
-        setRequirementId(data[0].id);
+      if (data.length > 0 && !initialRequirementId) {
+        setRequirementId(data[0].requirementId);
+      } else if (initialRequirementId) {
+        setRequirementId(initialRequirementId);
       }
     } catch (err) {
       console.error('Lỗi tải requirements', err);
@@ -139,7 +146,7 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
               >
                 <option value="" disabled>Chọn Requirement</option>
                 {requirements.map((req: Requirement) => (
-                  <option key={req.id} value={req.id}>{req.title}</option>
+                  <option key={req.requirementId} value={req.requirementId}>{req.title}</option>
                 ))}
               </select>
             </div>

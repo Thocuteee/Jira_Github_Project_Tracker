@@ -1,32 +1,26 @@
 package uth.edu.group.service.impl;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
-import org.springframework.http.HttpStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import uth.edu.group.config.RabbitMQConfig;
-import uth.edu.group.dto.GroupRequest;
-import uth.edu.group.dto.GroupResponse;
-import uth.edu.group.dto.MemberRequest;
+import uth.edu.group.dto.*;
 import uth.edu.group.mapper.GroupMapper;
-import uth.edu.group.model.Group;
-import uth.edu.group.model.GroupMember;
-import uth.edu.group.repository.GroupMemberRepository;
-import uth.edu.group.repository.GroupRepository;
-import uth.edu.group.service.IGroupService;
+import uth.edu.group.model.*;
+import uth.edu.group.repository.*;
+import uth.edu.group.service.*;
 
 
 @Service
 @RequiredArgsConstructor
 public class GroupServiceImpl implements IGroupService {
-    private static final Logger log = LoggerFactory.getLogger(GroupServiceImpl.class);
+    private static final Set<String> ALLOWED_GROUP_ROLES = Set.of("LEADER", "MEMBER", "LECTURER");
 
     private final GroupRepository groupRepo;
     private final GroupMemberRepository memberRepo;
@@ -36,14 +30,37 @@ public class GroupServiceImpl implements IGroupService {
     @Override
     @Transactional
     public GroupResponse createGroup(GroupRequest request, UUID creatorId) {
+
         Group group = groupMapper.toEntity(request);
         group.setCreatedBy(creatorId);
+        // Rule: user creates group -> becomes leader of that group.
+        group.setLeaderId(creatorId);
+
+        if (request.getStatus() == null || request.getStatus().trim().isEmpty()) {
+            group.setStatus(GroupStatus.ACTIVE);
+        } else {
+            try {
+                group.setStatus(GroupStatus.valueOf(request.getStatus().trim().toUpperCase(Locale.ROOT)));
+            } catch (IllegalArgumentException e) {
+                throw new RuntimeException("Status không hợp lệ");
+            }
+        }
+        group.setWorkspaceId(request.getWorkspaceId());
+        group.setDescription(request.getDescription());
+
         Group saved = groupRepo.save(group);
+
+        // auto add leader
+        MemberRequest memberReq = new MemberRequest();
+        memberReq.setUserId(creatorId);
+        memberReq.setRoleInGroup("LEADER");
+
+        addMemberToGroup(saved.getGroupId(), memberReq);
+
         return groupMapper.toResponse(saved);
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<GroupResponse> getAllGroups() {
         return groupRepo.findAll()
                 .stream()
@@ -52,7 +69,6 @@ public class GroupServiceImpl implements IGroupService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public GroupResponse getGroupById(UUID id) {
         return groupRepo.findById(id)
                 .map(groupMapper::toResponse)
@@ -62,16 +78,35 @@ public class GroupServiceImpl implements IGroupService {
     @Override
     @Transactional
     public GroupResponse updateGroup(UUID id, GroupRequest request) {
+
         Group group = groupRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy nhóm!"));
 
-        if (request.getGroupName() != null) group.setGroupName(request.getGroupName());
-        if (request.getLeaderId() != null) group.setLeaderId(request.getLeaderId());
-        if (request.getJiraProjectKey() != null) group.setJiraProjectKey(request.getJiraProjectKey());
-        if (request.getGithubRepoUrl() != null) group.setGithubRepoUrl(request.getGithubRepoUrl());
-        if (request.getWorkspaceId() != null) group.setWorkspaceId(request.getWorkspaceId());
-        if (request.getDescription() != null) group.setDescription(request.getDescription());
-        if (request.getStatus() != null) group.setStatus(request.getStatus());
+        if (request.getGroupName() != null)
+            group.setGroupName(request.getGroupName());
+
+        if (request.getLeaderId() != null)
+            group.setLeaderId(request.getLeaderId());
+
+        if (request.getJiraProjectKey() != null)
+            group.setJiraProjectKey(request.getJiraProjectKey());
+
+        if (request.getGithubRepoUrl() != null)
+            group.setGithubRepoUrl(request.getGithubRepoUrl());
+
+        if (request.getWorkspaceId() != null)
+            group.setWorkspaceId(request.getWorkspaceId());
+
+        if (request.getDescription() != null)
+            group.setDescription(request.getDescription());
+
+        if (request.getStatus() != null) {
+            try {
+                group.setStatus(GroupStatus.valueOf(request.getStatus().trim().toUpperCase(Locale.ROOT)));
+            } catch (IllegalArgumentException e) {
+                throw new RuntimeException("Status không hợp lệ");
+            }
+        }
 
         return groupMapper.toResponse(groupRepo.save(group));
     }
@@ -79,124 +114,51 @@ public class GroupServiceImpl implements IGroupService {
     @Override
     @Transactional
     public void deleteGroup(UUID id) {
-        if (!groupRepo.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy nhóm để xóa.");
-        }
+        memberRepo.deleteByGroupGroupId(id);
+        groupRepo.deleteById(id);
 
-        try {
-            memberRepo.deleteByGroupGroupId(id);
-            groupRepo.deleteById(id);
-        } catch (DataIntegrityViolationException ex) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Không thể xóa nhóm do còn dữ liệu liên quan.",
-                    ex
-            );
-        }
-
-        // Deletion must not fail if RabbitMQ is temporarily unavailable.
-        try {
-            rabbitTemplate.convertAndSend(RabbitMQConfig.GROUP_EXCHANGE, "group.deleted", id.toString());
-        } catch (Exception ex) {
-            log.warn("Deleted group {} but failed to publish deletion event to RabbitMQ: {}", id, ex.getMessage());
-        }
+        // Notify other services (e.g. task, requirement)
+        rabbitTemplate.convertAndSend(RabbitMQConfig.GROUP_EXCHANGE, "group.deleted", id.toString());
     }
 
     @Override
-    @Transactional
     public void addMemberToGroup(UUID groupId, MemberRequest req) {
-        Group group = groupRepo.findById(groupId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy nhóm!"));
-
-        String normalizedRole = req.getRoleInGroup() == null ? "LECTURER" : req.getRoleInGroup().trim().toUpperCase();
-        if (!normalizedRole.equals("LEADER") && !normalizedRole.equals("MEMBER") && !normalizedRole.equals("LECTURER")) {
-            normalizedRole = "MEMBER";
-        }
-
-        GroupMember existingMember = memberRepo.findByGroupGroupIdAndUserId(groupId, req.getUserId()).orElse(null);
-        if (existingMember != null) {
-            // If member already exists and is being promoted as leader, upgrade in place.
-            if ("LEADER".equals(normalizedRole)) {
-                updateMemberRole(groupId, req.getUserId(), "LEADER");
-                return;
-            }
-            throw new RuntimeException("Thành viên đã tồn tại!");
-        }
 
         long currentCount = memberRepo.countByGroupGroupId(groupId);
         if (currentCount >= 8) {
             throw new RuntimeException("Nhóm đã đạt số lượng thành viên tối đa (8)!");
         }
 
+        if (memberRepo.existsByGroupGroupIdAndUserId(groupId, req.getUserId())) {
+            throw new RuntimeException("Thành viên đã tồn tại!");
+        }
+
+        Group group = groupRepo.findById(groupId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy nhóm!"));
+
         GroupMember member = new GroupMember();
         member.setGroup(group);
         member.setUserId(req.getUserId());
+        String normalizedRole = normalizeGroupRole(req.getRoleInGroup());
         member.setRoleInGroup(normalizedRole);
+
         member.setGithubUsername(req.getGithubUsername());
         member.setJiraAccountId(req.getJiraAccountId());
 
         memberRepo.save(member);
 
-        // Keep existing role states; do not downgrade previous leaders automatically.
         if ("LEADER".equals(normalizedRole)) {
-            if (group.getLeaderId() == null) {
-                group.setLeaderId(req.getUserId());
-                groupRepo.save(group);
-            }
+            setGroupLeader(groupId, req.getUserId());
         }
-    }
-
-    @Override
-    @Transactional
-    public void updateMemberRole(UUID groupId, UUID userId, String roleInGroup) {
-        List<GroupMember> members = memberRepo.findByGroupGroupId(groupId);
-        GroupMember target = members.stream()
-                .filter(member -> member.getUserId().equals(userId))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy thành viên trong nhóm!"));
-
-        String normalizedRole = roleInGroup == null ? "LECTURER" : roleInGroup.trim().toUpperCase();
-        if (!normalizedRole.equals("LEADER") && !normalizedRole.equals("MEMBER") && !normalizedRole.equals("LECTURER")) {
-            normalizedRole = "MEMBER";
-        }
-
-        target.setRoleInGroup(normalizedRole);
-        memberRepo.save(target);
-
-        if ("LEADER".equals(normalizedRole)) {
-            Group group = groupRepo.findById(groupId)
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy nhóm!"));
-            if (group.getLeaderId() == null) {
-                group.setLeaderId(userId);
-                groupRepo.save(group);
-            }
-        }
-    }
-
-    @Override
-    @Transactional
-    public void setGroupLeader(UUID groupId, UUID leaderId) {
-        Group group = groupRepo.findById(groupId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy nhóm!"));
-        group.setLeaderId(leaderId);
-        groupRepo.save(group);
     }
 
     @Override
     @Transactional
     public void removeMemberFromGroup(UUID groupId, UUID userId) {
-        Group group = groupRepo.findById(groupId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy nhóm!"));
-
-        if (group.getLeaderId() != null && group.getLeaderId().equals(userId)) {
-            throw new RuntimeException("Không thể xóa leader hiện tại. Hãy phân quyền leader cho người khác trước.");
-        }
-
         memberRepo.deleteByGroupGroupIdAndUserId(groupId, userId);
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<MemberRequest> getMembersByGroupId(UUID groupId) {
         return memberRepo.findByGroupGroupId(groupId)
                 .stream()
@@ -205,19 +167,93 @@ public class GroupServiceImpl implements IGroupService {
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public List<GroupResponse> getMyGroups(UUID userId) {
-        return memberRepo.findByUserId(userId)
+    public List<UUID> getMemberIdsByGroupId(UUID groupId) {
+        return memberRepo.findByGroupGroupId(groupId)
                 .stream()
-                .map(m -> groupMapper.toResponse(m.getGroup()))
+                .map(GroupMember::getUserId)
                 .toList();
     }
 
     @Override
-    @Transactional(readOnly = true)
+    public List<GroupResponse> getMyGroups(UUID userId) {
+        Map<UUID, Group> groupsById = new LinkedHashMap<>();
+
+        memberRepo.findByUserId(userId)
+                .stream()
+                .map(GroupMember::getGroup)
+                .forEach(group -> groupsById.put(group.getGroupId(), group));
+
+        groupRepo.findByLeaderId(userId)
+                .forEach(group -> groupsById.put(group.getGroupId(), group));
+
+        return groupsById.values().stream()
+                .map(groupMapper::toResponse)
+                .toList();
+    }
+
+    @Override
     public boolean checkLeader(UUID groupId, UUID userId) {
         Group group = groupRepo.findById(groupId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy nhóm!"));
         return group.getLeaderId() != null && group.getLeaderId().equals(userId);
+    }
+
+    @Override
+    public void updateMemberRole(UUID groupId, UUID userId, String roleInGroup) {
+        GroupMember member = memberRepo.findByGroupGroupIdAndUserId(groupId, userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy thành viên trong nhóm!"));
+
+        String normalizedRole = normalizeGroupRole(roleInGroup);
+        if ("LEADER".equals(normalizedRole)) {
+            String currentRole = member.getRoleInGroup() == null
+                    ? "MEMBER"
+                    : member.getRoleInGroup().trim().toUpperCase(Locale.ROOT);
+            if ("LECTURER".equals(currentRole)) {
+                throw new RuntimeException("Không thể chuyển quyền Leader cho Lecturer. Vui lòng chọn một Member.");
+            }
+            setGroupLeader(groupId, userId);
+            return;
+        }
+
+        member.setRoleInGroup(normalizedRole);
+        memberRepo.save(member);
+    }
+
+    @Override
+    public void setGroupLeader(UUID groupId, UUID leaderId) {
+        Group group = groupRepo.findById(groupId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy nhóm!"));
+
+        GroupMember targetMember = memberRepo.findByGroupGroupIdAndUserId(groupId, leaderId)
+                .orElseThrow(() -> new RuntimeException("Chỉ có thể chuyển quyền Leader cho thành viên đã có trong nhóm!"));
+
+        String targetRole = targetMember.getRoleInGroup() == null
+                ? "MEMBER"
+                : targetMember.getRoleInGroup().trim().toUpperCase(Locale.ROOT);
+        if ("LECTURER".equals(targetRole)) {
+            throw new RuntimeException("Không thể chuyển quyền Leader cho Lecturer. Vui lòng chọn một Member.");
+        }
+
+        UUID oldLeaderId = group.getLeaderId();
+        group.setLeaderId(leaderId);
+        groupRepo.save(group);
+
+        if (oldLeaderId != null && !oldLeaderId.equals(leaderId)) {
+            memberRepo.findByGroupGroupIdAndUserId(groupId, oldLeaderId).ifPresent(oldLeader -> {
+                oldLeader.setRoleInGroup("MEMBER");
+                memberRepo.save(oldLeader);
+            });
+        }
+
+        targetMember.setRoleInGroup("LEADER");
+        memberRepo.save(targetMember);
+    }
+
+    private String normalizeGroupRole(String rawRole) {
+        if (rawRole == null || rawRole.trim().isEmpty()) {
+            return "MEMBER";
+        }
+        String normalized = rawRole.trim().toUpperCase(Locale.ROOT);
+        return ALLOWED_GROUP_ROLES.contains(normalized) ? normalized : "MEMBER";
     }
 }

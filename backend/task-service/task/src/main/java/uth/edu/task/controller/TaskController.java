@@ -25,7 +25,7 @@ public class TaskController {
     private final TaskService taskService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEAM_LEADER', 'TEAM_MEMBER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'LECTURER', 'TEAM_LEADER', 'TEAM_MEMBER', 'STUDENT')")
     public ResponseEntity<TaskResponse> createTask(@Valid @RequestBody TaskCreateRequest request){
         TaskResponse response = taskService.createTask(request);
 
@@ -35,7 +35,7 @@ public class TaskController {
 
 
     @GetMapping("/{taskId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'LECTURER', 'TEAM_LEADER', 'TEAM_MEMBER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'LECTURER', 'TEAM_LEADER', 'TEAM_MEMBER', 'STUDENT')")
     public ResponseEntity<TaskResponse> getTaskById(@PathVariable UUID taskId){
         TaskResponse response = taskService.getTaskById(taskId);
 
@@ -44,7 +44,7 @@ public class TaskController {
 
 
     @GetMapping("/requirement/{requirementId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'LECTURER', 'TEAM_LEADER', 'TEAM_MEMBER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'LECTURER', 'TEAM_LEADER', 'TEAM_MEMBER', 'STUDENT')")
     public ResponseEntity<List<TaskResponse>> getTaskByRequirementId(@PathVariable UUID requirementId){
         List<TaskResponse> responses = taskService.getTasksByRequirementId(requirementId);
 
@@ -52,7 +52,7 @@ public class TaskController {
     }
 
     @GetMapping("/group/{groupId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'LECTURER', 'TEAM_LEADER', 'TEAM_MEMBER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'LECTURER', 'TEAM_LEADER', 'TEAM_MEMBER', 'STUDENT')")
     public ResponseEntity<List<TaskResponse>> getTasksByGroup(@PathVariable UUID groupId) {
         UUID userId = UserContextHolder.getUserId();
         List<TaskResponse> responses = taskService.getTasksForUserInGroup(groupId, userId);
@@ -61,7 +61,7 @@ public class TaskController {
 
 
     @PatchMapping("/{taskId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEAM_LEADER', 'TEAM_MEMBER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'LECTURER', 'TEAM_LEADER', 'TEAM_MEMBER', 'STUDENT')")
     public ResponseEntity<TaskResponse> updateTask(@PathVariable UUID taskId,
                                                    @Valid @RequestBody TaskUpdateRequest request){
         TaskResponse response = taskService.updateTask(taskId, request);
@@ -71,7 +71,7 @@ public class TaskController {
 
 
     @PatchMapping("/{taskId}/assign")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEAM_LEADER', 'TEAM_MEMBER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'LECTURER', 'TEAM_LEADER', 'TEAM_MEMBER', 'STUDENT')")
     public ResponseEntity<TaskResponse> assignTask(@PathVariable UUID taskId,
                                                    @Valid @RequestBody TaskAssignRequest request) {
         TaskResponse response = taskService.assignTask(taskId, request);
@@ -81,7 +81,7 @@ public class TaskController {
 
 
     @PatchMapping("/{taskId}/status")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEAM_LEADER', 'TEAM_MEMBER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'LECTURER', 'TEAM_LEADER', 'TEAM_MEMBER', 'STUDENT')")
     public ResponseEntity<TaskResponse> changeTaskStatus(@PathVariable UUID taskId,
                                                          @Valid @RequestBody TaskStatusUpdateRequest request){
         TaskResponse response = taskService.changeTaskStatus(taskId, request);
@@ -91,7 +91,7 @@ public class TaskController {
 
 
     @DeleteMapping("/{taskId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEAM_LEADER', 'TEAM_MEMBER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'LECTURER', 'TEAM_LEADER', 'TEAM_MEMBER', 'STUDENT')")
     public ResponseEntity<Void> deleteTask(@PathVariable UUID taskId){
         taskService.deleteTask(taskId);
 

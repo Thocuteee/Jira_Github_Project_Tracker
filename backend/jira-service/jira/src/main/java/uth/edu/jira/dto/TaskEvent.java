@@ -1,4 +1,4 @@
-package uth.edu.task.dto.event;
+package uth.edu.jira.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -17,8 +17,8 @@ public class TaskEvent {
     private String title;
     private UUID assignedTo;
     private UUID requirementId;
-    private String eventType;     // Loại sự kiện: "CREATED", "ASSIGNED", "STATUS_UPDATE", "DELETED"
-    private String status;        // Trạng thái hiện tại của task
+    private String eventType;
+    private String status;
     private String jiraIssueKey;
     private LocalDateTime timestamp;
 }

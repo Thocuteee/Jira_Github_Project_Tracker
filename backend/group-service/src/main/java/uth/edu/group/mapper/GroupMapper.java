@@ -3,6 +3,7 @@ package uth.edu.group.mapper;
 import org.springframework.stereotype.Component;
 import uth.edu.group.dto.*;
 import uth.edu.group.model.*;
+import java.util.Locale;
 
 @Component
 public class GroupMapper {
@@ -17,7 +18,12 @@ public class GroupMapper {
         group.setGithubRepoUrl(request.getGithubRepoUrl());
         group.setWorkspaceId(request.getWorkspaceId());
         group.setDescription(request.getDescription());
-        group.setStatus(request.getStatus() != null ? request.getStatus() : "ACTIVE");
+        group.setMaxMembers(request.getMaxMembers() != null ? request.getMaxMembers() : 8);
+        if (request.getStatus() != null && !request.getStatus().isBlank()) {
+            group.setStatus(GroupStatus.valueOf(request.getStatus().trim().toUpperCase(Locale.ROOT)));
+        } else {
+            group.setStatus(GroupStatus.ACTIVE);
+        }
 
         return group;
     }
@@ -34,7 +40,8 @@ public class GroupMapper {
         res.setGithubRepoUrl(group.getGithubRepoUrl());
         res.setWorkspaceId(group.getWorkspaceId());
         res.setDescription(group.getDescription());
-        res.setStatus(group.getStatus());
+        res.setStatus(group.getStatus() == null ? GroupStatus.ACTIVE.name() : group.getStatus().name());
+        res.setMaxMembers(group.getMaxMembers());
 
         return res;
     }

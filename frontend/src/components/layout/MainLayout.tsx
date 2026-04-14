@@ -8,18 +8,19 @@ import {
     Settings,
     Briefcase,
     ChevronDown,
-    Search
+    Search,
+    Layers
 } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import authService from '@/api/auth.service';
 import { getPrimaryRole } from '@/utils/authDisplay';
 
-import { useGroupContext } from '@/contexts/GroupContext';
+import { useGroup } from '@/contexts/GroupContext';
 
 export default function MainLayout({ children }: { children: ReactNode }) {
     const navigate = useNavigate();
     const location = useLocation();
-    const { selectedGroup, setSelectedGroup, groups: myGroups, loading } = useGroupContext();
+    const { selectedGroup, setSelectedGroup, myGroups, loading } = useGroup();
     const [menuOpen, setMenuOpen] = useState(false);
     const [groupDropdownOpen, setGroupDropdownOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement | null>(null);
@@ -191,6 +192,12 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                                     label="Thành viên" 
                                     to={`/members/${selectedGroup.groupId}`} 
                                     active={location.pathname === `/members/${selectedGroup.groupId}`}
+                                />
+                                <NavItem 
+                                    icon={<Layers size={18} />} 
+                                    label="Yêu cầu (Epic)" 
+                                    to="/requirements" 
+                                    active={location.pathname === '/requirements'}
                                 />
                                 <NavItem 
                                     icon={<Settings size={18} />} 
