@@ -40,7 +40,12 @@ export function GroupProvider({ children }: { children: ReactNode }) {
         setLoading(true);
         setError(null);
         try {
-            const data: Group[] = await groupService.getMyGroups();
+            const rawRoles = localStorage.getItem('userRoles');
+            const roles = rawRoles ? JSON.parse(rawRoles) : [];
+            const isAdmin = Array.isArray(roles) && roles.includes('ROLE_ADMIN');
+            const data: Group[] = isAdmin 
+                ? await groupService.getAllGroups() 
+                : await groupService.getMyGroups();
             setGroups(data || []);
 
             if (data && data.length > 0) {

@@ -10,15 +10,16 @@ import {
     ChevronDown,
     Search
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import authService from '@/api/auth.service';
 import { getPrimaryRole } from '@/utils/authDisplay';
 
-import { useGroup } from '@/context/GroupContext';
+import { useGroupContext } from '@/contexts/GroupContext';
 
 export default function MainLayout({ children }: { children: ReactNode }) {
     const navigate = useNavigate();
-    const { selectedGroup, setSelectedGroup, myGroups, loading } = useGroup();
+    const location = useLocation();
+    const { selectedGroup, setSelectedGroup, groups: myGroups, loading } = useGroupContext();
     const [menuOpen, setMenuOpen] = useState(false);
     const [groupDropdownOpen, setGroupDropdownOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement | null>(null);
@@ -163,7 +164,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                             Hệ thống tổng quan
                         </h3>
                         <div className="flex flex-col gap-0.5">
-                            <NavItem icon={<LayoutDashboard size={18} />} label="Tổng quan (Global)" to="/dashboard" active={!selectedGroup} />
+                            <NavItem icon={<LayoutDashboard size={18} />} label="Tổng quan (Global)" to="/dashboard" active={location.pathname === '/dashboard'} />
                         </div>
                     </div>
 
@@ -177,22 +178,25 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                                     icon={<LayoutDashboard size={18} />} 
                                     label="Dashboard Nhóm" 
                                     to={`/workspace/${selectedGroup.groupId}`} 
-                                    active 
+                                    active={location.pathname === `/workspace/${selectedGroup.groupId}`}
                                 />
                                 <NavItem 
                                     icon={<ListTodo size={18} />} 
                                     label="Bảng Task" 
                                     to={`/workspace/${selectedGroup.groupId}/tasks`} 
+                                    active={location.pathname === `/workspace/${selectedGroup.groupId}/tasks`}
                                 />
                                 <NavItem 
                                     icon={<Users size={18} />} 
                                     label="Thành viên" 
                                     to={`/members/${selectedGroup.groupId}`} 
+                                    active={location.pathname === `/members/${selectedGroup.groupId}`}
                                 />
                                 <NavItem 
                                     icon={<Settings size={18} />} 
                                     label="Cấu hình GitHub" 
                                     to={`/settings/integrations`} 
+                                    active={location.pathname === `/settings/integrations`}
                                 />
                             </div>
                         </div>
@@ -203,9 +207,9 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                             Tích hợp & Hệ thống
                         </h3>
                         <div className="flex flex-col gap-0.5">
-                            <NavItem icon={<RefreshCw size={18} />} label="Trung tâm Tích hợp" to="/settings/integrations" />
-                            <NavItem icon={<Bell size={18} />} label="Thông báo" />
-                            <NavItem icon={<Settings size={18} />} label="Hồ sơ cá nhân" />
+                            <NavItem icon={<RefreshCw size={18} />} label="Trung tâm Tích hợp" to="/settings/integrations" active={location.pathname === '/settings/integrations'} />
+                            <NavItem icon={<Bell size={18} />} label="Thông báo" active={location.pathname === '/notifications'} />
+                            <NavItem icon={<Settings size={18} />} label="Hồ sơ cá nhân" active={location.pathname === '/profile'} />
                             {(() => {
                                 try {
                                     const rawRoles = localStorage.getItem('userRoles');

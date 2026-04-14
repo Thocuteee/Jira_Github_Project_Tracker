@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Building2, BookOpen, CheckCircle2, AlertCircle, Briefcase, Trash2 } from 'lucide-react';
 import groupService from '../api/group.service';
 import MainLayout from '../components/layout/MainLayout';
-import { useGroup } from '@/context/GroupContext';
+import { useGroupContext } from '@/contexts/GroupContext';
 
 const Github = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
     <svg
@@ -25,7 +25,7 @@ const Github = ({ size = 24, className = "" }: { size?: number, className?: stri
 
 const AdminWorkspace = () => {
     const navigate = useNavigate();
-    const { refreshGroups, setSelectedGroup, selectedGroup } = useGroup();
+    const { refreshGroups, setSelectedGroup, selectedGroup } = useGroupContext();
     const [step, setStep] = useState(1);
     const [formData, setFormData] = useState({
         groupName: '',
