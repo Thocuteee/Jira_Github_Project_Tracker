@@ -37,6 +37,11 @@ class GithubService {
   async deleteMapping(id: string) {
     return await axios.delete(`${API_URL}/integrations/${id}`, { withCredentials: true });
   }
+
+  async getCommitsByGroup(groupId: string) {
+    const response = await axios.get(`${API_URL}/commits/group/${groupId}`, { withCredentials: true });
+    return response.data;
+  }
 }
 
 export default new GithubService();

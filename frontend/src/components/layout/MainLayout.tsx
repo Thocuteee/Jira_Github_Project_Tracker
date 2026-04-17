@@ -10,7 +10,8 @@ import {
     ChevronDown,
     Search,
     Layers,
-    FolderOpen
+    FolderOpen,
+    BarChart3
 } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import authService from '@/api/auth.service';
@@ -189,22 +190,28 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                                     active={location.pathname === `/workspace/${selectedGroup.groupId}/tasks`}
                                 />
                                 <NavItem 
-                                    icon={<Users size={18} />} 
-                                    label="Thành viên" 
-                                    to={`/members/${selectedGroup.groupId}`} 
-                                    active={location.pathname === `/members/${selectedGroup.groupId}`}
-                                />
-                                <NavItem 
                                     icon={<Layers size={18} />} 
                                     label="Yêu cầu (Epic)" 
                                     to="/requirements" 
                                     active={location.pathname === '/requirements'}
+                                />
+                                <NavItem 
+                                    icon={<Users size={18} />} 
+                                    label="Thành viên" 
+                                    to={`/members/${selectedGroup.groupId}`} 
+                                    active={location.pathname === `/members/${selectedGroup.groupId}`}
                                 />
                                 <NavItem
                                     icon={<FolderOpen size={18} />}
                                     label="Tài liệu"
                                     to="/files"
                                     active={location.pathname === '/files'}
+                                />
+                                <NavItem
+                                    icon={<BarChart3 size={18} />}
+                                    label="Báo cáo & Thống kê"
+                                    to={`/workspace/${selectedGroup.groupId}/reports`}
+                                    active={location.pathname === `/workspace/${selectedGroup.groupId}/reports`}
                                 />
                                 <NavItem
                                     icon={<Settings size={18} />}
