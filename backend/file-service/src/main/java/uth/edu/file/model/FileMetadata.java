@@ -35,6 +35,9 @@ public class FileMetadata {
     @Column(name = "uploaded_by")
     private java.util.UUID uploadedBy;
 
+    @Column(name = "content_type")
+    private String contentType;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

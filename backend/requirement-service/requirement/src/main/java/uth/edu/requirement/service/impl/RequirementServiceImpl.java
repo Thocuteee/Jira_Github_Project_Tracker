@@ -104,6 +104,14 @@ public class RequirementServiceImpl implements IRequirementService {
         requirementRepository.delete(requirement);
     }
 
+    @Override
+    public List<RequirementResponse> getRequirementsByIds(List<UUID> ids) {
+        return requirementRepository.findAllById(ids)
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
     private Requirement findRequirementById(UUID id) {
         return requirementRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy Requirement!"));

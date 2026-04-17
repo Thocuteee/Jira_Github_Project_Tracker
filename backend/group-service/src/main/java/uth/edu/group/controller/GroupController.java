@@ -31,18 +31,19 @@ public class GroupController {
         return ResponseEntity.ok(groupService.getAllGroups());
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<GroupResponse> getById(@PathVariable UUID id) {
-        return ResponseEntity.ok(groupService.getGroupById(id));
-    }
     @GetMapping("/my-groups")
     public ResponseEntity<List<GroupResponse>> getMyGroups(@RequestHeader("X-User-Id") UUID userId) {
         return ResponseEntity.ok(groupService.getMyGroups(userId));
     }
-    
+
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<GroupResponse>> getGroupsByUserId(@PathVariable UUID userId) {
         return ResponseEntity.ok(groupService.getMyGroups(userId));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<GroupResponse> getById(@PathVariable UUID id) {
+        return ResponseEntity.ok(groupService.getGroupById(id));
     }
     
     @PutMapping("/{id}")

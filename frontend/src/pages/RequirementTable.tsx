@@ -1,13 +1,15 @@
 import { useEffect, useState, useMemo } from 'react';
 import { requirementService, type Requirement } from '../api/requirement.service';
-import { Edit3, Trash2, Link as LinkIcon, PlusCircle, Layout, Filter, Search, ChevronDown, ChevronRight, CheckCircle2, Clock, Circle } from 'lucide-react';
+import { Edit3, Trash2, Link as LinkIcon, PlusCircle, Layout, Filter, Search, ChevronDown, ChevronRight, CheckCircle2, Clock, Circle, FileDown } from 'lucide-react';
 import groupService from '../api/group.service';
 import authService from '../api/auth.service';
+import githubService from '../api/github.service';
 import MainLayout from '@/components/layout/MainLayout';
 import { useGroupContext } from '@/contexts/GroupContext';
 import RequirementModal from '../components/requirements/RequirementModal';
 import JiraKeyModal from '../components/requirements/JiraKeyModal';
 import CreateTaskModal from '../components/CreateTaskModal';
+import ExportSRSModal from '../components/requirements/ExportSRSModal';
 import taskService, { type Task } from '../api/task.service';
 
 const RequirementTable = () => {
@@ -18,6 +20,10 @@ const RequirementTable = () => {
     const [loading, setLoading] = useState(true);
     const [userRole, setUserRole] = useState<'Leader' | 'Member' | 'Lecturer' | 'Admin' | 'NoRole'>('NoRole');
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const [groupMembers, setGroupMembers] = useState<{ userId: string; roleInGroup: string }[]>([]);
+    const [userNameMap, setUserNameMap] = useState<Record<string, string>>({});
+    const [jiraUrl, setJiraUrl] = useState<string>('');
+    const [githubRepoUrl, setGithubRepoUrl] = useState<string>('');
     
     // Modal states
     const [isReqModalOpen, setIsReqModalOpen] = useState(false);
@@ -33,6 +39,7 @@ const RequirementTable = () => {
     const [expandedReqId, setExpandedReqId] = useState<string | null>(null);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [taskTargetReqId, setTaskTargetReqId] = useState<string | null>(null);
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
     useEffect(() => {
         if (groupId) {
@@ -49,7 +56,8 @@ const RequirementTable = () => {
         try {
             await Promise.all([
                 fetchRequirements(gid),
-                checkUserRole(gid)
+                checkUserRole(gid),
+                fetchIntegrationSettings(gid)
             ]);
         } catch (err) {
             console.error("Lỗi khởi tạo trang yêu cầu:", err);
@@ -58,11 +66,37 @@ const RequirementTable = () => {
         }
     };
 
+    const fetchIntegrationSettings = async (gid: string) => {
+        try {
+            const settings = await githubService.getGlobalSettings();
+            if (settings?.jiraUrl) setJiraUrl(settings.jiraUrl);
+
+            const mappings = await githubService.getAllMappings();
+            const groupMapping = (mappings || []).find((m: any) => m.groupId === gid);
+            if (groupMapping?.githubRepo || groupMapping?.githubRepoUrl) {
+                setGithubRepoUrl(groupMapping.githubRepo || groupMapping.githubRepoUrl);
+            }
+        } catch (err) {
+            console.error("Lỗi tải cấu hình tích hợp:", err);
+        }
+    };
+
     const checkUserRole = async (gid: string) => {
         try {
             const profile = await authService.getProfile();
             const currUid = String(profile.userId || '');
             setCurrentUserId(currUid);
+
+            // Fetch group members - always do this if we have a gid
+            const members = await groupService.getMembers(gid);
+            setGroupMembers(members || []);
+
+            // Fetch user names for the members
+            const memberIds = (members || []).map((m: any) => String(m.userId));
+            if (memberIds.length > 0) {
+                const names = await authService.getUserNames(memberIds);
+                setUserNameMap(names);
+            }
 
             const systemRoles = (profile.roles || []).map((r: string) => r.toUpperCase());
             
@@ -75,8 +109,7 @@ const RequirementTable = () => {
                 return;
             }
 
-            const members = await groupService.getMembers(gid);
-            const member = members.find((m: any) => 
+            const member = (members || []).find((m: any) => 
                 String(m.userId) === currUid
             );
             
@@ -168,7 +201,7 @@ const RequirementTable = () => {
         return 'bg-blue-100 text-blue-700 border-blue-200';
     };
 
-    const canManageSRS = userRole === 'Leader' || userRole === 'Admin';
+    const canManageSRS = userRole === 'Leader';
 
     const toggleExpand = (id: string) => {
         setExpandedReqId(expandedReqId === id ? null : id);
@@ -199,15 +232,26 @@ const RequirementTable = () => {
                             </p>
                         </div>
 
-                        {canManageSRS && (
-                            <button 
-                                onClick={() => { setSelectedReq(null); setIsReqModalOpen(true); }}
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-[1.5rem] font-bold transition-all flex items-center gap-2 shadow-2xl shadow-indigo-200 hover:-translate-y-1 active:scale-95 text-lg"
-                            >
-                                <PlusCircle size={22} strokeWidth={2.5} />
-                                Thêm Yêu Cầu
-                            </button>
-                        )}
+                        <div className="flex items-center gap-3">
+                            {groupId && (
+                                <button
+                                    onClick={() => setIsExportModalOpen(true)}
+                                    className="bg-white hover:bg-slate-50 text-slate-700 border-2 border-slate-200 hover:border-indigo-300 px-6 py-4 rounded-[1.5rem] font-bold transition-all flex items-center gap-2 hover:-translate-y-1 active:scale-95 text-base shadow-sm"
+                                >
+                                    <FileDown size={20} strokeWidth={2.5} />
+                                    Xuất báo cáo SRS
+                                </button>
+                            )}
+                            {canManageSRS && (
+                                <button
+                                    onClick={() => { setSelectedReq(null); setIsReqModalOpen(true); }}
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-[1.5rem] font-bold transition-all flex items-center gap-2 shadow-2xl shadow-indigo-200 hover:-translate-y-1 active:scale-95 text-lg"
+                                >
+                                    <PlusCircle size={22} strokeWidth={2.5} />
+                                    Thêm Yêu Cầu
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {!groupId && !groupLoading && (
@@ -277,7 +321,7 @@ const RequirementTable = () => {
                                                 <th className="px-10 py-6">Nội dung Yêu cầu</th>
                                                 <th className="px-10 py-6 text-center">Ưu tiên</th>
                                                 <th className="px-10 py-6 text-center text-nowrap">Tiến độ</th>
-                                                <th className="px-10 py-6">Sync Jira</th>
+                                                <th className="px-10 py-6">Tích hợp Hệ thống</th>
                                                 <th className="px-10 py-6 text-right">Thao tác</th>
                                             </tr>
                                         </thead>
@@ -329,31 +373,46 @@ const RequirementTable = () => {
                                                                     </span>
                                                                 </td>
                                                                 <td className="px-10 py-8 min-w-[240px]">
-                                                                    <div className="flex items-center gap-4">
-                                                                        <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200/30 p-0.5 shadow-inner">
-                                                                            <div 
-                                                                                className={`h-full transition-all duration-1000 ease-out shadow-sm rounded-full ${req.progress === 100 ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' : 'bg-gradient-to-r from-indigo-500 to-blue-600'}`} 
-                                                                                style={{ width: `${req.progress}%` }}
-                                                                            ></div>
-                                                                        </div>
-                                                                        <span className="text-sm font-black text-slate-900 tabular-nums">{req.progress}%</span>
-                                                                    </div>
+                                                                    <RequirementProgressBar requirementId={req.requirementId} />
                                                                 </td>
                                                                 <td className="px-10 py-8">
-                                                                    {req.jiraIssueKey ? (
-                                                                        <div className="flex flex-col gap-2">
-                                                                            <div className="inline-flex items-center gap-2.5 bg-indigo-50 text-indigo-700 px-4 py-2 rounded-2xl border border-indigo-100 font-mono text-xs font-black shadow-sm group-hover:bg-white transition-all w-fit">
-                                                                                <LinkIcon size={14} className="opacity-70" />
-                                                                                {req.jiraIssueKey}
-                                                                            </div>
-                                                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Auto-Sync Enabled</span>
+                                                                    <div className="flex flex-col gap-3">
+                                                                        {/* Jira Epic Connection */}
+                                                                        <div className="flex items-center gap-2">
+                                                                            <img src="https://cdn.iconscout.com/icon/free/png-256/free-jira-logo-icon-download-in-svg-png-gif-file-formats--technology-social-media-company-brand-vol-3-pack-logos-icons-2944949.png" alt="Jira" className="w-5 h-5 opacity-80 mix-blend-multiply" />
+                                                                            {req.jiraIssueKey ? (
+                                                                                <div className="flex flex-col gap-1 text-left">
+                                                                                    <a 
+                                                                                        href={`${jiraUrl}/browse/${req.jiraIssueKey}`}
+                                                                                        target="_blank"
+                                                                                        rel="noopener noreferrer"
+                                                                                        className="text-[12px] font-black text-blue-600 hover:text-blue-800 transition-colors uppercase tracking-widest border-b border-transparent hover:border-blue-300 w-fit"
+                                                                                    >
+                                                                                        Epic: {req.jiraIssueKey}
+                                                                                    </a>
+                                                                                </div>
+                                                                            ) : (
+                                                                                <span className="text-[11px] font-bold text-slate-400 italic">Chưa liên kết</span>
+                                                                            )}
                                                                         </div>
-                                                                    ) : (
-                                                                        <div className="flex items-center gap-2.5 text-slate-300 italic text-xs font-semibold">
-                                                                            <div className="w-1.5 h-1.5 bg-slate-200 rounded-full"></div>
-                                                                            Chưa đồng bộ Jira
+
+                                                                        {/* GitHub Integration */}
+                                                                        <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                                                                            <img src="https://cdn-icons-png.flaticon.com/512/25/25231.png" alt="GitHub" className="w-5 h-5 opacity-70" />
+                                                                            {githubRepoUrl ? (
+                                                                                <a 
+                                                                                    href={githubRepoUrl.startsWith('http') ? githubRepoUrl : `https://github.com/${githubRepoUrl}`}
+                                                                                    target="_blank"
+                                                                                    rel="noopener noreferrer"
+                                                                                    className="text-[12px] font-black text-emerald-600 hover:text-emerald-800 transition-colors uppercase tracking-widest border-b border-transparent hover:border-emerald-300 w-fit"
+                                                                                >
+                                                                                    Repo: {githubRepoUrl}
+                                                                                </a>
+                                                                            ) : (
+                                                                                <span className="text-[11px] font-bold text-slate-400 italic">Chưa liên kết Code</span>
+                                                                            )}
                                                                         </div>
-                                                                    )}
+                                                                    </div>
                                                                 </td>
                                                                 <td className="px-10 py-8">
                                                                     <div className="flex justify-end items-center gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-0">
@@ -399,10 +458,10 @@ const RequirementTable = () => {
                                                                     <td colSpan={5} className="bg-slate-50/50 px-10 py-8">
                                                                         <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden animate-in slide-in-from-top-4 duration-300">
                                                                             <div className="px-8 py-5 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
-                                                                                <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Danh sách công việc (Tasks)</h4>
+                                                                            <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Danh sách công việc (Tasks)</h4>
                                                                                 <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-3 py-1 rounded-full italic">Liên kết trực tiếp với {req.jiraIssueKey || 'No Jira'}</span>
                                                                             </div>
-                                                                            <RequirementTaskList requirementId={req.requirementId} />
+                                                                            <RequirementTaskList requirementId={req.requirementId} userNameMap={userNameMap} />
                                                                         </div>
                                                                     </td>
                                                                 </tr>
@@ -432,11 +491,20 @@ const RequirementTable = () => {
                     initialKey={selectedReq?.jiraIssueKey}
                     requirementTitle={selectedReq?.title || ''}
                 />
+                <ExportSRSModal
+                    isOpen={isExportModalOpen}
+                    onClose={() => setIsExportModalOpen(false)}
+                    groupId={groupId || ''}
+                    groupName={selectedGroup?.groupName}
+                />
                 {groupId && (
                     <CreateTaskModal 
                         isOpen={isTaskModalOpen}
                         onClose={() => { setIsTaskModalOpen(false); setTaskTargetReqId(null); }}
                         groupId={groupId}
+                        groupMembers={groupMembers}
+                        currentUserId={currentUserId}
+                        userNameMap={userNameMap}
                         initialRequirementId={taskTargetReqId || ''}
                         onCreated={() => {
                             if (taskTargetReqId) {
@@ -453,7 +521,7 @@ const RequirementTable = () => {
     );
 };
 
-const RequirementTaskList = ({ requirementId }: { requirementId: string }) => {
+const RequirementTaskList = ({ requirementId, userNameMap }: { requirementId: string, userNameMap: Record<string, string> }) => {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -496,7 +564,9 @@ const RequirementTaskList = ({ requirementId }: { requirementId: string }) => {
                         <div>
                             <div className="text-sm font-black text-slate-800">{task.title}</div>
                             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
-                                Assigned to: <span className="text-slate-600">{task.assignedTo ? `User ${task.assignedTo.slice(0, 4)}` : 'Unassigned'}</span>
+                                Assigned to: <span className="text-slate-600">
+                                    {task.assignedTo ? (userNameMap[task.assignedTo] || `User: ${task.assignedTo.slice(0, 4)}`) : 'Unassigned'}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -512,6 +582,58 @@ const RequirementTaskList = ({ requirementId }: { requirementId: string }) => {
                     </div>
                 </div>
             ))}
+        </div>
+    );
+};
+
+const RequirementProgressBar = ({ requirementId }: { requirementId: string }) => {
+    const [progress, setProgress] = useState<number>(0);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        let isMounted = true;
+        const fetchProgress = async () => {
+            try {
+                const res = await taskService.getTasksByRequirementId(requirementId);
+                const tasks: Task[] = (res as any) || [];
+                if (!isMounted) return;
+                
+                if (tasks.length === 0) {
+                    setProgress(0);
+                } else {
+                    const doneTasks = tasks.filter(t => t.status === 'DONE').length;
+                    const calculatedProgress = Math.round((doneTasks / tasks.length) * 100);
+                    setProgress(calculatedProgress);
+                }
+            } catch (err) {
+                if (isMounted) setProgress(0);
+            } finally {
+                if (isMounted) setLoading(false);
+            }
+        };
+        fetchProgress();
+        return () => { isMounted = false; };
+    }, [requirementId]);
+
+    if (loading) {
+        return (
+            <div className="flex items-center gap-4">
+                <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200/30 p-0.5 shadow-inner">
+                    <div className="h-full bg-slate-300 w-full animate-pulse rounded-full"></div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex items-center gap-4" title={`Tiến độ tự động: Dựa trên số Task đã DONE`}>
+            <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200/30 p-0.5 shadow-inner">
+                <div 
+                    className={`h-full transition-all duration-1000 ease-out shadow-sm rounded-full ${progress === 100 ? 'bg-gradient-to-r from-emerald-400 to-emerald-500' : 'bg-gradient-to-r from-indigo-500 to-blue-500'}`} 
+                    style={{ width: `${progress}%` }}
+                ></div>
+            </div>
+            <span className="text-sm font-black text-slate-900 tabular-nums">{progress}%</span>
         </div>
     );
 };

@@ -7,7 +7,8 @@ import {
     Bell, 
     Settings, 
     Briefcase,
-    ChevronDown 
+    ChevronDown,
+    FolderOpen
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
@@ -18,6 +19,7 @@ const myProjectNav = [
     { name: 'Bảng Task', icon: ListTodo, href: '/tasks' },
     { name: 'Yêu cầu (Epic)', icon: Layers, href: '/requirements' },
     { name: 'Thành viên nhóm', icon: Users, href: '/members' },
+    { name: 'Tài liệu', icon: FolderOpen, href: '/files' },
 ];
 
 const integrationNav = [

@@ -7,6 +7,7 @@ import uth.edu.requirement.dto.RequirementRequest;
 import uth.edu.requirement.service.IRequirementService;
 
 import java.util.UUID;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/requirements")
@@ -28,6 +29,11 @@ public class RequirementController {
     @GetMapping("/group/{groupId}")
     public ResponseEntity<?> getRequirementsByGroupId(@PathVariable UUID groupId) {
         return ResponseEntity.ok(requirementService.getRequirementsByGroupId(groupId));
+    }
+
+    @PostMapping("/list")
+    public ResponseEntity<?> getRequirementsByIds(@RequestBody List<UUID> ids) {
+        return ResponseEntity.ok(requirementService.getRequirementsByIds(ids));
     }
 
     @PostMapping

@@ -30,11 +30,11 @@ public class Group {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     @Enumerated(EnumType.STRING)
     private GroupStatus status = GroupStatus.ACTIVE;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private Integer maxMembers = 8;
 
     @Column(updatable = false)

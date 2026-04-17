@@ -8,6 +8,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import uth.edu.group.config.RabbitMQConfig;
 import uth.edu.group.dto.*;
@@ -19,6 +20,7 @@ import uth.edu.group.service.*;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class GroupServiceImpl implements IGroupService {
     private static final Set<String> ALLOWED_GROUP_ROLES = Set.of("LEADER", "MEMBER", "LECTURER");
 
@@ -62,8 +64,9 @@ public class GroupServiceImpl implements IGroupService {
 
     @Override
     public List<GroupResponse> getAllGroups() {
-        return groupRepo.findAll()
-                .stream()
+        List<Group> groups = groupRepo.findAll();
+        log.info("Fetching all groups. Found: {}", groups.size());
+        return groups.stream()
                 .map(groupMapper::toResponse)
                 .toList();
     }
@@ -159,10 +162,10 @@ public class GroupServiceImpl implements IGroupService {
     }
 
     @Override
-    public List<MemberRequest> getMembersByGroupId(UUID groupId) {
+    public List<GroupMemberResponse> getMembersByGroupId(UUID groupId) {
         return memberRepo.findByGroupGroupId(groupId)
                 .stream()
-                .map(groupMapper::toMemberDto)
+                .map(groupMapper::toMemberResponse)
                 .toList();
     }
 
@@ -176,16 +179,20 @@ public class GroupServiceImpl implements IGroupService {
 
     @Override
     public List<GroupResponse> getMyGroups(UUID userId) {
+        log.info("Fetching groups for userId: {}", userId);
         Map<UUID, Group> groupsById = new LinkedHashMap<>();
 
-        memberRepo.findByUserId(userId)
-                .stream()
+        List<GroupMember> memberships = memberRepo.findByUserId(userId);
+        log.info("Found {} memberships for user {}", memberships.size(), userId);
+        memberships.stream()
                 .map(GroupMember::getGroup)
                 .forEach(group -> groupsById.put(group.getGroupId(), group));
 
-        groupRepo.findByLeaderId(userId)
-                .forEach(group -> groupsById.put(group.getGroupId(), group));
+        List<Group> ledGroups = groupRepo.findByLeaderId(userId);
+        log.info("Found {} led groups for user {}", ledGroups.size(), userId);
+        ledGroups.forEach(group -> groupsById.put(group.getGroupId(), group));
 
+        log.info("Total unique groups for user {}: {}", userId, groupsById.size());
         return groupsById.values().stream()
                 .map(groupMapper::toResponse)
                 .toList();

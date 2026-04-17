@@ -70,6 +70,7 @@ const TaskTable = () => {
       const uid = userProfile?.userId?.toString() ?? null;
       setCurrentUserId(uid);
 
+
       const members = await groupService.getMembers(groupId);
       const memberRows: GroupMemberRow[] = Array.isArray(members)
         ? members.map((m: any) => ({

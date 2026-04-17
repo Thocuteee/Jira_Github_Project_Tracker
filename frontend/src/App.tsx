@@ -15,6 +15,7 @@ import GroupMembers from './pages/GroupMembers';
 import Integrations from './pages/Integrations';
 import RequirementTable from './pages/RequirementTable';
 import TaskTable from './pages/TaskTable';
+import FilesPage from './pages/FilesPage';
 
 function isMockAuthed() {
   try {
@@ -71,6 +72,7 @@ export default function App() {
         <Route path="/settings/jira" element={<Navigate to="/settings/integrations" replace />} />
         <Route path="/requirements" element={<RequirementTable />} />
         <Route path="/workspace/:groupId/tasks" element={<TaskTable />} />
+        <Route path="/files" element={authed ? <FilesPage /> : <Navigate to="/login" replace />} />
 
           <Route path="*" element={<Navigate to={authed ? '/dashboard' : '/login'} replace />} />
         </Routes>

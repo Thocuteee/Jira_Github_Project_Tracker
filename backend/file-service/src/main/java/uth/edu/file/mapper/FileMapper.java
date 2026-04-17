@@ -34,4 +34,10 @@ public interface FileMapper {
     @Mapping(target = "fileSize", constant = "0L")
     @Mapping(target = "createdAt", ignore = true)
     FileMetadata toFileMetadata(PresignedUploadRequest request, String fileKey, UUID uploadedBy, EFileScope scope);
+    @Mapping(source = "originalName", target = "fileName")
+    @Mapping(source = "createdAt", target = "uploadedAt")
+    @Mapping(target = "fileUrl", ignore = true) // Will be set in controller/service if needed, or via helper
+    uth.edu.file.dto.response.FileRecordResponse toFileRecordResponse(FileMetadata metadata);
+
+    java.util.List<uth.edu.file.dto.response.FileRecordResponse> toFileRecordResponseList(java.util.List<FileMetadata> metadataList);
 }

@@ -9,7 +9,9 @@ import uth.edu.file.dto.response.PresignedUrlResponse;
 import uth.edu.file.model.EFileScope;
 import uth.edu.file.service.FileService;
 import uth.edu.file.mapper.FileMapper;
-
+import uth.edu.file.dto.response.FileRecordResponse;
+import org.springframework.web.multipart.MultipartFile;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -20,8 +22,8 @@ public class FileController {
     private final FileService fileService;
     private final FileMapper fileMapper;
 
-    @GetMapping("/presigned-upload")
-    public ResponseEntity<PresignedUrlResponse> getUploadUrl(PresignedUploadRequest request) {
+    @PostMapping("/presigned-upload")
+    public ResponseEntity<PresignedUrlResponse> getUploadUrl(@RequestBody PresignedUploadRequest request) {
 
         UUID requestedBy = UserContextHolder.getUserId();
         String requestedByRole = UserContextHolder.getUserRole();
@@ -30,17 +32,32 @@ public class FileController {
         return ResponseEntity.ok(fileMapper.toPresignedUrlResponse(result));
     }
 
+    @PostMapping("/upload")
+    public ResponseEntity<FileRecordResponse> uploadFile(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("referenceId") String referenceId,
+            @RequestParam("scope") EFileScope scope) {
+
+        UUID requestedBy = UserContextHolder.getUserId();
+        String requestedByRole = UserContextHolder.getUserRole();
+
+        return ResponseEntity.ok(fileService.uploadFile(file, referenceId, scope, requestedBy, requestedByRole));
+    }
+
+    @GetMapping("/reference/{referenceId}")
+    public ResponseEntity<List<FileRecordResponse>> getFilesByReference(
+            @PathVariable String referenceId,
+            @RequestParam EFileScope scope) {
+        return ResponseEntity.ok(fileService.getFilesByReference(referenceId, scope));
+    }
+
     @GetMapping("/presigned-download")
     public ResponseEntity<String> getDownloadUrl(@RequestParam String fileKey) {
         return ResponseEntity.ok(fileService.generateDownloadUrl(fileKey));
     }
 
-    @DeleteMapping("/{*fileKey}")
-    public ResponseEntity<Void> deleteFile(@PathVariable String fileKey) {
-        if (fileKey != null && fileKey.startsWith("/")) {
-            fileKey = fileKey.substring(1);
-        }
-
+    @DeleteMapping
+    public ResponseEntity<Void> deleteFile(@RequestParam String fileKey) {
         UUID requestedBy = UserContextHolder.getUserId();
         String requestedByRole = UserContextHolder.getUserRole();
 

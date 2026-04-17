@@ -14,6 +14,8 @@ export interface Task {
   dueDate: string;
   createdAt?: string;
   createdBy?: string;
+  jiraTaskKey?: string;
+  githubCommitUrl?: string;
 }
 
 export interface Attachment {
@@ -65,7 +67,7 @@ class TaskService {
     return (await axiosClient.patch(`${BASE_PATH}/${taskId}/assign`, { assignedTo })) as Task;
   }
 
-  async updateTask(taskId: string, data: { title?: string; description?: string; priority?: string; dueDate?: string }): Promise<Task> {
+  async updateTask(taskId: string, data: { title?: string; description?: string; priority?: string; dueDate?: string; jiraTaskKey?: string; githubCommitUrl?: string }): Promise<Task> {
     return (await axiosClient.patch(`${BASE_PATH}/${taskId}`, data)) as Task;
   }
 

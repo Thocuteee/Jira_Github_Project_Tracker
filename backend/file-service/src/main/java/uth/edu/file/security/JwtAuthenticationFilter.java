@@ -29,8 +29,33 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         try {
-            String authHeader = request.getHeader("Authorization");
+            String userIdHeader = request.getHeader("X-User-Id");
+            String roleHeader = request.getHeader("X-User-Role");
 
+            // 1. Nếu có Header từ Gateway thì ưu tiên dùng luôn (đã được Gateway xác thực)
+            if (userIdHeader != null && !userIdHeader.trim().isEmpty()) {
+                try {
+                    UUID userId = UUID.fromString(userIdHeader);
+                    String role = (roleHeader != null && !roleHeader.trim().isEmpty()) ? roleHeader : "ROLE_TEAM_MEMBER";
+
+                    UserContextHolder.setUserId(userId);
+                    UserContextHolder.setUserRole(role);
+
+                    String finalRole = (role.startsWith("ROLE_")) ? role : "ROLE_" + role;
+                    UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                            userIdHeader, null, Collections.singletonList(new SimpleGrantedAuthority(finalRole)));
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                    
+                    log.debug("Authenticated via Gateway headers: userId={}", userId);
+                    filterChain.doFilter(request, response);
+                    return;
+                } catch (IllegalArgumentException e) {
+                    log.warn("Invalid UUID format in X-User-Id: {}", userIdHeader);
+                }
+            }
+
+            // 2. Fallback: Nếu không có Gateway Header thì mới check JWT (cho local dev hoặc gọi trực tiếp)
+            String authHeader = request.getHeader("Authorization");
             if (authHeader != null && authHeader.startsWith("Bearer ")) {
                 String token = authHeader.substring(7);
                 if (jwtProvider.validateToken(token)) {
@@ -46,26 +71,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                                 userId, null, Collections.singletonList(new SimpleGrantedAuthority(finalRole)));
                         SecurityContextHolder.getContext().setAuthentication(authentication);
-                    }
-                }
-            } else {
-                String userIdHeader = request.getHeader("X-User-Id");
-                String roleHeader = request.getHeader("X-User-Role");
-
-                if (userIdHeader != null && !userIdHeader.trim().isEmpty()) {
-                    try {
-                        UUID userId = UUID.fromString(userIdHeader);
-                        String role = roleHeader != null ? roleHeader : "TEAM_MEMBER";
-
-                        UserContextHolder.setUserId(userId);
-                        UserContextHolder.setUserRole(role);
-
-                        String finalRole = role.startsWith("ROLE_") ? role : "ROLE_" + role;
-                        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                                userIdHeader, null, Collections.singletonList(new SimpleGrantedAuthority(finalRole)));
-                        SecurityContextHolder.getContext().setAuthentication(authentication);
-                    } catch (IllegalArgumentException e) {
-                        log.warn("Invalid UUID format in X-User-Id: {}", userIdHeader);
                     }
                 }
             }

@@ -37,12 +37,13 @@ export function GroupProvider({ children }: { children: ReactNode }) {
         try {
             const rawRoles = localStorage.getItem('userRoles');
             const roles = rawRoles ? JSON.parse(rawRoles) : [];
-            const isAdmin = Array.isArray(roles) && roles.includes('ROLE_ADMIN');
+            const isManagementRole = Array.isArray(roles) && (roles.includes('ROLE_ADMIN') || roles.includes('ROLE_LECTURER'));
 
-            const data: Group[] = isAdmin 
+            const data: Group[] = isManagementRole 
                 ? await groupService.getAllGroups() 
                 : await groupService.getMyGroups();
             
+            console.log(`Fetched ${data?.length || 0} groups for role:`, roles);
             setGroups(data || []);
 
             if (data && data.length > 0) {
@@ -50,8 +51,8 @@ export function GroupProvider({ children }: { children: ReactNode }) {
                 const matched = data.find(g => g.groupId === savedId);
                 if (matched) {
                     setSelectedGroup(matched);
-                } else if (!savedId) {
-                    // Chỉ tự chọn group đầu tiên nếu chưa có cái nào được lưu
+                } else {
+                    // Tự động chọn group đầu tiên nếu chưa chọn hoặc không tìm thấy group cũ
                     setSelectedGroup(data[0]);
                     localStorage.setItem('selectedGroupId', data[0].groupId);
                 }
@@ -61,7 +62,13 @@ export function GroupProvider({ children }: { children: ReactNode }) {
             }
         } catch (err: any) {
             console.error('Lỗi khi fetch Groups:', err);
-            setError('Lỗi khi tải danh sách Group.');
+            // Detect connection refused or 500
+            const status = err.response?.status;
+            if (status === 500 || !err.response) {
+                setError('Hệ thống đang khởi động hoặc gặp sự cố kết nối. Vui lòng thử lại sau giây lát.');
+            } else {
+                setError('Lỗi khi tải danh sách Group.');
+            }
         } finally {
             setLoading(false);
         }

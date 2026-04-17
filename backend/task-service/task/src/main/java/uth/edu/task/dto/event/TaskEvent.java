@@ -20,5 +20,6 @@ public class TaskEvent {
     private String eventType;     // Loại sự kiện: "CREATED", "ASSIGNED", "STATUS_UPDATE", "DELETED"
     private String status;        // Trạng thái hiện tại của task
     private String jiraIssueKey;
+
     private LocalDateTime timestamp;
 }

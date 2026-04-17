@@ -55,8 +55,9 @@ public class TaskServiceImpl implements TaskService {
         UUID currentUserId = UserContextHolder.getUserId();
         UUID groupId = UUID.fromString(request.getGroupId());
 
-        // Kiểm tra quyền: Chỉ Nhóm trưởng trong Group hoặc ADMIN mới được tạo Task
-        if (!isLeaderInGroup(groupId, currentUserId) && !isAdmin()) {
+        // Kiểm tra quyền: Nhóm trưởng trong Group, ADMIN, hoặc TEAM_LEADER role
+        boolean hasPermission = isAdmin() || isTeamLeader() || isLeaderInGroup(groupId, currentUserId);
+        if (!hasPermission) {
             throw new RuntimeException("Chỉ Nhóm trưởng hoặc Admin mới có quyền tạo Task!");
         }
 
@@ -68,7 +69,11 @@ public class TaskServiceImpl implements TaskService {
 
         saveTaskHistory(savedTask, currentUserId, "CREATE", "null", "Task Created");
 
-        publishTaskEvent(savedTask, "CREATED");
+        try {
+            publishTaskEvent(savedTask, "CREATED");
+        } catch (Exception e) {
+            log.warn("Could not publish task event (RabbitMQ unavailable?): {}", e.getMessage());
+        }
 
         return taskMapper.toResponse(savedTask);
     }
@@ -143,9 +148,11 @@ public class TaskServiceImpl implements TaskService {
         UUID groupId = existingTask.getGroupId();
         boolean isLeader = isLeaderInGroup(groupId, currentUserId);
 
-        // Kiểm tra quyền Update: Chỉ Leader hoặc Admin mới được update thông tin Task
-        if (!isLeader && !isAdmin()) {
-            throw new RuntimeException("Lỗi phân quyền: Chỉ Nhóm trưởng hoặc Admin mới có quyền chỉnh sửa Task!");
+        boolean isAssignee = currentUserId.equals(existingTask.getAssignedTo());
+
+        // Kiểm tra quyền Update: Leader, Admin, hoặc người được giao (Assignee) mới được update thông tin Task
+        if (!isLeader && !isAdmin() && !isAssignee) {
+            throw new RuntimeException("Lỗi phân quyền: Chỉ Nhóm trưởng, Quản trị viên, hoặc Người được giao mới có quyền chỉnh sửa Task!");
         }
 
         // Kiểm tra xem trạng thái có thay đổi không để ghi lịch sử
@@ -194,7 +201,11 @@ public class TaskServiceImpl implements TaskService {
         }
         task.setAssignedTo(request.getAssignedTo());
 
-        publishTaskEvent(task, "ASSIGN");
+        try {
+            publishTaskEvent(task, "ASSIGN");
+        } catch (Exception e) {
+            log.warn("Could not publish task event (RabbitMQ unavailable?): {}", e.getMessage());
+        }
 
         Task updatedTask = taskRepository.save(task);
         return taskMapper.toResponse(updatedTask);
@@ -221,7 +232,11 @@ public class TaskServiceImpl implements TaskService {
         task.setStatus(request.getStatus());
         Task savedTask = taskRepository.save(task);
         
-        publishTaskEvent(savedTask, "STATUS_UPDATE");
+        try {
+            publishTaskEvent(savedTask, "STATUS_UPDATE");
+        } catch (Exception e) {
+            log.warn("Could not publish task event (RabbitMQ unavailable?): {}", e.getMessage());
+        }
 
         return taskMapper.toResponse(savedTask);
     }
@@ -285,6 +300,11 @@ public class TaskServiceImpl implements TaskService {
     private boolean isLecturer() {
         return SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_LECTURER"));
+    }
+
+    private boolean isTeamLeader() {
+        return SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_TEAM_LEADER"));
     }
 
     private void saveTaskHistory(Task task, UUID changedBy, String field, String oldVal, String newVal) {

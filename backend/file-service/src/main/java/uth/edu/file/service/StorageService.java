@@ -10,6 +10,8 @@ public interface StorageService {
     
     String generatePresignedDownloadUrl(String fileKey, Duration expiration);
     
+    void uploadFile(String fileKey, byte[] content, String contentType);
+    
     void deleteFile(String fileKey);
     
     String getPublicUrl(String fileKey);

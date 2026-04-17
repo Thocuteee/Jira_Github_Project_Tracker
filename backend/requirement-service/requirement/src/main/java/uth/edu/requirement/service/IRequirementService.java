@@ -13,4 +13,5 @@ public interface IRequirementService {
     RequirementResponse createRequirement(RequirementRequest request);
     RequirementResponse updateRequirement(UUID id, RequirementRequest request);
     void deleteRequirement(UUID id);
+    List<RequirementResponse> getRequirementsByIds(List<UUID> ids);
 }

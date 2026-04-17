@@ -9,7 +9,8 @@ import {
     Briefcase,
     ChevronDown,
     Search,
-    Layers
+    Layers,
+    FolderOpen
 } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import authService from '@/api/auth.service';
@@ -198,6 +199,12 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                                     label="Yêu cầu (Epic)" 
                                     to="/requirements" 
                                     active={location.pathname === '/requirements'}
+                                />
+                                <NavItem
+                                    icon={<FolderOpen size={18} />}
+                                    label="Tài liệu"
+                                    to="/files"
+                                    active={location.pathname === '/files'}
                                 />
                                 <NavItem
                                     icon={<Settings size={18} />}
