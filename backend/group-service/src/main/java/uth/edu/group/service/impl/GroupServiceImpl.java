@@ -1,5 +1,6 @@
 package uth.edu.group.service.impl;
 import java.util.List;
+import java.util.Objects;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -67,6 +68,7 @@ public class GroupServiceImpl implements IGroupService {
         List<Group> groups = groupRepo.findAll();
         log.info("Fetching all groups. Found: {}", groups.size());
         return groups.stream()
+                .filter(Objects::nonNull)
                 .map(groupMapper::toResponse)
                 .toList();
     }
@@ -185,12 +187,16 @@ public class GroupServiceImpl implements IGroupService {
         List<GroupMember> memberships = memberRepo.findByUserId(userId);
         log.info("Found {} memberships for user {}", memberships.size(), userId);
         memberships.stream()
+                .filter(Objects::nonNull)
                 .map(GroupMember::getGroup)
+                .filter(Objects::nonNull)
                 .forEach(group -> groupsById.put(group.getGroupId(), group));
 
         List<Group> ledGroups = groupRepo.findByLeaderId(userId);
         log.info("Found {} led groups for user {}", ledGroups.size(), userId);
-        ledGroups.forEach(group -> groupsById.put(group.getGroupId(), group));
+        ledGroups.stream()
+                .filter(Objects::nonNull)
+                .forEach(group -> groupsById.put(group.getGroupId(), group));
 
         log.info("Total unique groups for user {}: {}", userId, groupsById.size());
         return groupsById.values().stream()

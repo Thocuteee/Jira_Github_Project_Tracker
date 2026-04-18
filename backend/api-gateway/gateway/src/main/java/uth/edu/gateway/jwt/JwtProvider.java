@@ -15,7 +15,7 @@ import java.security.NoSuchAlgorithmException;
 @Component
 public class JwtProvider {
 
-    @Value("${jwt.secret:dev-secret-change-me-dev-secret-change-me}")
+    @Value("${jwt.secret:dev-secret-change-me}")
     private String jwtSecret;
 
     private Key key;

@@ -19,10 +19,10 @@ import io.jsonwebtoken.security.Keys;
 
 @Component
 public class JwtProvider {
-    @Value("${auth.jwt.secret}")
+    @Value("${jwt.secret:dev-secret-change-me}")
     private String jwtSecret;
 
-    @Value("${auth.jwt.expiration}")
+    @Value("${jwt.expiration:86400000}")
     private int jwtExpirationMs;
 
     private Key getSigningKey() {

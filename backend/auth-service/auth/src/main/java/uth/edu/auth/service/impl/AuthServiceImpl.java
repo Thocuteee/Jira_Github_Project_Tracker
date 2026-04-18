@@ -13,10 +13,15 @@ import uth.edu.auth.repository.UserRepository;
 import uth.edu.auth.security.JwtProvider;
 import uth.edu.auth.repository.RoleRepository;
 import uth.edu.auth.service.IAuthService;
+import org.springframework.transaction.annotation.Transactional;
 import uth.edu.auth.service.RefreshTokenService;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.UUID;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -37,6 +42,34 @@ public class AuthServiceImpl implements IAuthService {
     private RefreshTokenService refreshTokenService;
 
     @Override
+    @Transactional
+    public void assignRole(UUID userId, String roleName) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+        
+        ERole eRole = switch (roleName.toUpperCase()) {
+            case "LECTURER" -> {
+                if (user.getEmail() == null || !user.getEmail().endsWith("@gv.ut.edu.vn")) {
+                    throw new RuntimeException("Email của giảng viên phải có đuôi @gv.ut.edu.vn");
+                }
+                yield ERole.ROLE_LECTURER;
+            }
+            case "ADMIN" -> ERole.ROLE_ADMIN;
+            default -> ERole.ROLE_TEAM_MEMBER;
+        };
+
+        Role newRole = roleRepository.findByName(eRole)
+                .orElseThrow(() -> new RuntimeException("Lỗi: Không tìm thấy Role " + eRole));
+        
+        if (!user.getRoles().contains(newRole)) {
+            user.getRoles().add(newRole);
+            user.setUpdatedAt(LocalDateTime.now());
+            userRepository.save(user);
+        }
+    }
+
+
+    @Override
     public List<User> getAllUsers() {
         return userRepository.findAll();
     }
@@ -55,6 +88,7 @@ public class AuthServiceImpl implements IAuthService {
     public User updateUser(UUID id, RegisterRequest request) {
         User user = getUserById(id);
         user.setName(request.getName());
+        user.setUpdatedAt(LocalDateTime.now());
         return userRepository.save(user);
     }
 
@@ -128,6 +162,11 @@ public class AuthServiceImpl implements IAuthService {
         // 1. Kiểm tra User có tồn tại không
         User user = userRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new RuntimeException("Error: Không tìm thấy User!"));
+
+        // 1.1 Kiểm tra trạng thái tài khoản
+        if ("DISABLED".equals(user.getStatus())) {
+            throw new RuntimeException("Error: Tài khoản của bạn đã bị khóa!");
+        }
 
         // 2. Kiểm tra mật khẩu
         if (!passwordEncoder.matches(rawPassword, user.getPassword())) {

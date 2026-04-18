@@ -79,8 +79,11 @@ public class DocumentGeneratorServiceImpl implements IDocumentGeneratorService {
 
             for (Map<String, Object> req : requirements) {
                 org.apache.poi.xwpf.usermodel.XWPFTableRow row = table.createRow();
-                row.getCell(0).setText(String.valueOf(req.getOrDefault("reqId", "N/A")));
-                row.getCell(1).setText(String.valueOf(req.getOrDefault("title", "N/A")));
+                String reqId = String.valueOf(req.getOrDefault("requirementId", req.getOrDefault("reqId", "N/A")));
+                String titleText = String.valueOf(req.getOrDefault("title", "N/A"));
+                
+                row.getCell(0).setText(reqId);
+                row.getCell(1).setText(titleText);
             }
 
             ByteArrayOutputStream b = new ByteArrayOutputStream();
