@@ -27,6 +27,7 @@ import uth.edu.auth.service.IAuthService;
 import uth.edu.auth.repository.UserRepository;
 import uth.edu.auth.repository.RoleRepository;
 import uth.edu.auth.service.RefreshTokenService;
+import uth.edu.auth.service.TokenBlacklistService;
 import java.util.UUID;
 import java.util.Optional;
 
@@ -58,7 +59,7 @@ public class AuthController {
     private JwtProvider jwtProvider;
 
     @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
+    private TokenBlacklistService tokenBlacklistService;
 
     // 1. Lấy danh sách tất cả User
     @GetMapping("/users")
@@ -174,8 +175,7 @@ public class AuthController {
 
         String accessToken = readCookieValue(request, ACCESS_TOKEN_COOKIE);
         if (StringUtils.hasText(accessToken)) {
-            redisTemplate.opsForValue().set("auth:blacklist:" + accessToken, "true", accessTokenDurationMs,
-                    java.util.concurrent.TimeUnit.MILLISECONDS);
+            tokenBlacklistService.blacklistToken(accessToken);
         }
 
         response.addHeader("Set-Cookie", clearCookie(ACCESS_TOKEN_COOKIE).toString());
