@@ -1,6 +1,5 @@
 package uth.edu.task.dto.request;
 
-
 import lombok.Data;
 import uth.edu.task.model.ETaskPriority;
 import uth.edu.task.model.ETaskStatus;

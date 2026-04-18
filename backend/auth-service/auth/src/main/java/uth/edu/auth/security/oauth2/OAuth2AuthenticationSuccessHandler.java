@@ -28,7 +28,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
     private static final String ACCESS_TOKEN_COOKIE = "accessToken";
     private static final String REFRESH_TOKEN_COOKIE = "refreshToken";
 
-    @Value("${auth.jwt.expiration}")
+    @Value("${jwt.expiration}")
     private long accessTokenDurationMs;
 
     @Value("${uth.app.jwtRefreshExpirationMs}")

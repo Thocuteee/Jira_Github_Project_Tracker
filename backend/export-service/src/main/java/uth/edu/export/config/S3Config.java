@@ -8,27 +8,28 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 
+import java.net.URI;
+
 @Configuration
 public class S3Config {
 
-    @Value("${aws.s3.access-key}")
+    @Value("${cloudflare.r2.endpoint}")
+    private String endpoint;
+
+    @Value("${cloudflare.r2.access-key}")
     private String accessKey;
 
-    @Value("${aws.s3.secret-key}")
+    @Value("${cloudflare.r2.secret-key}")
     private String secretKey;
-
-    @Value("${aws.s3.region}")
-    private String region;
 
     @Bean
     public S3Client s3Client() {
-        AwsBasicCredentials credentials = AwsBasicCredentials.create(accessKey, secretKey);
-        
         return S3Client.builder()
-                .region(Region.of(region))
-                .credentialsProvider(StaticCredentialsProvider.create(credentials))
-                .endpointOverride(java.net.URI.create("http://localhost:9000")) // tro ve MinIO local
-                .forcePathStyle(true) // nhan dien bucket theo path thay vi subdomain (MinIO yeu cau)
+                .endpointOverride(URI.create(endpoint))
+                .forcePathStyle(true)
+                .region(Region.US_EAST_1)
+                .credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create(accessKey, secretKey)))
                 .build();
     }
 }

@@ -10,6 +10,7 @@ import uth.edu.requirement.model.Requirement;
 import uth.edu.requirement.repository.RequirementRepository;
 import uth.edu.requirement.service.IRequirementService;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -57,6 +58,8 @@ public class RequirementServiceImpl implements IRequirementService {
             requirement.setStatus(ERequirementStatus.valueOf(request.getStatus().toUpperCase()));
         }
 
+        requirement.setJiraIssueKey(request.getJiraIssueKey());
+
         return mapToResponse(requirementRepository.save(requirement));
     }
 
@@ -88,6 +91,10 @@ public class RequirementServiceImpl implements IRequirementService {
             requirement.setStatus(ERequirementStatus.valueOf(request.getStatus().toUpperCase()));
         }
 
+        if (request.getJiraIssueKey() != null) {
+            requirement.setJiraIssueKey(request.getJiraIssueKey());
+        }
+
         return mapToResponse(requirementRepository.save(requirement));
     }
 
@@ -95,6 +102,14 @@ public class RequirementServiceImpl implements IRequirementService {
     public void deleteRequirement(UUID id) {
         Requirement requirement = findRequirementById(id);
         requirementRepository.delete(requirement);
+    }
+
+    @Override
+    public List<RequirementResponse> getRequirementsByIds(List<UUID> ids) {
+        return requirementRepository.findAllById(ids)
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
     }
 
     private Requirement findRequirementById(UUID id) {
@@ -105,13 +120,14 @@ public class RequirementServiceImpl implements IRequirementService {
     private RequirementResponse mapToResponse(Requirement requirement) {
         return RequirementResponse.builder()
                 .requirementId(requirement.getRequirementId().toString())
-                .groupId(requirement.getGroupId().toString())
+                .groupId(requirement.getGroupId() != null ? requirement.getGroupId().toString() : null)
                 .title(requirement.getTitle())
                 .description(requirement.getDescription())
-                .createdBy(requirement.getCreatedBy().toString())
+                .createdBy(requirement.getCreatedBy() != null ? requirement.getCreatedBy().toString() : null)
                 .createdAt(requirement.getCreatedAt() != null ? requirement.getCreatedAt().toString() : null)
                 .priority(requirement.getPriority() != null ? requirement.getPriority().name() : null)
                 .status(requirement.getStatus() != null ? requirement.getStatus().name() : null)
+                .jiraIssueKey(requirement.getJiraIssueKey())
                 .build();
     }
 }

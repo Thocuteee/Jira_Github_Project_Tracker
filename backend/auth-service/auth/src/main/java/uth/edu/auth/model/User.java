@@ -10,17 +10,20 @@ import lombok.Getter;
 import lombok.Setter;   
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
 
 @Entity
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Table(name = "users")
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     @Column(name = "userId")
+    @EqualsAndHashCode.Include
     private UUID userId;
 
     @Column(nullable = false)

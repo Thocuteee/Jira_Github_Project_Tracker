@@ -3,6 +3,8 @@ import { ArrowRight, Clock3, Users, FileText, GitBranch, RefreshCw } from 'lucid
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toDisplayRole } from '@/utils/authDisplay';
+import { useGroupContext } from '@/contexts/GroupContext';
+import groupService from '@/api/group.service';
 
 const summaryStats = [
     { label: 'Active Groups', value: '5', icon: Users, iconBg: 'bg-blue-100 text-blue-600' },
@@ -44,16 +46,35 @@ export default function Dashboard() {
         navigate('/dashboard', { replace: true });
     }, [navigate]);
 
-    const [roles] = useState<string[]>(() => {
-        try {
+    const [roles, setRoles] = useState<string[]>([]);
+    const { selectedGroup } = useGroupContext();
+
+    useEffect(() => {
+        const fetchRole = async () => {
             const raw = localStorage.getItem('userRoles');
-            if (!raw) return [];
-            const parsed = JSON.parse(raw);
-            return Array.isArray(parsed) ? parsed.map(String) : [];
-        } catch {
-            return [];
-        }
-    });
+            const parsed = raw ? JSON.parse(raw) : [];
+            const globalRoles = Array.isArray(parsed) ? parsed.map(String) : [];
+
+            if (selectedGroup) {
+                try {
+                    const isLeader = await groupService.checkLeader(selectedGroup.groupId);
+                    if (isLeader) {
+                        setRoles(['Teamleader']);
+                        return;
+                    }
+                } catch (err) {
+                    // ignore
+                }
+            }
+
+            if (globalRoles.includes('ROLE_ADMIN') || globalRoles.includes('ROLE_LECTURER')) {
+                setRoles(['Lecture']);
+            } else {
+                setRoles(['Member']);
+            }
+        };
+        fetchRole();
+    }, [selectedGroup]);
 
     const userName = useMemo(() => {
         try {

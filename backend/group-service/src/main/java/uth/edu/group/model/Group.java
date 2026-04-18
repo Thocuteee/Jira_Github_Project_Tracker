@@ -7,9 +7,9 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "groups")
-@Data
-@Builder
-@NoArgsConstructor
+@Getter 
+@Setter
+@NoArgsConstructor 
 @AllArgsConstructor
 public class Group {
 
@@ -29,9 +29,13 @@ public class Group {
     
     @Column(columnDefinition = "TEXT")
     private String description;
-    
-    @Column(nullable = false)
-    private String status = "ACTIVE";
+
+    @Column(nullable = true)
+    @Enumerated(EnumType.STRING)
+    private GroupStatus status = GroupStatus.ACTIVE;
+
+    @Column(nullable = true)
+    private Integer maxMembers = 8;
 
     @Column(updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();

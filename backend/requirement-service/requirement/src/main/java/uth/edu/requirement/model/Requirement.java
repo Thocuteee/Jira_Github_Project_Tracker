@@ -47,6 +47,9 @@ public class Requirement {
     @Column(name = "status", nullable = false, length = 20)
     private ERequirementStatus status;
 
+    @Column(name = "jira_issue_key", length = 50)
+    private String jiraIssueKey;
+
     @PrePersist
     public void prePersist() {
         if (this.createdAt == null) {

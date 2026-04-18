@@ -33,37 +33,24 @@ public class DocumentGeneratorServiceImpl implements IDocumentGeneratorService {
         log.info("Bat dau tao file {}", fileType);
         
         try {
-            // Chuyển Json string thành List<Map<String, Object>> để truyền vào Thymeleaf
             List<Map<String, Object>> requirementList = objectMapper.readValue(
                 requirementDataJson, 
                 new TypeReference<List<Map<String, Object>>>() {}
             );
 
-            // Nhét data vào Thymeleaf context [cite: 61]
-            Context context = new Context();
-            context.setVariable("exportDate", LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")));
-            context.setVariable("requirements", requirementList);
-
-            // Render Thymeleaf template thành HTML string 
-            String htmlContent = templateEngine.process("srs-document", context);
-
-            // Nếu fileType là PDF thì chuyển HTML thành PDF và trả về mảng byte 
             if (fileType.equalsIgnoreCase("PDF")) {
+                Context context = new Context();
+                context.setVariable("exportDate", LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")));
+                context.setVariable("requirements", requirementList);
+                String htmlContent = templateEngine.process("srs-document", context);
+                
                 ByteArrayOutputStream outputStream = new ByteArrayOutputStream(); 
                 HtmlConverter.convertToPdf(htmlContent, outputStream); 
-                log.info("Da tao file PDF!"); 
-
-                // luu file PDF tam thoi de kiem tra
-                try (FileOutputStream fos = new FileOutputStream("TEST_SRS_PROFESSIONAL.pdf")) {
-                    fos.write(outputStream.toByteArray());
-                    log.info("Da luu file PDF tam thoi de kiem tra: TEST_SRS_PROFESSIONAL.pdf");
-                } catch (IOException e) {
-                    log.error("Loi khi ghi file PDF ra o cung", e);
-                }
-
                 return outputStream.toByteArray();
+            } else if (fileType.equalsIgnoreCase("DOCX")) {
+                return generateDocx(requirementList);
             } else {
-                throw new IllegalArgumentException("He thong chi ho tro in file PDF!");
+                throw new IllegalArgumentException("He thong chi ho tro PDF va DOCX!");
             }
 
         } catch (Exception e) {
@@ -71,4 +58,37 @@ public class DocumentGeneratorServiceImpl implements IDocumentGeneratorService {
             throw new RuntimeException("Khong the tao file document", e);
         }
     }
-}
+
+    private byte[] generateDocx(List<Map<String, Object>> requirements) throws IOException {
+        try (org.apache.poi.xwpf.usermodel.XWPFDocument document = new org.apache.poi.xwpf.usermodel.XWPFDocument()) {
+            org.apache.poi.xwpf.usermodel.XWPFParagraph title = document.createParagraph();
+            title.setAlignment(org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER);
+            org.apache.poi.xwpf.usermodel.XWPFRun titleRun = title.createRun();
+            titleRun.setText("TÀI LIỆU ĐẶC TẢ YÊU CẦU (SRS)");
+            titleRun.setBold(true);
+            titleRun.setFontSize(20);
+
+            org.apache.poi.xwpf.usermodel.XWPFParagraph date = document.createParagraph();
+            org.apache.poi.xwpf.usermodel.XWPFRun dateRun = date.createRun();
+            dateRun.setText("Ngày xuất file: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")));
+
+            org.apache.poi.xwpf.usermodel.XWPFTable table = document.createTable();
+            org.apache.poi.xwpf.usermodel.XWPFTableRow header = table.getRow(0);
+            header.getCell(0).setText("Mã Yêu Cầu (ID)");
+            header.addNewTableCell().setText("Tên Chức Năng");
+
+            for (Map<String, Object> req : requirements) {
+                org.apache.poi.xwpf.usermodel.XWPFTableRow row = table.createRow();
+                String reqId = String.valueOf(req.getOrDefault("requirementId", req.getOrDefault("reqId", "N/A")));
+                String titleText = String.valueOf(req.getOrDefault("title", "N/A"));
+                
+                row.getCell(0).setText(reqId);
+                row.getCell(1).setText(titleText);
+            }
+
+            ByteArrayOutputStream b = new ByteArrayOutputStream();
+            document.write(b);
+            return b.toByteArray();
+        }
+    }
+}

@@ -52,7 +52,7 @@
       </thead>
       <tbody>
         <tr th:each="req : ${requirements}">
-          <td th:text="${req.reqId}">REQ-01</td>
+          <td th:text="${req.requirementId ?: req.reqId}">REQ-01</td>
           <td th:text="${req.title}">Tên chức năng mẫu</td>
         </tr>
       </tbody>

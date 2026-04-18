@@ -40,8 +40,13 @@ public class ExportAsyncService {
             // lay du lieu tu Requirement Service (tra ve JSON)
             String requirementDataJson;
             try {
-                requirementDataJson = requirementClient.getRequirementsByGroupId(request.getGroupId());
-                log.info("Da lay du lieu tu 8082 cho Group: {}", request.getGroupId());
+                if (request.getRequirementIds() != null && !request.getRequirementIds().isEmpty()) {
+                    requirementDataJson = requirementClient.getRequirementsByIds(request.getRequirementIds());
+                    log.info("Da lay du lieu cho {} specified requirements", request.getRequirementIds().size());
+                } else {
+                    requirementDataJson = requirementClient.getRequirementsByGroupId(request.getGroupId());
+                    log.info("Da lay du lieu tu 8082 cho Group: {}", request.getGroupId());
+                }
             } catch (Exception feignError) {
                 log.warn("Loi ket noi Requirement Service 8083. Dung du lieu gia de test luong Export & RabbitMQ!");
                 requirementDataJson = "[{\"reqId\":\"1\", \"title\":\"Chức năng Đăng nhập (Test)\"}, {\"reqId\":\"2\", \"title\":\"Chức năng Export (Test)\"}]";

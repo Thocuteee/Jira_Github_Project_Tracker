@@ -23,7 +23,10 @@ import uth.edu.task.repository.TaskRepository;
 import uth.edu.task.service.TaskService;
 import uth.edu.task.service.publisher.TaskEventPublisher;
 import uth.edu.task.client.GroupClient;
+import uth.edu.task.client.RequirementClient;
+import uth.edu.task.client.FileServiceClient;
 import uth.edu.task.dto.response.external.GroupMemberResponse;
+import uth.edu.task.dto.response.external.RequirementResponse;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -43,6 +46,8 @@ public class TaskServiceImpl implements TaskService {
     private final TaskEventPublisher taskEventPublisher;
     private final TaskMapper taskMapper;
     private final GroupClient groupClient;
+    private final RequirementClient requirementClient;
+    private final FileServiceClient fileServiceClient;
 
     @Override
     @Transactional
@@ -50,8 +55,9 @@ public class TaskServiceImpl implements TaskService {
         UUID currentUserId = UserContextHolder.getUserId();
         UUID groupId = UUID.fromString(request.getGroupId());
 
-        // Kiểm tra quyền: Chỉ Nhóm trưởng trong Group hoặc ADMIN mới được tạo Task
-        if (!isLeaderInGroup(groupId, currentUserId) && !isAdmin()) {
+        // Kiểm tra quyền: Nhóm trưởng trong Group, ADMIN, hoặc TEAM_LEADER role
+        boolean hasPermission = isAdmin() || isTeamLeader() || isLeaderInGroup(groupId, currentUserId);
+        if (!hasPermission) {
             throw new RuntimeException("Chỉ Nhóm trưởng hoặc Admin mới có quyền tạo Task!");
         }
 
@@ -63,16 +69,11 @@ public class TaskServiceImpl implements TaskService {
 
         saveTaskHistory(savedTask, currentUserId, "CREATE", "null", "Task Created");
 
-        TaskEvent event = TaskEvent.builder()
-                .taskId(savedTask.getTaskId())
-                .title(savedTask.getTitle())
-                .assignedTo(savedTask.getAssignedTo())
-                .requirementId(savedTask.getRequirementId())
-                .eventType("CREATED")
-                .timestamp(LocalDateTime.now())
-                .build();
-
-        taskEventPublisher.publishTaskEvent(event);
+        try {
+            publishTaskEvent(savedTask, "CREATED");
+        } catch (Exception e) {
+            log.warn("Could not publish task event (RabbitMQ unavailable?): {}", e.getMessage());
+        }
 
         return taskMapper.toResponse(savedTask);
     }
@@ -112,10 +113,23 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     public List<TaskResponse> getTasksForUserInGroup(UUID groupId, UUID userId) {
-        // Nếu là Admin hoặc Lecturer thì cho xem toàn bộ
-        if (isAdmin() || isLecturer() || ! "NONE".equalsIgnoreCase(getUserRoleString(groupId, userId))) {
+        String roleInGroup = getUserRoleString(groupId, userId);
+        boolean isLeader = "LEADER".equalsIgnoreCase(roleInGroup);
+        boolean isMember = "MEMBER".equalsIgnoreCase(roleInGroup);
+
+        // 1. Admin & Lecturer & Group Leader: Xem toàn bộ Task của nhóm
+        if (isAdmin() || isLecturer() || isLeader) {
             List<Task> tasks = taskRepository.findByGroupId(groupId);
             return tasks.stream()
+                    .map(taskMapper::toResponse)
+                    .collect(Collectors.toList());
+        }
+
+        // 2. Team Member: Theo yêu cầu chỉ xem các task được giao cho mình
+        if (isMember) {
+            List<Task> tasks = taskRepository.findByGroupId(groupId);
+            return tasks.stream()
+                    .filter(t -> userId.equals(t.getAssignedTo())) // Chỉ lấy task của mình
                     .map(taskMapper::toResponse)
                     .collect(Collectors.toList());
         }
@@ -134,9 +148,11 @@ public class TaskServiceImpl implements TaskService {
         UUID groupId = existingTask.getGroupId();
         boolean isLeader = isLeaderInGroup(groupId, currentUserId);
 
-        // Kiểm tra quyền Update: Chỉ Leader hoặc Admin mới được update thông tin Task
-        if (!isLeader && !isAdmin()) {
-            throw new RuntimeException("Lỗi phân quyền: Chỉ Nhóm trưởng hoặc Admin mới có quyền chỉnh sửa Task!");
+        boolean isAssignee = currentUserId.equals(existingTask.getAssignedTo());
+
+        // Kiểm tra quyền Update: Leader, Admin, hoặc người được giao (Assignee) mới được update thông tin Task
+        if (!isLeader && !isAdmin() && !isAssignee) {
+            throw new RuntimeException("Lỗi phân quyền: Chỉ Nhóm trưởng, Quản trị viên, hoặc Người được giao mới có quyền chỉnh sửa Task!");
         }
 
         // Kiểm tra xem trạng thái có thay đổi không để ghi lịch sử
@@ -185,16 +201,11 @@ public class TaskServiceImpl implements TaskService {
         }
         task.setAssignedTo(request.getAssignedTo());
 
-        TaskEvent event = TaskEvent.builder()
-                .taskId(task.getTaskId())
-                .title(task.getTitle())
-                .assignedTo(task.getAssignedTo())
-                .requirementId(task.getRequirementId())
-                .eventType("ASSIGN")
-                .timestamp(LocalDateTime.now())
-                .build();
-
-        taskEventPublisher.publishTaskEvent(event);
+        try {
+            publishTaskEvent(task, "ASSIGN");
+        } catch (Exception e) {
+            log.warn("Could not publish task event (RabbitMQ unavailable?): {}", e.getMessage());
+        }
 
         Task updatedTask = taskRepository.save(task);
         return taskMapper.toResponse(updatedTask);
@@ -207,12 +218,11 @@ public class TaskServiceImpl implements TaskService {
         Task task = taskRepository.findById(taskId).orElseThrow(
                 () -> new RuntimeException("Không tìm thấy Task!"));
 
-        // Chỉ người đang được giao Task, Nhóm trưởng hoặc Admin mới được đổi Status
-        boolean isAssignee = task.getAssignedTo() != null && currentUserId.equals(task.getAssignedTo());
+        // Chỉ Leader của group hiện tại hoặc Admin mới được đổi trạng thái
         boolean isLeader = isLeaderInGroup(task.getGroupId(), currentUserId);
 
-        if (!isAssignee && !isLeader && !isAdmin()) {
-            throw new RuntimeException("Bạn không có quyền đổi trạng thái Task này!");
+        if (!isLeader && !isAdmin()) {
+            throw new RuntimeException("Chỉ Nhóm trưởng của group hoặc Admin mới được đổi trạng thái Task!");
         }
 
         if (!Objects.equals(task.getStatus(), request.getStatus())) {
@@ -220,8 +230,15 @@ public class TaskServiceImpl implements TaskService {
         }
 
         task.setStatus(request.getStatus());
+        Task savedTask = taskRepository.save(task);
+        
+        try {
+            publishTaskEvent(savedTask, "STATUS_UPDATE");
+        } catch (Exception e) {
+            log.warn("Could not publish task event (RabbitMQ unavailable?): {}", e.getMessage());
+        }
 
-        return taskMapper.toResponse(taskRepository.save(task));
+        return taskMapper.toResponse(savedTask);
     }
 
     @Override
@@ -238,6 +255,10 @@ public class TaskServiceImpl implements TaskService {
 
         taskHistoryRepository.deleteAllByTask_TaskId(taskId);
         taskCommentRepository.deleteAllByTask_TaskId(taskId);
+        
+        // Gọi File Service để xóa toàn bộ file vật lý liên quan tới Task này
+        fileServiceClient.deleteFilesByReference(taskId.toString(), "TASK");
+        
         attachmentRepository.deleteAllByTask_TaskId(taskId);
         taskRepository.delete(task);
     }
@@ -245,13 +266,11 @@ public class TaskServiceImpl implements TaskService {
     // Hàm phụ trợ
     private String getUserRoleString(UUID groupId, UUID userId) {
         if (userId == null) {
-            log.warn("getUserRoleString: userId is null, returning NONE for groupId: {}", groupId);
             return "NONE";
         }
         try {
             List<GroupMemberResponse> members = groupClient.getGroupMembers(groupId);
             if (members == null) {
-                log.error("getUserRoleString: groupClient returned null members list for groupId: {}", groupId);
                 return "NONE";
             }
             return members.stream()
@@ -260,7 +279,6 @@ public class TaskServiceImpl implements TaskService {
                     .findFirst()
                     .orElse("NONE");
         } catch (Exception e) {
-            log.error("Lỗi khi lấy Role từ group-service cho groupId {} (userId: {}): {}", groupId, userId, e.getMessage());
             return "NONE";
         }
     }
@@ -284,6 +302,11 @@ public class TaskServiceImpl implements TaskService {
                 .anyMatch(a -> a.getAuthority().equals("ROLE_LECTURER"));
     }
 
+    private boolean isTeamLeader() {
+        return SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_TEAM_LEADER"));
+    }
+
     private void saveTaskHistory(Task task, UUID changedBy, String field, String oldVal, String newVal) {
         TaskHistory history = TaskHistory.builder()
                 .task(task)
@@ -292,6 +315,31 @@ public class TaskServiceImpl implements TaskService {
                 .oldValue(oldVal)
                 .newValue(newVal)
                 .build();
-        taskHistoryRepository.save(history);
+        TaskHistory savedHistory = taskHistoryRepository.save(history);
+    }
+
+    private void publishTaskEvent(Task task, String eventType) {
+        String jiraIssueKey = null;
+        try {
+            RequirementResponse reqResponse = requirementClient.getRequirementById(task.getRequirementId());
+            if (reqResponse != null) {
+                jiraIssueKey = reqResponse.getJiraIssueKey();
+            }
+        } catch (Exception e) {
+            log.warn("Could not fetch requirement details for Jira sync: {}", e.getMessage());
+        }
+
+        TaskEvent event = TaskEvent.builder()
+                .taskId(task.getTaskId())
+                .title(task.getTitle())
+                .assignedTo(task.getAssignedTo())
+                .requirementId(task.getRequirementId())
+                .jiraIssueKey(jiraIssueKey)
+                .eventType(eventType)
+                .status(task.getStatus() != null ? task.getStatus().name() : null)
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        taskEventPublisher.publishTaskEvent(event);
     }
 }
