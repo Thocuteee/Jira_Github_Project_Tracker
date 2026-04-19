@@ -1,6 +1,8 @@
 package uth.edu.group.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.transaction.annotation.Transactional;
 import uth.edu.group.model.GroupMember;
 import java.util.UUID;
 import java.util.List;
@@ -12,7 +14,12 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, UUID> 
 
     List<GroupMember> findByUserId(UUID userId);
 
+    @Modifying
+    @Transactional
     void deleteByGroupGroupId(UUID groupId);
+
+    @Modifying
+    @Transactional
     void deleteByGroupGroupIdAndUserId(UUID groupId, UUID userId);
 
     boolean existsByGroupGroupIdAndUserId(UUID groupId, UUID userId);

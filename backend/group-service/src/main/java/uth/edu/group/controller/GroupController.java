@@ -51,7 +51,13 @@ public class GroupController {
         return ResponseEntity.ok(groupService.updateGroup(id, request));
     }
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable UUID id) {
+    public ResponseEntity<Void> delete(
+            @PathVariable UUID id,
+            @RequestHeader(value = "X-User-Id", required = false) UUID userId,
+            @RequestHeader(value = "X-User-Role", required = false) String userRole,
+            @RequestHeader(value = "X-User-Roles", required = false) String userRoles
+    ) {
+        requireAdminOrLeader(id, userId, userRole, userRoles);
         groupService.deleteGroup(id);
         return ResponseEntity.noContent().build();
     }

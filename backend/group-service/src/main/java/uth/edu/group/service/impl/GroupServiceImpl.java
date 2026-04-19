@@ -119,11 +119,20 @@ public class GroupServiceImpl implements IGroupService {
     @Override
     @Transactional
     public void deleteGroup(UUID id) {
+        if (!groupRepo.existsById(id)) {
+            throw new RuntimeException("Không tìm thấy nhóm để xóa!");
+        }
         memberRepo.deleteByGroupGroupId(id);
         groupRepo.deleteById(id);
 
         // Notify other services (e.g. task, requirement)
-        rabbitTemplate.convertAndSend(RabbitMQConfig.GROUP_EXCHANGE, "group.deleted", id.toString());
+        try {
+            rabbitTemplate.convertAndSend(RabbitMQConfig.GROUP_EXCHANGE, "group.deleted", id.toString());
+            log.info("Sent group.deleted notification for groupId: {}", id);
+        } catch (Exception e) {
+            log.error("Failed to send RabbitMQ notification for group deletion: {}. Error: {}", id, e.getMessage());
+            // Avoid throwing here to prevent rolling back successful database deletion
+        }
     }
 
     @Override
