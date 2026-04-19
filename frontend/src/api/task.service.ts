@@ -14,6 +14,18 @@ export interface Task {
   dueDate: string;
   createdAt?: string;
   createdBy?: string;
+  jiraTaskKey?: string;
+  githubCommitUrl?: string;
+}
+
+export interface Attachment {
+  attachmentId: string;
+  taskId: string;
+  uploadedBy: string;
+  fileName: string;
+  fileKey: string;
+  fileUrl: string;
+  uploadedAt: string;
 }
 
 export interface TaskComment {
@@ -39,6 +51,10 @@ class TaskService {
     return (await axiosClient.get(`${BASE_PATH}/group/${groupId}?role=${role}`)) as Task[];
   }
 
+  async getTasksByRequirementId(requirementId: string): Promise<Task[]> {
+    return (await axiosClient.get(`${BASE_PATH}/requirement/${requirementId}`)) as Task[];
+  }
+
   async createTask(data: { requirementId: string; groupId: string; title: string; description?: string; priority: string; assignedTo?: string; dueDate?: string }): Promise<Task> {
     return (await axiosClient.post(BASE_PATH, data)) as Task;
   }
@@ -51,7 +67,7 @@ class TaskService {
     return (await axiosClient.patch(`${BASE_PATH}/${taskId}/assign`, { assignedTo })) as Task;
   }
 
-  async updateTask(taskId: string, data: { title?: string; description?: string; priority?: string; dueDate?: string }): Promise<Task> {
+  async updateTask(taskId: string, data: { title?: string; description?: string; priority?: string; dueDate?: string; jiraTaskKey?: string; githubCommitUrl?: string }): Promise<Task> {
     return (await axiosClient.patch(`${BASE_PATH}/${taskId}`, data)) as Task;
   }
 
@@ -69,6 +85,15 @@ class TaskService {
 
   async getTaskHistory(taskId: string): Promise<TaskHistory[]> {
     return (await axiosClient.get(`${BASE_PATH}/${taskId}/history`)) as TaskHistory[];
+  }
+
+  // --- Attachments ---
+  async generateAttachmentPresignedUrl(taskId: string, fileName: string, contentType: string): Promise<{ presignedUrl: string, fileKey: string, fileUrl: string }> {
+    return (await axiosClient.post(`${BASE_PATH}/${taskId}/attachments/presigned-url`, { fileName, contentType })) as { presignedUrl: string, fileKey: string, fileUrl: string };
+  }
+
+  async saveAttachment(taskId: string, data: { fileKey: string, fileName: string, fileUrl: string }): Promise<Attachment> {
+    return (await axiosClient.post(`${BASE_PATH}/${taskId}/attachments`, data)) as Attachment;
   }
 }
 

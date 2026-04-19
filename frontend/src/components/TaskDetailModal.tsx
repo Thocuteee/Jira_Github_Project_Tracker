@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { X, MessageSquare, History, Info, Save, User, AlertCircle, Calendar, CheckCircle2, Clock, Circle, ArrowRight } from 'lucide-react';
 import type { Task, TaskComment, TaskHistory } from '../api/task.service';
 import taskService from '../api/task.service';
+import githubService from '../api/github.service';
+import requirementService from '../api/requirement.service';
+import authService from '../api/auth.service';
+import { ExternalLink, GitBranch } from 'lucide-react';
 
 interface TaskDetailModalProps {
   task: Task;
@@ -11,6 +15,7 @@ interface TaskDetailModalProps {
   role: 'LEADER' | 'MEMBER';
   groupMembers: { userId: string; roleInGroup: string }[];
   currentUserId: string | null;
+  userNameMap: Record<string, string>;
 }
 
 const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
@@ -20,7 +25,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   onUpdate,
   role,
   groupMembers,
-  currentUserId
+  currentUserId,
+  userNameMap
 }) => {
   const [activeTab, setActiveTab] = useState<'details' | 'comments' | 'history'>('details');
   const [editedTask, setEditedTask] = useState<Partial<Task>>({});
@@ -29,6 +35,10 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [localNames, setLocalNames] = useState<Record<string, string>>({});
+  const [jiraUrl, setJiraUrl] = useState('');
+  const [globalGithubRepo, setGlobalGithubRepo] = useState('');
+  const [globalJiraKey, setGlobalJiraKey] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -38,7 +48,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         priority: task.priority,
         status: task.status,
         assignedTo: task.assignedTo,
-        dueDate: task.dueDate
+        dueDate: task.dueDate,
+        jiraTaskKey: task.jiraTaskKey || '',
+        githubCommitUrl: task.githubCommitUrl || ''
       });
       loadExtraData();
     }
@@ -47,12 +59,40 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const loadExtraData = async () => {
     setLoading(true);
     try {
-      const [commentsData, historyData] = await Promise.all([
+      const [commentsData, historyData, globalSettings, mappingData, reqData] = await Promise.all([
         taskService.getTaskComments(task.taskId),
-        taskService.getTaskHistory(task.taskId)
+        taskService.getTaskHistory(task.taskId),
+        githubService.getGlobalSettings(),
+        githubService.getAllMappings().then(mappings => 
+          (mappings || []).find((m: any) => m.groupId === task.groupId)
+        ),
+        requirementService.getRequirementsByGroup(task.groupId).then((reqs: any) => 
+          (reqs as any || []).find((r: any) => r.requirementId === task.requirementId)
+        )
       ]);
+
       setComments(commentsData || []);
       setHistory(historyData || []);
+      
+      if (globalSettings?.jiraUrl) setJiraUrl(globalSettings.jiraUrl);
+      if (mappingData?.githubRepo || mappingData?.githubRepoUrl) setGlobalGithubRepo(mappingData.githubRepo || mappingData.githubRepoUrl);
+      
+      // Prefer Requirement's own Epic key, otherwise fallback to the integration's project key
+      if (reqData?.jiraIssueKey) {
+          setGlobalJiraKey(reqData.jiraIssueKey);
+      } else if (mappingData?.jiraProjectKey) {
+          setGlobalJiraKey(mappingData.jiraProjectKey);
+      }
+
+      // Fetch user names for comments and history
+      const allUserIds = new Set<string>();
+      if (commentsData) commentsData.forEach((c: TaskComment) => allUserIds.add(c.userId));
+      if (historyData) historyData.forEach((h: TaskHistory) => allUserIds.add(h.changedBy));
+      
+      if (allUserIds.size > 0) {
+        const names = await authService.getUserNames(Array.from(allUserIds));
+        setLocalNames(names);
+      }
     } catch (error) {
       console.error('Lỗi khi tải dữ liệu bổ sung:', error);
     } finally {
@@ -61,7 +101,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   };
 
   const handleSave = async () => {
-    if (role !== 'LEADER') return;
     if (!window.confirm('Xác nhận lưu mọi thay đổi cho công việc này?')) return;
 
     setSaving(true);
@@ -175,6 +214,76 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     </div>
                   )}
                 </div>
+
+                {/* Integrations Section */}
+                <div className="space-y-4 pt-6 border-t border-slate-100">
+                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                      <ExternalLink size={14} /> Tích hợp nguồn ngoài
+                  </label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Jira Card */}
+                          <div className="flex flex-col gap-3 p-5 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl group hover:shadow-lg transition-all hover:border-blue-200">
+                          <div className="flex items-center gap-3">
+                              <div className="p-2 bg-blue-600 text-white rounded-lg shadow-md">
+                                  <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M11.53 2c0 2.4-1.97 4.38-4.38 4.38h-.77V2h5.15zm-5.15 5.15c2.4 0 4.38 1.97 4.38 4.38v.77h-5.15V7.15zm5.15 5.15c0 2.4-1.97 4.38-4.38 4.38h-.77v-4.38h5.15zM22 17.45c0 2.4-1.97 4.38-4.38 4.38h-.77v-4.38H22v4.38zm-5.15-5.15c2.4 0 4.38 1.97 4.38 4.38v.77h-5.15v-5.15zm5.15-5.15c0 2.4-1.97 4.38-4.38 4.38h-.77V7.15H22v4.38z"/></svg>
+                              </div>
+                              <div>
+                                  <div className="text-[10px] uppercase font-bold text-blue-400 tracking-wider">Jira Workspace</div>
+                                  <div className="text-sm font-black text-slate-800">Quản lý Dự án</div>
+                              </div>
+                          </div>
+                          
+                          {globalJiraKey ? (
+                             <div className="text-sm font-bold text-blue-700 bg-white border border-blue-100 px-3 py-2 rounded-xl">Project: {globalJiraKey}</div>
+                          ) : (
+                             <div className="text-sm font-bold text-slate-400 bg-white border border-slate-100 px-3 py-2 rounded-xl">Chưa liên kết Jira</div>
+                          )}
+
+                          {globalJiraKey && jiraUrl && (
+                              <a 
+                                  href={`${jiraUrl}/browse/${globalJiraKey}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[11px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 mt-1 uppercase tracking-wider bg-white/50 w-fit px-3 py-1.5 rounded-lg border border-blue-200/50 hover:bg-white transition-colors shadow-sm"
+                              >
+                                  Mở trên Jira <ExternalLink size={12} />
+                              </a>
+                          )}
+                      </div>
+
+                      {/* GitHub Card */}
+                      <div className="flex flex-col gap-3 p-5 bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-2xl group hover:shadow-lg transition-all hover:border-slate-500">
+                          <div className="flex items-center gap-3">
+                              <div className="p-2 bg-white text-slate-900 rounded-lg shadow-md">
+                                  <GitBranch size={20} strokeWidth={2.5} />
+                              </div>
+                              <div>
+                                  <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">GitHub Repository</div>
+                                  <div className="text-sm font-black text-white">Nguồn mã (Code)</div>
+                              </div>
+                          </div>
+                          
+                          {globalGithubRepo ? (
+                             <div className="text-sm font-medium text-slate-300 bg-slate-950 border border-slate-700 px-3 py-2 rounded-xl truncate">{globalGithubRepo}</div>
+                          ) : (
+                             <div className="text-sm font-medium text-slate-500 bg-slate-950 border border-slate-800 px-3 py-2 rounded-xl">Chưa cấu hình Repo</div>
+                          )}
+
+                          {globalGithubRepo && (
+                              <a 
+                                  href={globalGithubRepo.startsWith('http') ? globalGithubRepo : `https://github.com/${globalGithubRepo}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 mt-1 uppercase tracking-wider bg-slate-950/50 w-fit px-3 py-1.5 rounded-lg border border-slate-700/50 hover:bg-slate-800 transition-colors shadow-sm"
+                              >
+                                  Đi đến Repo GitHub <ExternalLink size={12} />
+                              </a>
+                          )}
+                      </div>
+
+
+                  </div>
+                </div>
               </div>
 
               {/* Right Column: Meta Info */}
@@ -215,12 +324,12 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                           <option value="">Chưa giao</option>
                           {groupMembers.map(m => (
                             <option key={m.userId} value={m.userId}>
-                              {m.userId === currentUserId ? 'Bạn' : `User: ${m.userId.slice(0, 8)}...`}
+                              {m.userId === currentUserId ? 'Bạn' : (localNames[m.userId] || userNameMap[m.userId] || `User: ${m.userId.slice(0, 8)}...`)}
                             </option>
                           ))}
                         </select>
                       ) : (
-                        <span className="text-sm font-bold text-slate-700">{task.assignedTo ? `Member ID: ${task.assignedTo.slice(0, 8)}` : 'Chưa giao'}</span>
+                        <span className="text-sm font-bold text-slate-700">{task.assignedTo ? (localNames[task.assignedTo] || userNameMap[task.assignedTo] || `User: ${task.assignedTo.slice(0, 8)}`) : 'Chưa giao'}</span>
                       )}
                     </div>
                   </div>
@@ -300,7 +409,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       </div>
                       <div className="flex-1 space-y-1">
                         <div className="flex items-center gap-3">
-                          <span className="text-sm font-black text-slate-900">{c.userId === currentUserId ? 'Bạn' : `User ${c.userId.slice(0, 4)}`}</span>
+                          <span className="text-sm font-black text-slate-900">{c.userId === currentUserId ? 'Bạn' : (localNames[c.userId] || userNameMap[c.userId] || `User: ${c.userId.slice(0, 8)}`)}</span>
                           <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                         </div>
                         <div className="bg-white px-5 py-4 rounded-[1.5rem] rounded-tl-none border border-slate-100 shadow-sm text-slate-600 text-[15px] font-medium leading-relaxed">
@@ -327,7 +436,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       <div className="absolute left-[13px] top-1.5 h-3.5 w-3.5 rounded-full bg-blue-600 border-[3px] border-white ring-4 ring-blue-50"></div>
                       <div className="space-y-1">
                         <div className="flex items-center gap-3">
-                          <span className="text-xs font-black text-slate-900">{h.changedBy === currentUserId ? 'Bạn' : `User ${h.changedBy.slice(0, 4)}`}</span>
+                          <span className="text-xs font-black text-slate-900">{h.changedBy === currentUserId ? 'Bạn' : (localNames[h.changedBy] || userNameMap[h.changedBy] || `User: ${h.changedBy.slice(0, 8)}`)}</span>
                           <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{new Date(h.changedAt).toLocaleString()}</span>
                         </div>
                         <p className="text-sm text-slate-500 font-medium">
@@ -344,15 +453,15 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           )}
         </div>
 
-        {/* Footer for Leader */}
-        {role === 'LEADER' && activeTab === 'details' && (
+        {/* Footer for Actions */}
+        {activeTab === 'details' && (
           <div className="px-10 py-7 border-t border-slate-50 flex justify-end bg-white">
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex items-center gap-2 px-10 py-4 bg-slate-900 hover:bg-black text-white font-black uppercase tracking-widest text-xs rounded-[1.5rem] transition-all shadow-xl shadow-slate-200 disabled:opacity-50"
+              className="flex items-center gap-2 px-10 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-widest text-xs rounded-[1.5rem] transition-all shadow-xl shadow-emerald-200 disabled:opacity-50"
             >
-              {saving ? 'Saving...' : <><Save size={16} /> Save Changes</>}
+              {saving ? 'Đang lưu...' : <><Save size={16} /> Lưu Thay Đổi</>}
             </button>
           </div>
         )}

@@ -19,5 +19,6 @@ public interface IGroupService {
     void updateMemberRole(UUID groupId, UUID userId, String roleInGroup);
     void setGroupLeader(UUID groupId, UUID leaderId);
     void removeMemberFromGroup(UUID groupId, UUID userId);
-    List<MemberRequest> getMembersByGroupId(UUID groupId);
+    List<GroupMemberResponse> getMembersByGroupId(UUID groupId);
+    List<UUID> getMemberIdsByGroupId(UUID groupId);
 }

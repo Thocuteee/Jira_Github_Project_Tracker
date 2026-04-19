@@ -57,7 +57,9 @@ const authService = {
         return axiosClient.get('/api/users/me');
     },
 
-
+    getUserNames: (userIds: string[]): Promise<Record<string, string>> => {
+        return axiosClient.post('/api/users/names', userIds);
+    }
 };
 
 export default authService;

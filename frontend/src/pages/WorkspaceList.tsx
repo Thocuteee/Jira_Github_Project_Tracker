@@ -8,6 +8,8 @@ interface Workspace {
   name: string;
   groupPrefix: string;
   memberCount?: number;
+  status?: string;
+  maxMembers?: number;
 }
 
 const WorkspaceList = () => {
@@ -34,7 +36,9 @@ const WorkspaceList = () => {
           id: item.groupId,
           name: item.groupName,
           groupPrefix: item.jiraProjectKey || 'N/A',
-          memberCount: 0 // Will be updated later
+          memberCount: 0, // Will be updated later
+          status: item.status,
+          maxMembers: item.maxMembers
         }));
         
         setWorkspaces(mapped);
@@ -81,9 +85,11 @@ const WorkspaceList = () => {
               <div className="flex items-center justify-between pt-4 border-t border-slate-50">
                 <div className="flex items-center gap-2 text-slate-500 text-sm">
                   <Users size={16} />
-                  <span>{ws.memberCount || 0} thành viên</span>
+                <span>{ws.memberCount || 0}/{ws.maxMembers || 8} thành viên</span>
                 </div>
-                <span className="text-xs font-medium px-2 py-1 bg-green-100 text-green-700 rounded-lg">Active</span>
+                <span className={`text-xs font-medium px-2 py-1 rounded-lg ${ws.status === 'LOCKED' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                  {ws.status || 'ACTIVE'}
+                </span>
               </div>
             </div>
           ))}

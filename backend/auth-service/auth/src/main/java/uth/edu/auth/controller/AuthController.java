@@ -20,20 +20,24 @@ import uth.edu.auth.dto.RegisterRequest;
 import uth.edu.auth.dto.TokenRefreshRequest;
 import uth.edu.auth.dto.TokenRefreshResponse;
 import uth.edu.auth.model.User;
-import uth.edu.auth.model.*;
+import uth.edu.auth.model.RefreshToken;
+import uth.edu.auth.model.ERole;
+import uth.edu.auth.model.Role;
 import uth.edu.auth.service.IAuthService;
 import uth.edu.auth.repository.UserRepository;
 import uth.edu.auth.repository.RoleRepository;
 import uth.edu.auth.service.RefreshTokenService;
+import uth.edu.auth.service.TokenBlacklistService;
 import java.util.UUID;
+import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/auth") 
+@RequestMapping("/api/auth")
 public class AuthController {
     private static final String ACCESS_TOKEN_COOKIE = "accessToken";
     private static final String REFRESH_TOKEN_COOKIE = "refreshToken";
 
-    @Value("${auth.jwt.expiration}")
+    @Value("${jwt.expiration}")
     private long accessTokenDurationMs;
 
     @Value("${uth.app.jwtRefreshExpirationMs}")
@@ -42,10 +46,10 @@ public class AuthController {
     @Autowired
     private IAuthService authService;
 
-    @Autowired 
+    @Autowired
     private UserRepository userRepository;
 
-    @Autowired 
+    @Autowired
     private RoleRepository roleRepository;
 
     @Autowired
@@ -55,7 +59,7 @@ public class AuthController {
     private JwtProvider jwtProvider;
 
     @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
+    private TokenBlacklistService tokenBlacklistService;
 
     // 1. Lấy danh sách tất cả User
     @GetMapping("/users")
@@ -69,7 +73,7 @@ public class AuthController {
         return ResponseEntity.ok(authService.getUserById(id));
     }
 
-    //3. Đăng ký user
+    // 3. Đăng ký user
     @PostMapping("/register-user")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
         try {
@@ -80,7 +84,7 @@ public class AuthController {
             user.setPassword(request.getPassword());
 
             User registeredUser = authService.registerUser(user, request.getRoleName());
-            
+
             return ResponseEntity.ok("Đăng ký thành công cho user: " + registeredUser.getEmail());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -99,7 +103,7 @@ public class AuthController {
 
             // Ép buộc role LECTURER
             User registeredUser = authService.registerUser(user, "LECTURER");
-            
+
             return ResponseEntity.ok("Tạo tài khoản Giảng viên thành công cho: " + registeredUser.getEmail());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -112,11 +116,15 @@ public class AuthController {
         authService.deleteUser(id);
         return ResponseEntity.ok("Đã xóa người dùng thành công!");
     }
-    
-    // 5. Cập nhật User 
+
+    // 5. Cập nhật User
     @PutMapping("/users/{id}")
     public ResponseEntity<?> updateUser(@PathVariable UUID id, @RequestBody RegisterRequest request) {
-        return ResponseEntity.ok(authService.updateUser(id, request));
+        try {
+            return ResponseEntity.ok(authService.updateUser(id, request));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 
     // 5.1 Cập nhật trạng thái User
@@ -131,20 +139,23 @@ public class AuthController {
         }
     }
 
-    //6. Dang Nhap
+    // 6. Dang Nhap
     @PostMapping("/login-user")
     public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest, HttpServletResponse response) {
         try {
             JwtResponse jwtResponse = authService.login(loginRequest);
-            response.addHeader("Set-Cookie", buildTokenCookie(ACCESS_TOKEN_COOKIE, jwtResponse.getToken(), accessTokenDurationMs).toString());
-            response.addHeader("Set-Cookie", buildTokenCookie(REFRESH_TOKEN_COOKIE, jwtResponse.getRefreshToken(), refreshTokenDurationMs).toString());
-            
+            response.addHeader("Set-Cookie",
+                    buildTokenCookie(ACCESS_TOKEN_COOKIE, jwtResponse.getToken(), accessTokenDurationMs).toString());
+            response.addHeader("Set-Cookie",
+                    buildTokenCookie(REFRESH_TOKEN_COOKIE, jwtResponse.getRefreshToken(), refreshTokenDurationMs)
+                            .toString());
+
             return ResponseEntity.ok(new JwtResponse(
-                    jwtResponse.getToken(), 
-                    jwtResponse.getRefreshToken(), 
-                    jwtResponse.getEmail(), 
+                    jwtResponse.getToken(),
+                    jwtResponse.getRefreshToken(),
+                    jwtResponse.getEmail(),
                     jwtResponse.getRoles()));
-            
+
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -154,8 +165,7 @@ public class AuthController {
     public ResponseEntity<?> logoutUser(
             @RequestParam(required = false) String refreshToken,
             HttpServletRequest request,
-            HttpServletResponse response
-    ) {
+            HttpServletResponse response) {
         if (!StringUtils.hasText(refreshToken)) {
             refreshToken = readCookieValue(request, REFRESH_TOKEN_COOKIE);
         }
@@ -165,7 +175,7 @@ public class AuthController {
 
         String accessToken = readCookieValue(request, ACCESS_TOKEN_COOKIE);
         if (StringUtils.hasText(accessToken)) {
-            redisTemplate.opsForValue().set("auth:blacklist:" + accessToken, "true", accessTokenDurationMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+            tokenBlacklistService.blacklistToken(accessToken);
         }
 
         response.addHeader("Set-Cookie", clearCookie(ACCESS_TOKEN_COOKIE).toString());
@@ -178,7 +188,7 @@ public class AuthController {
     public ResponseEntity<?> assignRole(@PathVariable UUID userId, @RequestParam String roleName) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
-        
+
         ERole eRole = switch (roleName.toUpperCase()) {
             case "LECTURER" -> {
                 if (user.getEmail() == null || !user.getEmail().endsWith("@gv.ut.edu.vn")) {
@@ -193,12 +203,13 @@ public class AuthController {
         Role newRole = roleRepository.findByName(eRole).get();
         user.getRoles().add(newRole); // Thêm quyền mới
         userRepository.save(user);
-        
+
         return ResponseEntity.ok("Nâng cấp thành công lên " + roleName);
     }
 
     @PostMapping("/refreshtoken")
-    public ResponseEntity<?> refreshToken(@RequestBody(required = false) TokenRefreshRequest request, HttpServletRequest httpRequest, HttpServletResponse response) {
+    public ResponseEntity<?> refreshToken(@RequestBody(required = false) TokenRefreshRequest request,
+            HttpServletRequest httpRequest, HttpServletResponse response) {
         String requestRefreshToken = request != null ? request.getRefreshToken() : null;
         if (!StringUtils.hasText(requestRefreshToken)) {
             requestRefreshToken = readCookieValue(httpRequest, REFRESH_TOKEN_COOKIE);
@@ -207,15 +218,21 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Thiếu refresh token!");
         }
 
-        var verified = refreshTokenService.findByToken(requestRefreshToken)
+        Optional<RefreshToken> verified = refreshTokenService.findByToken(requestRefreshToken)
                 .map(refreshTokenService::verifyExpiration);
-        if (verified.isEmpty()) {
+        if (!verified.isPresent()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body("Refresh token không lưu trong database!");
         }
-        var user = verified.get().getUser();
+        User user = verified.get().getUser();
         String token = jwtProvider.generateJwtToken(user);
-        response.addHeader("Set-Cookie", buildTokenCookie(ACCESS_TOKEN_COOKIE, token, accessTokenDurationMs).toString());
+        
+        // Refresh both cookies to maintain session
+        response.addHeader("Set-Cookie",
+                buildTokenCookie(ACCESS_TOKEN_COOKIE, token, accessTokenDurationMs).toString());
+        response.addHeader("Set-Cookie",
+                buildTokenCookie(REFRESH_TOKEN_COOKIE, requestRefreshToken, refreshTokenDurationMs).toString());
+                
         return ResponseEntity.ok(new TokenRefreshResponse(token, requestRefreshToken));
     }
 
@@ -241,7 +258,8 @@ public class AuthController {
 
     private String readCookieValue(HttpServletRequest request, String name) {
         Cookie[] cookies = request.getCookies();
-        if (cookies == null) return null;
+        if (cookies == null)
+            return null;
         for (Cookie cookie : cookies) {
             if (name.equals(cookie.getName())) {
                 return cookie.getValue();
@@ -249,5 +267,5 @@ public class AuthController {
         }
         return null;
     }
-    
+
 }

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Building2, BookOpen, CheckCircle2, AlertCircle, Briefcase, Trash2 } from 'lucide-react';
 import groupService from '../api/group.service';
 import MainLayout from '../components/layout/MainLayout';
-import { useGroup } from '@/context/GroupContext';
+import { useGroup } from '../contexts/GroupContext';
 
 const Github = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
     <svg
@@ -69,7 +69,8 @@ const AdminWorkspace = () => {
             const payload = {
                 groupName: formData.groupName,
                 githubRepoUrl: formData.githubRepo,
-                description: formData.course // we use course as description for now
+                description: formData.course, // we use course as description for now
+                workspaceId: formData.course
             };
             const response = await groupService.createGroup(payload);
             const newGroupId = response.groupId || response.id;

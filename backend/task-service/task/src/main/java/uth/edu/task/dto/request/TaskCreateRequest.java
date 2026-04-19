@@ -33,4 +33,5 @@ public class TaskCreateRequest {
     private UUID assignedTo;
 
     private LocalDate dueDate;
+
 }

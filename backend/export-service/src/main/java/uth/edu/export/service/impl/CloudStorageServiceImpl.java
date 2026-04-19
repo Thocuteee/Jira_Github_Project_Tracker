@@ -17,31 +17,32 @@ public class CloudStorageServiceImpl implements ICloudStorageService {
 
     private final S3Client s3Client;
 
-    @Value("${aws.s3.bucket}")
+    @Value("${cloudflare.r2.bucket-name}")
     private String bucketName;
+
+    @Value("${cloudflare.r2.public-domain}")
+    private String publicDomain;
 
     @Override
     public String uploadFile(byte[] fileData, UUID exportId, String fileType) {
-        log.info("Bat dau upload file len MinIO...");
+        log.info("Bat dau upload file bao cao len Cloudflare R2...");
         
         try {
-            // dat ten file tren MinIO theo format: exports/{exportId}.pdf (hoac .docx sau nay neu co)
+            // dat ten file: exports/{exportId}.pdf (hoac .docx)
             String fileName = "exports/" + exportId.toString() + "." + fileType.toLowerCase();
 
-            // khoi tao yeu cau tai file len MinIO, dat content type de MinIO biet dang file va xu ly dung cach (PDF hoac DOCX)
             PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                     .bucket(bucketName)
                     .key(fileName)
                     .contentType(fileType.equalsIgnoreCase("PDF") ? "application/pdf" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
                     .build();
 
-            // thuc thi mang byte upload len MinIO
             s3Client.putObject(putObjectRequest, RequestBody.fromBytes(fileData));
             
-            // tao URL public de tai file ve
-            String publicUrl = "http://localhost:9000/" + bucketName + "/" + fileName;
+            // Su dung public domain tu cau hinh
+            String publicUrl = String.format("%s/%s", publicDomain, fileName);
             
-            log.info("Upload thanh cong! Link tai o day: {}", publicUrl);
+            log.info("Upload thanh cong! Link tai: {}", publicUrl);
             return publicUrl;
 
         } catch (Exception e) {

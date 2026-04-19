@@ -12,4 +12,5 @@ public class GroupRequest {
     private String workspaceId;
     private String description;
     private String status;
+    private Integer maxMembers;
 }

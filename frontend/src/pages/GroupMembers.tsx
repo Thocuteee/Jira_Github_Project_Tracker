@@ -21,9 +21,9 @@ const GroupMembers = () => {
     const navigate = useNavigate();
     const [members, setMembers] = useState<GroupMember[]>([]);
     const [allUsers, setAllUsers] = useState<UserLookup[]>([]);
-    const [searchEmail, setSearchEmail] = useState('');
+    const [searchKeyword, setSearchKeyword] = useState('');
     const [selectedUser, setSelectedUser] = useState<UserLookup | null>(null);
-    const [role, setRole] = useState('LECTURER');
+    const [role, setRole] = useState('MEMBER');
     const [loading, setLoading] = useState(false);
     const [loadingMembers, setLoadingMembers] = useState(true);
     const [error, setError] = useState('');
@@ -107,20 +107,23 @@ const GroupMembers = () => {
         }
     };
 
-    const handleFindByEmail = () => {
+    const handleFindMember = () => {
         setError('');
         setSuccess('');
 
-        const keyword = searchEmail.trim().toLowerCase();
+        const keyword = searchKeyword.trim().toLowerCase();
         if (!keyword) {
             setSelectedUser(null);
             return;
         }
 
-        const found = allUsers.find((u) => (u.email || '').toLowerCase() === keyword);
+        const found = allUsers.find((u) =>
+            (u.email || '').toLowerCase() === keyword ||
+            (u.userId || '').toLowerCase() === keyword
+        );
         if (!found) {
             setSelectedUser(null);
-            setError('Không tìm thấy người dùng với email này.');
+            setError('Không tìm thấy người dùng theo email/userId.');
             return;
         }
 
@@ -137,9 +140,9 @@ const GroupMembers = () => {
         try {
             await groupService.addMember(groupId, selectedUser.userId, role);
             setSuccess('Đã thêm thành viên thành công.');
-            setSearchEmail('');
+            setSearchKeyword('');
             setSelectedUser(null);
-            setRole('LECTURER');
+            setRole('MEMBER');
             await loadMembers();
         } catch (err: any) {
             setError(err?.response?.data?.message || err.message || 'Lỗi thêm thành viên');
@@ -156,6 +159,18 @@ const GroupMembers = () => {
             await loadMembers();
         } catch (err) {
             alert('Lỗi xoá thành viên hoặc không đủ quyền');
+        }
+    };
+
+    const handleTransferLeader = async (nextLeaderUserId: string) => {
+        if (!groupId) return;
+        if (!confirm('Bạn có chắc muốn chuyển quyền Team Leader cho thành viên này?')) return;
+        try {
+            await groupService.setGroupLeader(groupId, nextLeaderUserId);
+            setSuccess('Đã chuyển quyền Team Leader thành công.');
+            await Promise.all([loadMembers(), loadPermission()]);
+        } catch (err: any) {
+            setError(err?.response?.data?.message || 'Không thể chuyển quyền Team Leader');
         }
     };
 
@@ -203,18 +218,18 @@ const GroupMembers = () => {
                             ) : (
                                 <form onSubmit={handleAddMember} className="space-y-4">
                                     <div>
-                                        <label className="text-sm font-medium text-slate-700">Email người dùng</label>
+                                        <label className="text-sm font-medium text-slate-700">Email / User ID</label>
                                         <div className="mt-1 flex gap-2">
                                             <input
-                                                value={searchEmail}
-                                                onChange={(e) => setSearchEmail(e.target.value)}
-                                                type="email"
-                                                placeholder="name@uth.edu.vn"
+                                                value={searchKeyword}
+                                                onChange={(e) => setSearchKeyword(e.target.value)}
+                                                type="text"
+                                                placeholder="name@uth.edu.vn hoặc userId"
                                                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
                                             />
                                             <button
                                                 type="button"
-                                                onClick={handleFindByEmail}
+                                                onClick={handleFindMember}
                                                 className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50"
                                             >
                                                 <Search size={14} />
@@ -240,12 +255,12 @@ const GroupMembers = () => {
                                             onChange={(e) => setRole(e.target.value)}
                                             className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
                                         >
-                                            <option value="LECTURER">Lecturer</option>
                                             <option value="MEMBER">Member</option>
                                             <option value="LEADER">Leader</option>
+                                            <option value="LECTURER">Lecturer</option>
                                         </select>
                                         <p className="mt-1 text-xs text-slate-500">
-                                            Chọn `Leader` để gán quyền leader cho lecturer này.
+                                            Nhóm chỉ có 3 vai trò nội bộ: Leader, Member, Lecturer.
                                         </p>
                                     </div>
 
@@ -287,6 +302,11 @@ const GroupMembers = () => {
                                         const normalizedRole = (member.roleInGroup || '').toUpperCase();
                                         const isLeader = normalizedRole === 'LEADER';
                                         const isLecturer = normalizedRole === 'LECTURER';
+                                        const roleLabel = isLeader
+                                            ? 'Leader'
+                                            : isLecturer
+                                                ? 'Lecturer'
+                                                : 'Member';
                                         return (
                                             <div
                                                 key={member.userId}
@@ -307,15 +327,23 @@ const GroupMembers = () => {
                                                         }`}
                                                     >
                                                         {isLeader && <Crown size={12} />}
-                                                        {isLeader ? 'Leader' : isLecturer ? 'Lecturer' : 'Member'}
+                                                        {roleLabel}
                                                     </span>
-                                                    {canManageMembers && !isLeader && (
-                                                        <button
-                                                            onClick={() => handleDelete(member.userId)}
-                                                            className="text-sm px-3 py-1.5 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50"
-                                                        >
-                                                            Xóa
-                                                        </button>
+                                                    {canManageMembers && normalizedRole === 'MEMBER' && (
+                                                        <div className="flex items-center gap-2">
+                                                            <button
+                                                                onClick={() => handleTransferLeader(member.userId)}
+                                                                className="text-sm px-3 py-1.5 border border-amber-300 rounded-lg text-amber-700 hover:bg-amber-50"
+                                                            >
+                                                                Chuyển Leader
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDelete(member.userId)}
+                                                                className="text-sm px-3 py-1.5 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50"
+                                                            >
+                                                                Xóa
+                                                            </button>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>

@@ -1,3 +1,8 @@
+# =========================================================================
+# SECURITY NOTE: No hardcoded secrets or defaults allowed in this file.
+# All passwords and tokens are sourced via environment variables.
+# Usage: docker compose --env-file .env.local -f docker-compose.dev.yml up
+# =========================================================================
 services:
   frontend:
     build:
@@ -27,15 +32,16 @@ services:
     image: postgres:16-alpine
     container_name: postgres
     restart: unless-stopped
+    command: postgres -c max_connections=200
     environment:
-      POSTGRES_USER: ${LOCAL_DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${LOCAL_DB_PASS:-postgres}
+      POSTGRES_USER: ${LOCAL_DB_USER}
+      POSTGRES_PASSWORD: ${LOCAL_DB_PASS}
     ports:
       - "5433:5432"
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${LOCAL_DB_USER:-postgres}"]
+      test: ["CMD-SHELL", "pg_isready -U ${LOCAL_DB_USER}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -45,15 +51,15 @@ services:
     image: postgres:16-alpine
     container_name: db-init
     environment:
-      PGPASSWORD: ${LOCAL_DB_PASS:-postgres}
+      PGPASSWORD: ${LOCAL_DB_PASS}
     depends_on:
       postgres:
         condition: service_healthy
     command: >
       sh -c "
       echo 'Bat dau tao cac Database...';
-      for db in auth_db group_db requirement_db task_db report_db notification_db github_db jira_db export_db; do
-        psql -h postgres -U ${LOCAL_DB_USER:-postgres} -d postgres -tc \"SELECT 1 FROM pg_database WHERE datname = '$$db'\" | grep -q 1 || psql -h postgres -U ${LOCAL_DB_USER:-postgres} -d postgres -c \"CREATE DATABASE $$db\";
+      for db in auth_db group_db requirement_db task_db report_db notification_db github_db jira_db export_db file_db; do
+        psql -h postgres -U ${LOCAL_DB_USER} -d postgres -tc \"SELECT 1 FROM pg_database WHERE datname = '$$db'\" | grep -q 1 || psql -h postgres -U ${LOCAL_DB_USER} -d postgres -c \"CREATE DATABASE $$db\";
       done;
       echo 'Khoi tao Database thanh cong!';
       "
@@ -67,17 +73,19 @@ services:
 
   rabbitmq:
     image: rabbitmq:3-management-alpine # Bản management có tích hợp sẵn giao diện Web
+      - "6380:6379"
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: rabbitmq
     restart: unless-stopped
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-guest}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
     ports:
       - "5672:5672"
       - "15672:15672"
+
 
   auth-service:
     build: ./auth-service/auth
@@ -85,17 +93,19 @@ services:
     ports:
       - "8081:8081"
     env_file:
-      - .env
+      - .env.local
     environment:
       FRONTEND_URL: http://localhost
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth_db
-      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
+      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
     depends_on:
-      - postgres
-      - rabbitmq
+      db-init:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_started
 
   group-service:
     build: ./group-service
@@ -103,16 +113,18 @@ services:
     ports:
       - "8082:8082"
     env_file:
-      - .env
+      - .env.local
     environment:
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/group_db
-      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
+      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
     depends_on:
-      - postgres
-      - rabbitmq
+      db-init:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_started
 
   requirement-service:
     build: ./requirement-service/requirement
@@ -120,16 +132,15 @@ services:
     ports:
       - "8083:8083"
     env_file:
-      - .env
+      - .env.local
     environment:
-      SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/requirement_db
-      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
+      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
     depends_on:
-      - postgres
-      - rabbitmq
+      db-init:
+        condition: service_completed_successfully
 
   task-service:
     build: ./task-service/task
@@ -137,16 +148,19 @@ services:
     ports:
       - "8084:8084"
     env_file:
-      - .env
+      - .env.local
     environment:
+      JWT_SECRET_KEY: ${JWT_SECRET}
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/task_db
-      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
+      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
     depends_on:
-      - postgres
-      - rabbitmq
+      db-init:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_started
 
   report-service:
     build: ./report-service/report
@@ -154,16 +168,15 @@ services:
     ports:
       - "8085:8085"
     env_file:
-      - .env
+      - .env.local
     environment:
-      SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/report_db
-      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
+      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
     depends_on:
-      - postgres
-      - rabbitmq
+      db-init:
+        condition: service_completed_successfully
 
   notification-service:
     build: ./notification-service/notification
@@ -171,19 +184,18 @@ services:
     ports:
       - "8086:8086"
     env_file:
-      - .env
+      - .env.local
     environment:
-      SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification_db
-      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
+      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       FIREBASE_CREDENTIALS_PATH: ${FIREBASE_CREDENTIALS_PATH:-}
     volumes:
       - ${FIREBASE_CREDENTIALS_HOST_PATH:-/dev/null}:/app/firebase-credentials.json:ro
     depends_on:
-      - postgres
-      - rabbitmq
+      db-init:
+        condition: service_completed_successfully
 
   github-service:
     build: ./github-service/github
@@ -191,16 +203,15 @@ services:
     ports:
       - "8087:8087"
     env_file:
-      - .env
+      - .env.local
     environment:
-      SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/github_db
-      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
+      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
     depends_on:
-      - postgres
-      - rabbitmq
+      db-init:
+        condition: service_completed_successfully
 
   jira-service:
     build: ./jira-service/jira
@@ -208,16 +219,15 @@ services:
     ports:
       - "8088:8088"
     env_file:
-      - .env
+      - .env.local
     environment:
-      SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/jira_db
-      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
+      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
     depends_on:
-      - postgres
-      - rabbitmq
+      db-init:
+        condition: service_completed_successfully
 
   export-service:
     build: ./export-service
@@ -225,14 +235,34 @@ services:
     ports:
       - "8089:8089"
     env_file:
-      - .env
+      - .env.local
     environment:
-      SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/export_db
-      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS:-postgres}
+      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
     depends_on:
-      - postgres
-      - rabbitmq
+      db-init:
+        condition: service_completed_successfully
 
+  file-service:
+    build: ./file-service
+    container_name: file-service
+    ports:
+      - "8090:8090"
+    env_file:
+      - .env.local
+    environment:
+      JWT_SECRET_KEY: ${JWT_SECRET}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/file_db
+      SPRING_DATASOURCE_USERNAME: ${LOCAL_DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${LOCAL_DB_PASS}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      CLOUDFLARE_R2_ENDPOINT: ${CLOUDFLARE_R2_ENDPOINT}
+      CLOUDFLARE_R2_PUBLIC_DOMAIN: ${CLOUDFLARE_R2_PUBLIC_DOMAIN}
+      CLOUDFLARE_R2_ACCESS_KEY: ${CLOUDFLARE_R2_ACCESS_KEY}
+      CLOUDFLARE_R2_SECRET_KEY: ${CLOUDFLARE_R2_SECRET_KEY}
+      CLOUDFLARE_R2_BUCKET_NAME: ${CLOUDFLARE_R2_BUCKET_NAME}
+    depends_on:
+      db-init:
+        condition: service_completed_successfully

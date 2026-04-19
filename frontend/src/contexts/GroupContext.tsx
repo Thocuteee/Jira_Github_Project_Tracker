@@ -2,25 +2,20 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import type { ReactNode } from 'react';
 import groupService from '../api/group.service';
 
-function isAuthedLocally(): boolean {
-    try {
-        return Boolean(localStorage.getItem('userEmail') || localStorage.getItem('userName'));
-    } catch {
-        return false;
-    }
-}
-
 export interface Group {
     groupId: string;
     groupName: string;
     leaderId?: string;
-    course?: string;
-    semester?: string;
+    workspaceId?: string;
+    description?: string;
+    status?: 'ACTIVE' | 'LOCKED' | string;
+    maxMembers?: number;
     [key: string]: any;
 }
 
 interface GroupContextProps {
     groups: Group[];
+    myGroups: Group[]; // Alias for compatibility with some components
     selectedGroup: Group | null;
     setSelectedGroup: (group: Group | null) => void;
     loading: boolean;
@@ -40,7 +35,15 @@ export function GroupProvider({ children }: { children: ReactNode }) {
         setLoading(true);
         setError(null);
         try {
-            const data: Group[] = await groupService.getMyGroups();
+            const rawRoles = localStorage.getItem('userRoles');
+            const roles = rawRoles ? JSON.parse(rawRoles) : [];
+            const isManagementRole = Array.isArray(roles) && (roles.includes('ROLE_ADMIN') || roles.includes('ROLE_LECTURER'));
+
+            const data: Group[] = isManagementRole 
+                ? await groupService.getAllGroups() 
+                : await groupService.getMyGroups();
+            
+            console.log(`Fetched ${data?.length || 0} groups for role:`, roles);
             setGroups(data || []);
 
             if (data && data.length > 0) {
@@ -49,6 +52,7 @@ export function GroupProvider({ children }: { children: ReactNode }) {
                 if (matched) {
                     setSelectedGroup(matched);
                 } else {
+                    // Tự động chọn group đầu tiên nếu chưa chọn hoặc không tìm thấy group cũ
                     setSelectedGroup(data[0]);
                     localStorage.setItem('selectedGroupId', data[0].groupId);
                 }
@@ -58,27 +62,21 @@ export function GroupProvider({ children }: { children: ReactNode }) {
             }
         } catch (err: any) {
             console.error('Lỗi khi fetch Groups:', err);
-            setError('Lỗi khi tải danh sách Group.');
+            // Detect connection refused or 500
+            const status = err.response?.status;
+            if (status === 500 || !err.response) {
+                setError('Hệ thống đang khởi động hoặc gặp sự cố kết nối. Vui lòng thử lại sau giây lát.');
+            } else {
+                setError('Lỗi khi tải danh sách Group.');
+            }
         } finally {
             setLoading(false);
         }
     }, []);
 
-    const clearGroupsState = useCallback(() => {
-        setLoading(false);
-        setError(null);
-        setGroups([]);
-        setSelectedGroup(null);
-        localStorage.removeItem('selectedGroupId');
-    }, []);
-
     useEffect(() => {
         const sync = () => {
-            if (isAuthedLocally()) {
-                void fetchGroups();
-            } else {
-                clearGroupsState();
-            }
+            void fetchGroups();
         };
 
         sync();
@@ -88,7 +86,7 @@ export function GroupProvider({ children }: { children: ReactNode }) {
             window.removeEventListener('auth-changed', sync);
             window.removeEventListener('storage', sync);
         };
-    }, [fetchGroups, clearGroupsState]);
+    }, [fetchGroups]);
 
     const handleSetSelectedGroup = (group: Group | null) => {
         setSelectedGroup(group);
@@ -103,6 +101,7 @@ export function GroupProvider({ children }: { children: ReactNode }) {
         <GroupContext.Provider
             value={{
                 groups,
+                myGroups: groups, // provide as alias
                 selectedGroup,
                 setSelectedGroup: handleSetSelectedGroup,
                 loading,
@@ -122,3 +121,6 @@ export function useGroupContext() {
     }
     return context;
 }
+
+// Alias for compatibility with old components
+export const useGroup = useGroupContext;

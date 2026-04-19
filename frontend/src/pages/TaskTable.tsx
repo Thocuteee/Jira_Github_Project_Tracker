@@ -49,6 +49,7 @@ const TaskTable = () => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [groupMembers, setGroupMembers] = useState<GroupMemberRow[]>([]);
   const [assigningTaskId, setAssigningTaskId] = useState<string | null>(null);
+  const [userNameMap, setUserNameMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (groupId) {
@@ -69,6 +70,7 @@ const TaskTable = () => {
       const uid = userProfile?.userId?.toString() ?? null;
       setCurrentUserId(uid);
 
+
       const members = await groupService.getMembers(groupId);
       const memberRows: GroupMemberRow[] = Array.isArray(members)
         ? members.map((m: any) => ({
@@ -87,6 +89,16 @@ const TaskTable = () => {
 
       const data = await taskService.getTasksByGroup(groupId, calculatedRole);
       setTasks(data || []);
+
+      // Fetch user names
+      const allUserIds = new Set<string>();
+      memberRows.forEach(m => allUserIds.add(m.userId));
+      data.forEach(t => { if (t.assignedTo) allUserIds.add(t.assignedTo); });
+      
+      if (allUserIds.size > 0) {
+        const names = await authService.getUserNames(Array.from(allUserIds));
+        setUserNameMap(prev => ({ ...prev, ...names }));
+      }
     } finally {
       setLoading(false);
     }
@@ -338,7 +350,7 @@ const TaskTable = () => {
                                   <option value="">Chưa giao</option>
                                   {groupMembers.map(m => (
                                     <option key={m.userId} value={m.userId}>
-                                      {m.userId === currentUserId ? 'Bạn' : `Member: ${m.userId.slice(0, 8)}...`}
+                                      {m.userId === currentUserId ? 'Bạn' : (userNameMap[m.userId] || `Member: ${m.userId.slice(0, 8)}...`)}
                                     </option>
                                   ))}
                                 </select>
@@ -350,7 +362,7 @@ const TaskTable = () => {
                                         {task.assignedTo === currentUserId ? 'YOU' : <UserIcon size={14} />}
                                       </div>
                                       <span className="text-xs font-bold text-slate-600">
-                                        {task.assignedTo === currentUserId ? 'Của bạn' : `Member ${task.assignedTo.slice(0, 4)}`}
+                                        {task.assignedTo === currentUserId ? 'Của bạn' : (userNameMap[task.assignedTo] || `User ${task.assignedTo.slice(0, 4)}`)}
                                       </span>
                                     </>
                                   ) : (
@@ -407,6 +419,7 @@ const TaskTable = () => {
             role={role || 'MEMBER'}
             groupMembers={groupMembers}
             currentUserId={currentUserId}
+            userNameMap={userNameMap}
             onUpdate={loadTasksOnly}
           />
         )}
@@ -415,6 +428,9 @@ const TaskTable = () => {
           isOpen={isCreateOpen}
           onClose={() => setIsCreateOpen(false)}
           groupId={groupId || ''}
+          groupMembers={groupMembers}
+          currentUserId={currentUserId}
+          userNameMap={userNameMap}
           onCreated={loadTasksOnly}
         />
       </div>
