@@ -18,12 +18,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.atlassian.jira.rest.client.api.domain.Comment;
 import com.atlassian.jira.rest.client.api.domain.Issue;
-import com.atlassian.jira.rest.client.api.domain.SearchResult;
 import com.atlassian.jira.rest.client.api.domain.Transition;
 import com.atlassian.jira.rest.client.api.domain.input.IssueInput;
 import com.atlassian.jira.rest.client.api.domain.input.IssueInputBuilder;
 import com.atlassian.jira.rest.client.api.domain.input.TransitionInput;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.http.*;
+
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -43,8 +48,11 @@ public class JiraIssueServiceImpl implements JiraIssueService {
     private final JiraSyncActivityRepository activityRepository;
 
     private void logActivity(String message, String status, UUID groupId) {
+        String trimmedMessage = message != null && message.length() > 255 ? message.substring(0, 252) + "..."
+                : message;
+
         JiraSyncActivity activity = JiraSyncActivity.builder()
-                .message(message)
+                .message(trimmedMessage)
                 .status(status)
                 .groupId(groupId)
                 .build();
@@ -148,9 +156,9 @@ public class JiraIssueServiceImpl implements JiraIssueService {
     public void addCommentToIssue(String issueKey, String commentBody) {
         try {
             jiraClientProvider.getClient().getIssueClient().addComment(
-                jiraClientProvider.getClient().getIssueClient().getIssue(issueKey).claim().getCommentsUri(), Comment.valueOf(commentBody)
-            ).claim();
-        } catch(Exception e) {
+                    jiraClientProvider.getClient().getIssueClient().getIssue(issueKey).claim().getCommentsUri(),
+                    Comment.valueOf(commentBody)).claim();
+        } catch (Exception e) {
             throw new RuntimeException("Lỗi gọi Jira API: " + e.getMessage());
         }
     }
@@ -161,12 +169,15 @@ public class JiraIssueServiceImpl implements JiraIssueService {
             log.info("Attempting to transition Jira issue {} to status {}", issueKey, statusName);
             Issue issue = jiraClientProvider.getClient().getIssueClient().getIssue(issueKey).claim();
             Iterable<Transition> transitions = jiraClientProvider.getClient().getIssueClient()
-                .getTransitions(issue.getTransitionsUri()).claim();
-            
+                    .getTransitions(issue.getTransitionsUri()).claim();
+
             String targetStatusName = statusName;
-            if ("TODO".equalsIgnoreCase(statusName)) targetStatusName = "To Do";
-            if ("IN_PROGRESS".equalsIgnoreCase(statusName)) targetStatusName = "In Progress";
-            if ("DONE".equalsIgnoreCase(statusName)) targetStatusName = "Done";
+            if ("TODO".equalsIgnoreCase(statusName))
+                targetStatusName = "To Do";
+            if ("IN_PROGRESS".equalsIgnoreCase(statusName))
+                targetStatusName = "In Progress";
+            if ("DONE".equalsIgnoreCase(statusName))
+                targetStatusName = "Done";
 
             Integer transitionId = null;
             for (Transition t : transitions) {
@@ -175,7 +186,7 @@ public class JiraIssueServiceImpl implements JiraIssueService {
                     break;
                 }
             }
-            
+
             if (transitionId == null) {
                 for (Transition t : transitions) {
                     String tName = t.getName().toLowerCase();
@@ -188,7 +199,8 @@ public class JiraIssueServiceImpl implements JiraIssueService {
             }
 
             if (transitionId != null) {
-                jiraClientProvider.getClient().getIssueClient().transition(issue.getTransitionsUri(), new TransitionInput(transitionId)).claim();
+                jiraClientProvider.getClient().getIssueClient()
+                        .transition(issue.getTransitionsUri(), new TransitionInput(transitionId)).claim();
                 log.info("Successfully transitioned Jira issue {} using transitionId {}", issueKey, transitionId);
             }
         } catch (Exception e) {
@@ -209,24 +221,27 @@ public class JiraIssueServiceImpl implements JiraIssueService {
     }
 
     @Override
-    public String createIssueOnJira(String projectKey, String summary, String description, String issueType, String parentKey, UUID groupId) {
+    public String createIssueOnJira(String projectKey, String summary, String description, String issueType,
+            String parentKey, UUID groupId) {
         try {
             logActivity("Creating " + issueType + " on Jira for project " + projectKey, "INFO", groupId);
-            
-            Iterable<com.atlassian.jira.rest.client.api.domain.IssueType> issueTypes = 
-                jiraClientProvider.getClient().getProjectClient().getProject(projectKey).claim().getIssueTypes();
-            
-            com.atlassian.jira.rest.client.api.domain.IssueType targetType = StreamSupport.stream(issueTypes.spliterator(), false)
-                .filter(t -> t.getName().equalsIgnoreCase(issueType != null ? issueType : "Task"))
-                .findFirst()
-                .orElse(issueTypes.iterator().next());
+
+            Iterable<com.atlassian.jira.rest.client.api.domain.IssueType> issueTypes = jiraClientProvider.getClient()
+                    .getProjectClient().getProject(projectKey).claim().getIssueTypes();
+
+            com.atlassian.jira.rest.client.api.domain.IssueType targetType = StreamSupport
+                    .stream(issueTypes.spliterator(), false)
+                    .filter(t -> t.getName().equalsIgnoreCase(issueType != null ? issueType : "Task"))
+                    .findFirst()
+                    .orElse(issueTypes.iterator().next());
 
             IssueInputBuilder builder = new IssueInputBuilder(projectKey, targetType.getId());
             builder.setSummary(summary);
             builder.setDescription(description);
 
             IssueInput input = builder.build();
-            com.atlassian.jira.rest.client.api.domain.BasicIssue created = jiraClientProvider.getClient().getIssueClient().createIssue(input).claim();
+            com.atlassian.jira.rest.client.api.domain.BasicIssue created = jiraClientProvider.getClient()
+                    .getIssueClient().createIssue(input).claim();
             log.info("Created Jira issue: {}", created.getKey());
             logActivity("Successfully created Jira issue: " + created.getKey(), "SUCCESS", groupId);
             return created.getKey();
@@ -242,28 +257,86 @@ public class JiraIssueServiceImpl implements JiraIssueService {
         try {
             log.info("Starting sync for project {} to group {}", projectKey, groupId);
             logActivity("Starting synchronization for Jira project: " + projectKey, "INFO", groupId);
-            
-            // Tinh chỉnh JQL: Thêm dấu ngoặc kép cho project key để tránh lỗi cú pháp
+
             String jql = "project = \"" + projectKey + "\" ORDER BY created ASC";
-            log.info("Searching Jira issues with JQL: {}", jql);
-            logActivity("Searching Jira with JQL: " + jql, "INFO", groupId);
+            log.info("Searching Jira issues with JQL (v3 POST): {}", jql);
+            logActivity("Searching Jira API v3 with JQL: " + jql, "INFO", groupId);
             
-            SearchResult results = jiraClientProvider.getClient().getSearchClient().searchJql(jql).claim();
+            String baseUrl = jiraClientProvider.getBaseUrl();
+            if (baseUrl.endsWith("/")) baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+            String username = jiraClientProvider.getUsername();
+            
+            log.info("Executing sync with URL: {} and User: {}", baseUrl, username);
+            logActivity("Verifying credentials: URL=" + baseUrl + ", User=" + username, "INFO", groupId);
+            
+            RestTemplate restTemplate = new RestTemplate();
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBasicAuth(jiraClientProvider.getUsername(), jiraClientProvider.getToken());
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<Void> diagEntity = new HttpEntity<>(headers);
+
+            // Bước chẩn đoán: Lấy danh sách dự án mà Token này thấy được
+            try {
+                String projectUrl = baseUrl + "/rest/api/3/project";
+                ResponseEntity<List> projectResponse = restTemplate.exchange(projectUrl, HttpMethod.GET, diagEntity, List.class);
+                List<Map<String, Object>> projectList = projectResponse.getBody();
+                if (projectList != null) {
+                    List<String> keys = projectList.stream().map(p -> (String) p.get("key")).collect(Collectors.toList());
+                    log.info("Token has access to projects: {}", keys);
+                    logActivity("Token has access to projects: " + keys.toString(), "INFO", groupId);
+                } else {
+                    logActivity("Token cannot see any projects!", "WARN", groupId);
+                }
+            } catch (Exception e) {
+                log.error("Failed to fetch project list: {}", e.getMessage());
+                logActivity("Diagnostics failed: Cannot list projects. Check Token/Permissions.", "WARN", groupId);
+            }
+
+            String searchUrl = baseUrl + "/rest/api/3/search/jql";
+            // Xây dựng Body cho POST request
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("jql", jql);
+            requestBody.put("maxResults", 100);
+            requestBody.put("fields", Arrays.asList("summary", "description", "issuetype", "status"));
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+
+            ResponseEntity<Map> response = restTemplate.postForEntity(searchUrl, entity, Map.class);
+            Map<String, Object> body = (Map<String, Object>) response.getBody();
+
+            if (body == null) throw new RuntimeException("Phản hồi từ Jira API v3 bị trống.");
+
+            List<Map<String, Object>> issues = (List<Map<String, Object>>) body.get("issues");
+            if (issues == null) issues = new ArrayList<>();
             
             int count = 0;
-            for (Issue issue : results.getIssues()) {
-                java.util.Map<String, Object> event = new java.util.HashMap<>();
-                event.put("jiraIssueKey", issue.getKey());
+            log.info("Found {} issues in Jira project (v3 POST) {}", issues.size(), projectKey);
+            logActivity("Found " + issues.size() + " issues in Jira v3 (POST). Starting broadcast...", "INFO", groupId);
+
+            for (Map<String, Object> issueData : issues) {
+                String issueKey = (String) issueData.get("key");
+                Map<String, Object> fields = (Map<String, Object>) issueData.get("fields");
+                
+                Map<String, Object> event = new HashMap<>();
+                event.put("jiraIssueKey", issueKey);
                 event.put("groupId", groupId.toString());
-                event.put("title", issue.getSummary());
-                event.put("description", issue.getDescription() != null ? issue.getDescription() : "");
-                event.put("issueType", issue.getIssueType().getName());
-                event.put("status", issue.getStatus().getName());
+                event.put("title", fields.get("summary"));
+                event.put("description", fields.get("description") != null ? fields.get("description").toString() : "");
+                
+                Map<String, Object> issueType = (Map<String, Object>) fields.get("issuetype");
+                event.put("issueType", issueType != null ? issueType.get("name") : "Task");
+                
+                Map<String, Object> status = (Map<String, Object>) fields.get("status");
+                event.put("status", status != null ? status.get("name") : "To Do");
                 
                 rabbitTemplate.convertAndSend("jira.sync.exchange", "jira.import", event);
                 count++;
             }
-            logActivity("Broadcasted " + count + " issues for synchronization from Jira project: " + projectKey, "SUCCESS", groupId);
+            logActivity("Broadcasted " + count + " issues for synchronization from Jira project: " + projectKey,
+                    "SUCCESS", groupId);
+        } catch (org.springframework.amqp.AmqpException ae) {
+            log.error("RabbitMQ connection error during sync: {}", ae.getMessage());
+            logActivity("Lỗi kết nối RabbitMQ: " + ae.getMessage(), "ERROR", groupId);
         } catch (Throwable t) {
             String errorMsg = t.getMessage() != null ? t.getMessage() : t.toString();
             log.error("CRITICAL error during sync from Jira: {}", errorMsg, t);

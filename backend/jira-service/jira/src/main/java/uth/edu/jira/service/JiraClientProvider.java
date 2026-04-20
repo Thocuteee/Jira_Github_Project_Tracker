@@ -29,6 +29,9 @@ public class JiraClientProvider {
     private String defaultToken;
 
     private JiraRestClient currentClient;
+    private String currentUrl;
+    private String currentUsername;
+    private String currentToken;
 
     public JiraRestClient getClient() {
         if (currentClient == null) {
@@ -54,6 +57,10 @@ public class JiraClientProvider {
             log.info("Using default Jira settings from properties");
         }
 
+        this.currentUrl = url;
+        this.currentUsername = username;
+        this.currentToken = token;
+
         try {
             if (currentClient != null) {
                 currentClient.close();
@@ -68,5 +75,17 @@ public class JiraClientProvider {
             log.error("Failed to create JiraRestClient: {}", e.getMessage());
             throw new RuntimeException("Lỗi khởi tạo kết nối Jira: " + e.getMessage());
         }
+    }
+
+    public String getBaseUrl() {
+        return currentUrl != null ? currentUrl : defaultUrl;
+    }
+
+    public String getUsername() {
+        return currentUsername != null ? currentUsername : defaultUsername;
+    }
+
+    public String getToken() {
+        return currentToken != null ? currentToken : defaultToken;
     }
 }
