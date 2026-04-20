@@ -4,6 +4,7 @@ import { Edit3, Trash2, Link as LinkIcon, PlusCircle, Layout, Filter, Search, Ch
 import groupService from '../api/group.service';
 import authService from '../api/auth.service';
 import githubService from '../api/github.service';
+import jiraService from '../api/jira.service';
 import MainLayout from '@/components/layout/MainLayout';
 import { useGroupContext } from '@/contexts/GroupContext';
 import RequirementModal from '../components/requirements/RequirementModal';
@@ -23,7 +24,9 @@ const RequirementTable = () => {
     const [groupMembers, setGroupMembers] = useState<{ userId: string; roleInGroup: string }[]>([]);
     const [userNameMap, setUserNameMap] = useState<Record<string, string>>({});
     const [jiraUrl, setJiraUrl] = useState<string>('');
+    const [jiraProjectKey, setJiraProjectKey] = useState<string>('');
     const [githubRepoUrl, setGithubRepoUrl] = useState<string>('');
+    const [isSyncing, setIsSyncing] = useState(false);
     
     // Modal states
     const [isReqModalOpen, setIsReqModalOpen] = useState(false);
@@ -73,11 +76,33 @@ const RequirementTable = () => {
 
             const mappings = await githubService.getAllMappings();
             const groupMapping = (mappings || []).find((m: any) => m.groupId === gid);
+            if (groupMapping?.jiraProjectKey) {
+                setJiraProjectKey(groupMapping.jiraProjectKey);
+            }
             if (groupMapping?.githubRepo || groupMapping?.githubRepoUrl) {
                 setGithubRepoUrl(groupMapping.githubRepo || groupMapping.githubRepoUrl);
             }
         } catch (err) {
             console.error("Lỗi tải cấu hình tích hợp:", err);
+        }
+    };
+
+    const handleSyncJira = async () => {
+        if (!groupId || !jiraUrl || !jiraProjectKey) {
+            alert("Vui lòng cấu hình ánh xạ Jira (Project Key) cho nhóm trước khi đồng bộ!");
+            return;
+        }
+        
+        setIsSyncing(true);
+        try {
+            await jiraService.syncProject(jiraProjectKey, groupId);
+            alert("Lệnh đồng bộ đã được gửi! Vui lòng chờ vài giây để hệ thống cập nhật dữ liệu.");
+            // Poll for changes after a delay
+            setTimeout(() => fetchRequirements(groupId), 3000);
+        } catch (err) {
+            alert("Lỗi khi gửi lệnh đồng bộ.");
+        } finally {
+            setIsSyncing(false);
         }
     };
 
@@ -233,6 +258,16 @@ const RequirementTable = () => {
                         </div>
 
                         <div className="flex items-center gap-3">
+                            {groupId && (
+                                <button
+                                    onClick={handleSyncJira}
+                                    disabled={isSyncing}
+                                    className={`bg-white hover:bg-slate-50 text-indigo-600 border-2 border-indigo-100 hover:border-indigo-300 px-6 py-4 rounded-[1.5rem] font-bold transition-all flex items-center gap-2 hover:-translate-y-1 active:scale-95 text-base shadow-sm ${isSyncing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                    <img src="https://cdn.iconscout.com/icon/free/png-256/free-jira-logo-icon-download-in-svg-png-gif-file-formats--technology-social-media-company-brand-vol-3-pack-logos-icons-2944949.png" alt="Jira" className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} />
+                                    {isSyncing ? 'Đang đồng bộ...' : 'Đồng bộ từ Jira'}
+                                </button>
+                            )}
                             {groupId && (
                                 <button
                                     onClick={() => setIsExportModalOpen(true)}
