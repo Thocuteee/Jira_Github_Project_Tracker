@@ -48,7 +48,8 @@ public class Task {
     @Column(name = "due_date")
     private LocalDate dueDate;
 
-
+    @Column(name = "jira_issue_key", length = 50)
+    private String jiraIssueKey;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

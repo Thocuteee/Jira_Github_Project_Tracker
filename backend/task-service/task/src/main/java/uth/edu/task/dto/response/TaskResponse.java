@@ -25,6 +25,7 @@ public class TaskResponse {
     private ETaskPriority priority;
     private UUID assignedTo;
     private LocalDate dueDate;
+    private String jiraIssueKey;
     private LocalDateTime createdAt;
     private UUID createdBy;
 }

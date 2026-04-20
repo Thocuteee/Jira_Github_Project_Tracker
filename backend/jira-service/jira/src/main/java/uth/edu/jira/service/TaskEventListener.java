@@ -25,9 +25,15 @@ public class TaskEventListener {
         }
 
         try {
+            // 1. Luôn thêm Comment để báo cáo chi tiết
             String commentBody = formatJiraComment(event);
             jiraIssueService.addCommentToIssue(event.getJiraIssueKey(), commentBody);
             log.info("Successfully added comment to Jira Issue: {}", event.getJiraIssueKey());
+
+            // 2. Nếu là cập nhật trạng thái, thực hiện kéo thẻ (Transition)
+            if ("STATUS_UPDATE".equalsIgnoreCase(event.getEventType())) {
+                jiraIssueService.transitionIssueStatus(event.getJiraIssueKey(), event.getStatus());
+            }
         } catch (Exception e) {
             log.error("Failed to sync task activity to Jira: {}", e.getMessage());
         }

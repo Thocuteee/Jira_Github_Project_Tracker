@@ -1,7 +1,10 @@
 package uth.edu.requirement.service.impl;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import uth.edu.requirement.dto.RequirementRequest;
 import uth.edu.requirement.dto.RequirementResponse;
 import uth.edu.requirement.model.ERequirementPriority;
@@ -19,6 +22,9 @@ public class RequirementServiceImpl implements IRequirementService {
 
     @Autowired
     private RequirementRepository requirementRepository;
+
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
 
     @Override
     public List<RequirementResponse> getAllRequirements() {
@@ -42,6 +48,7 @@ public class RequirementServiceImpl implements IRequirementService {
     }
 
     @Override
+    @Transactional
     public RequirementResponse createRequirement(RequirementRequest request) {
         Requirement requirement = new Requirement();
 
@@ -60,7 +67,14 @@ public class RequirementServiceImpl implements IRequirementService {
 
         requirement.setJiraIssueKey(request.getJiraIssueKey());
 
-        return mapToResponse(requirementRepository.save(requirement));
+        Requirement saved = requirementRepository.save(requirement);
+
+        // Bắn event để Jira Service tự động tạo thẻ nếu đã có config
+        if (saved.getJiraIssueKey() == null || saved.getJiraIssueKey().isBlank()) {
+            publishSyncEvent("REQUIREMENT_CREATED", saved);
+        }
+
+        return mapToResponse(saved);
     }
 
     @Override
@@ -99,9 +113,68 @@ public class RequirementServiceImpl implements IRequirementService {
     }
 
     @Override
+    @Transactional
     public void deleteRequirement(UUID id) {
         Requirement requirement = findRequirementById(id);
+        
+        // Bắn event xóa thẻ trên Jira
+        if (requirement.getJiraIssueKey() != null) {
+            publishSyncEvent("REQUIREMENT_DELETED", requirement);
+        }
+        
         requirementRepository.delete(requirement);
+    }
+
+    private void publishSyncEvent(String type, Requirement req) {
+        java.util.Map<String, Object> event = new java.util.HashMap<>();
+        event.put("type", type);
+        event.put("requirementId", req.getRequirementId().toString());
+        event.put("groupId", req.getGroupId().toString());
+        event.put("title", req.getTitle());
+        event.put("description", req.getDescription());
+        event.put("jiraIssueKey", req.getJiraIssueKey());
+        
+        // TODO: Cần bù JiraId từ mapping service nếu Jira Service yêu cầu
+        // Hiện tại Jira Service sẽ tìm dựa trên GroupId của Integration Mapping
+        
+        rabbitTemplate.convertAndSend("jira.sync.exchange", "app.requirement", event);
+    }
+
+    @RabbitListener(queues = "jira_import_queue")
+    @Transactional
+    public void handleJiraEvent(java.util.Map<String, Object> event) {
+        String eventType = (String) event.get("type");
+        if ("jira.assigned".equals(eventType) || event.containsKey("jiraIssueKey")) {
+            String reqId = (String) event.get("requirementId");
+            if (reqId != null) {
+                requirementRepository.findById(UUID.fromString(reqId)).ifPresent(req -> {
+                    req.setJiraIssueKey((String) event.get("jiraIssueKey"));
+                    requirementRepository.save(req);
+                });
+            } else if (event.containsKey("jiraIssueKey") && "Epic".equalsIgnoreCase((String) event.get("issueType"))) {
+                // Đây là trường hợp Import từ Jira về (Sync)
+                autoImportRequirement(event);
+            }
+        }
+    }
+
+    private void autoImportRequirement(java.util.Map<String, Object> event) {
+        String key = (String) event.get("jiraIssueKey");
+        if (requirementRepository.existsByJiraIssueKey(key)) return;
+
+        Requirement req = new Requirement();
+        req.setGroupId(UUID.fromString((String) event.get("groupId")));
+        req.setTitle((String) event.get("title"));
+        req.setDescription((String) event.get("description"));
+        req.setJiraIssueKey(key);
+        req.setStatus(ERequirementStatus.NEW);
+        req.setPriority(ERequirementPriority.MEDIUM);
+        
+        // AI: Cần gán createdBy mặc định là Team Leader (sẽ xử lý sau hoặc lấy từ meta)
+        // Hiện tại gán tạm UUID rỗng hoặc system user
+        req.setCreatedBy(UUID.fromString("00000000-0000-0000-0000-000000000000")); 
+        
+        requirementRepository.save(req);
     }
 
     @Override

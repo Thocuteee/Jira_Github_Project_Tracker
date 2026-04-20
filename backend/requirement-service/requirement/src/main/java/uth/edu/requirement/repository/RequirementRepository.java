@@ -11,4 +11,5 @@ import java.util.UUID;
 @Repository
 public interface RequirementRepository extends JpaRepository<Requirement, UUID> {
     List<Requirement> findByGroupId(UUID groupId);
+    boolean existsByJiraIssueKey(String jiraIssueKey);
 }
