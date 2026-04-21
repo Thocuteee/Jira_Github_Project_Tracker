@@ -297,7 +297,7 @@ public class JiraIssueServiceImpl implements JiraIssueService {
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("jql", jql);
             requestBody.put("maxResults", 100);
-            requestBody.put("fields", Arrays.asList("summary", "description", "issuetype", "status"));
+            requestBody.put("fields", Arrays.asList("summary", "description", "issuetype", "status", "priority"));
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
@@ -328,6 +328,9 @@ public class JiraIssueServiceImpl implements JiraIssueService {
                 
                 Map<String, Object> status = (Map<String, Object>) fields.get("status");
                 event.put("status", status != null ? status.get("name") : "To Do");
+
+                Map<String, Object> priority = (Map<String, Object>) fields.get("priority");
+                event.put("priority", priority != null ? priority.get("name") : "Medium");
                 
                 rabbitTemplate.convertAndSend("jira.sync.exchange", "jira.import", event);
                 count++;

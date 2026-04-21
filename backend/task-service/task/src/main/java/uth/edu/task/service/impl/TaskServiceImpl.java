@@ -1,5 +1,7 @@
 package uth.edu.task.service.impl;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import jakarta.transaction.Transactional;
@@ -251,29 +253,48 @@ public class TaskServiceImpl implements TaskService {
     @Transactional
     public void deleteTask(UUID taskId) {
         UUID currentUserId = UserContextHolder.getUserId();
+        log.info("Request to delete task {} by user {}", taskId, currentUserId);
 
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy Task để xóa!"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy Task để xóa!"));
 
-        if (!isLeaderInGroup(task.getGroupId(), currentUserId) && !isAdmin()) {
-            throw new RuntimeException("Chỉ Nhóm trưởng hoặc Admin mới có quyền xóa Task!");
+        // Lấy vai trò thực tế để log debug
+        String groupRole = getUserRoleString(task.getGroupId(), currentUserId);
+        log.info("User {} has role {} in group {}", currentUserId, groupRole, task.getGroupId());
+
+        boolean isAuthorized = "LEADER".equalsIgnoreCase(groupRole) || isAdmin() || isLecturer();
+        
+        if (!isAuthorized) {
+            log.warn("Access denied for user {} on task {}. Role: {}", currentUserId, taskId, groupRole);
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn không có quyền xóa Task này!");
         }
         
-        // Bắn event để Jira Service xóa Task bên kia
-        RequirementResponse req = requirementClient.getRequirementById(task.getRequirementId());
-        if (req != null && req.getJiraIssueKey() != null) {
-            // Chúng ta cần Key của Task đó trên Jira (Nếu có)
-            // Hiện tại Task model chưa lưu Jira Key riêng, mà nó là 1 issue độc lập
-            // CHÚ Ý: Cần bổ sung cột jira_issue_key vào Task entity nếu muốn xóa chính xác 1-1
-        }
+        try {
+            // Gửi sự kiện xóa sang Jira nếu có liên kết
+            if (task.getJiraIssueKey() != null) {
+                log.info("Task {} is linked to Jira issue {}. Sending delete event.", taskId, task.getJiraIssueKey());
+                publishSyncEvent("TASK_DELETED", task);
+            }
 
-        taskHistoryRepository.deleteAllByTask_TaskId(taskId);
-        taskCommentRepository.deleteAllByTask_TaskId(taskId);
-        
-        fileServiceClient.deleteFilesByReference(taskId.toString(), "TASK");
-        
-        attachmentRepository.deleteAllByTask_TaskId(taskId);
-        taskRepository.delete(task);
+            taskHistoryRepository.deleteAllByTask_TaskId(taskId);
+            taskCommentRepository.deleteAllByTask_TaskId(taskId);
+            
+            try {
+                fileServiceClient.deleteFilesByReference(taskId.toString(), "TASK");
+            } catch (Exception e) {
+                log.warn("Could not delete files for task {}: {}", taskId, e.getMessage());
+            }
+            
+            attachmentRepository.deleteAllByTask_TaskId(taskId);
+            taskRepository.delete(task);
+            
+            log.info("Successfully deleted task {}", taskId);
+        } catch (ResponseStatusException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Error during task deletion {}: {}", taskId, e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi hệ thống khi xóa Task: " + e.getMessage());
+        }
     }
 
     private void publishSyncEvent(String type, Task task) {

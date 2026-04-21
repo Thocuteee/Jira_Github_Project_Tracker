@@ -140,6 +140,15 @@ public class JiraConfigServiceImpl implements JiraConfigService {
         jiraClientProvider.refreshClient();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public String getProjectKeyByGroupId(UUID groupId) {
+        return jiraRepository.findByGroupId(groupId).stream()
+                .map(Jira::getProjectKey)
+                .findFirst()
+                .orElse(null);
+    }
+
     private Jira findOrThrow(UUID jiraId) {
         return jiraRepository.findById(jiraId)
                 .orElseThrow(() -> new ResourceNotFoundException("Jira config không tìm thấy: " + jiraId));

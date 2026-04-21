@@ -23,6 +23,8 @@ public interface JiraConfigService {
     boolean testConnection(UUID jiraId);
     
     JiraResponse upsertMapping(UUID groupId, String projectKey);
+    
+    String getProjectKeyByGroupId(UUID groupId);
 
     void saveGlobalSettings(uth.edu.jira.dto.GlobalJiraSettingRequest dto);
 
