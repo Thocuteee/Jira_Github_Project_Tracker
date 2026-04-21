@@ -16,4 +16,11 @@ public class JiraIssueRequest {
 
     /** Optional: map tới task nội bộ */
     private UUID taskId;
+
+    private String summary;
+    private String status;
+    private String issueType;
+    private String assigneeEmail;
+    private String priority;
+    private String description;
 }

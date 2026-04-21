@@ -9,11 +9,13 @@ import {
     Link as LinkIcon,
     PlusCircle,
     XCircle,
-    Save
+    Save,
+    ShieldCheck
 } from 'lucide-react';
 import githubService from '@/api/github.service';
 import groupService from '@/api/group.service';
 import authService from '@/api/auth.service';
+import jiraService from '@/api/jira.service';
 
 export default function Integrations() {
     // 1. Auth & Permissions
@@ -43,7 +45,8 @@ export default function Integrations() {
 
     const [groups, setGroups] = useState<any[]>([]);
     const [mappings, setMappings] = useState<any[]>([]);
-    const commits: any[] = []; // Placeholder for now
+    const [commits, setCommits] = useState<any[]>([]);
+    const [jiraStatus, setJiraStatus] = useState<'connected' | 'error' | 'loading' | 'none'>('loading');
 
     // State for Mapping Form
     const [showMappingForm, setShowMappingForm] = useState(false);
@@ -56,9 +59,10 @@ export default function Integrations() {
 
     const fetchData = async () => {
         setLoading(true);
+        let settingsRes = null;
         try {
             try {
-                const settingsRes = await githubService.getGlobalSettings();
+                settingsRes = await githubService.getGlobalSettings();
                 if (settingsRes) setGlobalSettings(settingsRes);
             } catch (e) { console.error("Global settings fetch failed", e); }
 
@@ -77,6 +81,26 @@ export default function Integrations() {
                 if (profileRes) setCurrentUser(profileRes);
             } catch (e) { console.error("Profile fetch failed", e); }
 
+            // Fetch Jira Health - Only if URL exists in state or response
+            const jiraUrl = settingsRes?.jiraUrl || globalSettings.jiraUrl;
+            if (jiraUrl) {
+                try {
+                    const isOk = await jiraService.testConnection();
+                    setJiraStatus(isOk ? 'connected' : 'error');
+                } catch (e) { 
+                    console.error("Jira health check failed", e);
+                    setJiraStatus('error');
+                }
+            } else {
+                setJiraStatus('none');
+            }
+
+            // Fetch Recent Activities
+            try {
+                const activities = await jiraService.getActivities();
+                if (activities) setCommits(activities);
+            } catch (e) { console.error("Activities fetch failed", e); }
+
         } catch (error) {
             console.error("Critical error in fetchData:", error);
         } finally {
@@ -89,15 +113,77 @@ export default function Integrations() {
     }, []);
 
     // 4. Handlers
-    const handleSaveSettings = async () => {
+    const handleSaveJiraSettings = async () => {
         if (!globalSettings.jiraUrl || !globalSettings.jiraEmail || !globalSettings.jiraToken) {
             alert("Vui lòng nhập đầy đủ thông tin Jira!");
             return;
         }
+        
         setIsSavingSettings(true);
         try {
+            // Step 1: Test Connection FIRST
+            // Wait, we need to save it momentarily to test it if it's new, 
+            // but we can just test with what's in the state.
+            // Since testConnection uses the GLOBAL client, we MUST save it first 
+            // OR the backend must support testing with provided credentials.
             await githubService.saveGlobalSettings(globalSettings);
-            alert("Đã lưu cấu hình hệ thống thành công!");
+            
+            // Double save to Jira service for dynamic connection
+            try {
+                await jiraService.saveGlobalSettings({
+                    jiraUrl: globalSettings.jiraUrl,
+                    jiraUsername: globalSettings.jiraEmail, // Mapping Email -> Username
+                    jiraApiToken: globalSettings.jiraToken  // Mapping Token -> ApiToken
+                });
+            } catch (err) {
+                console.error("Failed to sync global settings to Jira service", err);
+            }
+            
+            const isOk = await jiraService.testConnection();
+            if (isOk) {
+                setJiraStatus('connected');
+                alert("Đã kết nối và lưu cấu hình Jira thành công!");
+            } else {
+                setJiraStatus('error');
+                alert("Kết nối thất bại! Vui lòng kiểm tra lại URL/Email/Token.");
+            }
+            fetchData();
+        } catch (error) {
+            alert("Lỗi khi lưu cấu hình!");
+            setJiraStatus('error');
+        } finally {
+            setIsSavingSettings(false);
+        }
+    };
+
+    const handleClearJiraSettings = async () => {
+        if (!window.confirm("Bạn có chắc chắn muốn xóa cấu hình Jira cũ?")) return;
+        
+        setIsSavingSettings(true);
+        try {
+            const clearedSettings = { ...globalSettings, jiraUrl: '', jiraEmail: '', jiraToken: '' };
+            await githubService.saveGlobalSettings(clearedSettings);
+            setGlobalSettings(clearedSettings);
+            setJiraStatus('none');
+            alert("Đã xóa cấu hình Jira!");
+            fetchData();
+        } catch (error) {
+            alert("Lỗi khi xóa cấu hình!");
+        } finally {
+            setIsSavingSettings(false);
+        }
+    };
+
+    const handleSaveGithubSettings = async () => {
+        if (!globalSettings.githubPortalToken) {
+            alert("Vui lòng nhập Token GitHub!");
+            return;
+        }
+        setIsSavingSettings(true); 
+        try {
+            await githubService.saveGlobalSettings(globalSettings);
+            alert("Đã lưu cấu hình GitHub Portal thành công!");
+            fetchData();
         } catch (error) {
             alert("Lỗi khi lưu cấu hình!");
         } finally {
@@ -113,8 +199,18 @@ export default function Integrations() {
         setIsSavingMapping(true);
         try {
             await githubService.upsertMapping(mappingForm);
-            alert("Đã cập nhật mapping thành công!");
+            
+            // Double save to Jira Service to ensure it has the mapping
+            try {
+                await jiraService.upsertMapping(mappingForm.groupId, mappingForm.jiraProjectKey);
+            } catch (err) {
+                console.error("Failed to sync mapping to Jira service", err);
+                // We continue because the primary mapping is in github-service
+            }
+
             setShowMappingForm(false);
+            fetchData();
+            alert('Đã lưu ánh xạ nhóm');
             fetchData(); // Refresh list
         } catch (error) {
             alert("Lỗi khi lưu mapping!");
@@ -186,19 +282,29 @@ export default function Integrations() {
             {isAdmin && (
                 <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 ${!hasPermission ? 'opacity-60 pointer-events-none' : ''}`}>
                     {/* Jira Config */}
-                    <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-5 relative">
-                        <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2 mb-4">
-                            <span className="bg-blue-100 p-1.5 rounded-md text-blue-600"><RefreshCw className="w-4 h-4" /></span>
-                            Cấu hình Jira (Admin Only)
-                        </h2>
-                        <div className="space-y-3">
+                    <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-5 flex flex-col">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                                <span className="bg-blue-100 p-1.5 rounded-md text-blue-600"><RefreshCw className="w-4 h-4" /></span>
+                                Cấu hình Jira (Admin Only)
+                            </h2>
+                            {jiraStatus === 'connected' && (
+                                <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-600 px-2.5 py-1 rounded-full border border-emerald-100">
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    <span className="text-[10px] font-bold uppercase tracking-wider">Connected</span>
+                                </div>
+                            )}
+                        </div>
+                        
+                        <div className="space-y-4 flex-1">
                             <div>
                                 <label className="block text-xs font-medium text-slate-600 mb-1">Môi trường Jira URL</label>
                                 <input 
                                     value={globalSettings.jiraUrl} 
                                     onChange={e => setGlobalSettings({...globalSettings, jiraUrl: e.target.value})}
+                                    disabled={jiraStatus === 'connected'}
                                     type="text" placeholder="https://team.atlassian.net" 
-                                    className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
+                                    className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-500" 
                                 />
                             </div>
                             <div className="grid grid-cols-2 gap-3">
@@ -207,8 +313,9 @@ export default function Integrations() {
                                     <input 
                                         value={globalSettings.jiraEmail} 
                                         onChange={e => setGlobalSettings({...globalSettings, jiraEmail: e.target.value})}
+                                        disabled={jiraStatus === 'connected'}
                                         type="email" placeholder="admin@email.com" 
-                                        className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 outline-none" 
+                                        className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 outline-none disabled:bg-slate-50" 
                                     />
                                 </div>
                                 <div>
@@ -216,10 +323,44 @@ export default function Integrations() {
                                     <input 
                                         value={globalSettings.jiraToken} 
                                         onChange={e => setGlobalSettings({...globalSettings, jiraToken: e.target.value})}
-                                        type="password" placeholder="••••••••" 
-                                        className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 outline-none" 
+                                        disabled={jiraStatus === 'connected'}
+                                        type="password" placeholder={jiraStatus === 'connected' ? "••••••••••••••••" : "Nhập token mới..."} 
+                                        className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 outline-none disabled:bg-slate-50" 
                                     />
                                 </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
+                            {jiraStatus === 'connected' ? (
+                                <button 
+                                    onClick={() => setJiraStatus('none')}
+                                    className="text-xs font-semibold text-slate-500 hover:text-blue-600 flex items-center gap-1.5 transition-colors"
+                                >
+                                    <Settings className="w-3.5 h-3.5" />
+                                    Chỉnh sửa cấu hình
+                                </button>
+                            ) : (
+                                <div />
+                            )}
+                            
+                            <div className="flex gap-2">
+                                {jiraStatus === 'connected' && (
+                                    <button 
+                                        onClick={handleClearJiraSettings}
+                                        className="px-4 py-2 text-xs font-bold text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                    >
+                                        Xóa cấu hình
+                                    </button>
+                                )}
+                                <button 
+                                    onClick={handleSaveJiraSettings}
+                                    disabled={jiraStatus === 'connected' || isSavingSettings}
+                                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 text-white rounded-lg text-xs font-bold shadow-sm transition-all flex items-center gap-2"
+                                >
+                                    {isSavingSettings ? <RefreshCw className="w-3 h-3 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                                    Xác thực & Kết nối
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -231,24 +372,30 @@ export default function Integrations() {
                                 <span className="bg-slate-100 p-1.5 rounded-md text-slate-700"><GitBranch className="w-4 h-4" /></span>
                                 Cấu hình GitHub Portal
                             </h2>
-                            <div>
-                                <label className="block text-xs font-medium text-slate-600 mb-1">Personal Access Token (System Account)</label>
-                                <input 
-                                    value={globalSettings.githubPortalToken} 
-                                    onChange={e => setGlobalSettings({...globalSettings, githubPortalToken: e.target.value})}
-                                    type="password" placeholder="ghp_system_key..." 
-                                    className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 outline-none" 
-                                />
-                                <p className="text-[10px] text-slate-500 mt-2">Dùng để quét commit từ các repo của sinh viên.</p>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-600 mb-1">Personal Access Token (System Account)</label>
+                                    <input 
+                                        value={globalSettings.githubPortalToken} 
+                                        onChange={e => setGlobalSettings({...globalSettings, githubPortalToken: e.target.value})}
+                                        type="password" placeholder="ghp_system_key..." 
+                                        className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900" 
+                                    />
+                                    <p className="text-[10px] text-slate-500 mt-2">Dùng để quét commit từ các repo của sinh viên.</p>
+                                </div>
                             </div>
                         </div>
-                        <button 
-                            onClick={handleSaveSettings}
-                            disabled={isSavingSettings}
-                            className="mt-4 flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2.5 rounded-lg transition-all shadow-md"
-                        >
-                            {isSavingSettings ? <RefreshCw className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> Lưu cấu hình hệ thống</>}
-                        </button>
+                        
+                        <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end">
+                            <button 
+                                onClick={handleSaveGithubSettings}
+                                disabled={isSavingSettings}
+                                className="px-6 py-2 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 text-white rounded-lg text-xs font-bold shadow-sm transition-all flex items-center gap-2"
+                            >
+                                {isSavingSettings ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-4 h-4" />}
+                                Lưu cấu hình GitHub
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
@@ -393,19 +540,41 @@ export default function Integrations() {
                         <div className="space-y-6">
                             {/* Health Indicators */}
                             <div className="grid grid-cols-2 gap-4">
-                                <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-lg">
+                                <div className={`p-3 rounded-lg border ${
+                                    jiraStatus === 'connected' ? 'bg-emerald-50 border-emerald-100' :
+                                    jiraStatus === 'error' ? 'bg-red-50 border-red-100' :
+                                    'bg-slate-50 border-slate-100'
+                                }`}>
                                     <div className="flex items-center justify-between mb-1">
-                                        <span className="text-[10px] font-bold text-emerald-700 uppercase">Jira Health</span>
-                                        <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                                        <span className={`text-[10px] font-bold uppercase ${
+                                            jiraStatus === 'connected' ? 'text-emerald-700' :
+                                            jiraStatus === 'error' ? 'text-red-700' :
+                                            'text-slate-700'
+                                        }`}>Jira Health</span>
+                                        {jiraStatus === 'connected' ? (
+                                            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                                        ) : jiraStatus === 'error' ? (
+                                            <XCircle className="w-3 h-3 text-red-500" />
+                                        ) : (
+                                            <RefreshCw className="w-3 h-3 text-slate-400 animate-spin" />
+                                        )}
                                     </div>
-                                    <div className="text-xs font-semibold text-emerald-800 truncate">{globalSettings.jiraUrl || 'Chưa cấu hình'}</div>
+                                    <div className={`text-xs font-semibold truncate ${
+                                        jiraStatus === 'connected' ? 'text-emerald-800' :
+                                        jiraStatus === 'error' ? 'text-red-800' :
+                                        'text-slate-800'
+                                    }`}>
+                                        {jiraStatus === 'connected' ? (globalSettings.jiraUrl || 'Connected') : 
+                                         jiraStatus === 'error' ? 'Kết nối thất bại' : 
+                                         jiraStatus === 'loading' ? 'Đang kiểm tra...' : 'Chưa cấu hình'}
+                                    </div>
                                 </div>
                                 <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-lg">
                                     <div className="flex items-center justify-between mb-1">
                                         <span className="text-[10px] font-bold text-indigo-700 uppercase">Message Broker</span>
-                                        <Activity className="w-3 h-3 text-indigo-500 animate-pulse" />
+                                        <Activity className="w-3 h-3 text-indigo-500" />
                                     </div>
-                                    <div className="text-xs font-semibold text-indigo-800">RabbitMQ Connected</div>
+                                    <div className="text-xs font-semibold text-indigo-800 uppercase">RabbitMQ UP</div>
                                 </div>
                             </div>
 
@@ -418,18 +587,26 @@ export default function Integrations() {
                                              <div className="bg-slate-50 rounded-full w-10 h-10 flex items-center justify-center mx-auto mb-2">
                                                 <RefreshCw className="w-5 h-5 text-slate-300" />
                                              </div>
-                                             <p className="text-xs text-slate-400">Đang chờ tín hiệu commit từ GitHub...</p>
+                                             <p className="text-xs text-slate-400 font-medium">Chưa có hoạt động đồng bộ nào gần đây</p>
                                         </div>
                                     ) : (
-                                        commits.map(c => (
-                                            <div key={c.id} className="flex gap-3">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 shrink-0" />
+                                        commits.map(act => (
+                                            <div key={act.id} className="flex gap-3 items-start pb-3 border-b border-slate-50 last:border-0">
+                                                <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
+                                                    act.status === 'SUCCESS' ? 'bg-emerald-500' :
+                                                    act.status === 'ERROR' ? 'bg-red-500' :
+                                                    'bg-blue-500'
+                                                }`} />
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-xs font-semibold text-slate-800 truncate">{c.message}</p>
-                                                    <div className="flex items-center gap-2 mt-0.5">
-                                                        <span className="text-[10px] text-slate-400">{c.user}</span>
+                                                    <p className="text-[11px] font-semibold text-slate-800 leading-tight">{act.message}</p>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <span className="text-[9px] font-bold text-slate-400 uppercase">{act.status}</span>
                                                         <span className="text-[10px] text-slate-300">•</span>
-                                                        <span className="text-[10px] text-slate-400">{c.time}</span>
+                                                        <span className="text-[9px] text-slate-400">
+                                                            {new Date(act.createdAt).toLocaleString('vi-VN', { 
+                                                                hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit'
+                                                            })}
+                                                        </span>
                                                     </div>
                                                 </div>
                                             </div>

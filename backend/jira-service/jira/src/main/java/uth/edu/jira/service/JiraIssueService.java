@@ -34,4 +34,12 @@ public interface JiraIssueService {
     void deleteJiraIssue(UUID jiraIssueId);
 
     void addCommentToIssue(String issueKey, String commentBody);
+
+    void transitionIssueStatus(String issueKey, String statusName);
+
+    void deleteIssueOnJira(String issueKey);
+
+    String createIssueOnJira(String projectKey, String summary, String description, String issueType, String parentKey, UUID groupId);
+
+    void syncProjectFromJira(String projectKey, UUID groupId);
 }

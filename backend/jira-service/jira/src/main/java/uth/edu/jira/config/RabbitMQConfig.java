@@ -18,6 +18,10 @@ public class RabbitMQConfig {
     public static final String TASK_QUEUE = "task_jira_sync_queue";
     public static final String TASK_ROUTING_KEY = "task.#";
 
+    public static final String SYNC_EXCHANGE = "jira.sync.exchange";
+    public static final String APP_SYNC_QUEUE = "app_sync_queue";
+    public static final String JIRA_IMPORT_QUEUE = "jira_import_queue";
+
     @Bean
     public TopicExchange exchange() {
         return new TopicExchange(EXCHANGE);
@@ -31,6 +35,31 @@ public class RabbitMQConfig {
     @Bean
     public Binding binding(Queue queue, TopicExchange exchange) {
         return BindingBuilder.bind(queue).to(exchange).with(ROUTING_KEY);
+    }
+
+    @Bean
+    public TopicExchange syncExchange() {
+        return new TopicExchange(SYNC_EXCHANGE);
+    }
+
+    @Bean
+    public Queue appSyncQueue() {
+        return new Queue(APP_SYNC_QUEUE);
+    }
+
+    @Bean
+    public Queue jiraImportQueue() {
+        return new Queue(JIRA_IMPORT_QUEUE);
+    }
+
+    @Bean
+    public Binding appSyncBinding(Queue appSyncQueue, TopicExchange syncExchange) {
+        return BindingBuilder.bind(appSyncQueue).to(syncExchange).with("app.#");
+    }
+
+    @Bean
+    public Binding jiraImportBinding(Queue jiraImportQueue, TopicExchange syncExchange) {
+        return BindingBuilder.bind(jiraImportQueue).to(syncExchange).with("jira.#");
     }
 
     @Bean

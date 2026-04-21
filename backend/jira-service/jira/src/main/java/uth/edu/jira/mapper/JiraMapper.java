@@ -30,7 +30,7 @@ public class JiraMapper {
     public JiraIssueResponse toIssueDTO(JiraIssue issue) {
         return JiraIssueResponse.builder()
                 .jiraIssueId(issue.getJiraIssueId())
-                .jiraId(issue.getJira().getJiraId())
+                .jiraId(issue.getJira() != null ? issue.getJira().getJiraId() : null)
                 .jiraIssueKey(issue.getJiraIssueKey())
                 .taskId(issue.getTaskId())
                 .summary(issue.getSummary())
@@ -40,6 +40,19 @@ public class JiraMapper {
                 .priority(issue.getPriority())
                 .description(issue.getDescription())
                 .syncedAt(issue.getSyncedAt())
+                .build();
+    }
+
+    public JiraIssue toIssueEntity(JiraIssueRequest dto) {
+        return JiraIssue.builder()
+                .jiraIssueKey(dto.getJiraIssueKey())
+                .taskId(dto.getTaskId())
+                .summary(dto.getSummary())
+                .status(dto.getStatus())
+                .issueType(dto.getIssueType())
+                .assigneeEmail(dto.getAssigneeEmail())
+                .priority(dto.getPriority())
+                .description(dto.getDescription())
                 .build();
     }
 }

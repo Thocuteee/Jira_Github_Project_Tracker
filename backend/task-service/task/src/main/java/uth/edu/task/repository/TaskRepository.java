@@ -19,4 +19,6 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
     List<Task> findByGroupId(UUID groupId);
 
     List<Task> findByGroupIdAndAssignedTo(UUID groupId, UUID userId);
+
+    boolean existsByJiraIssueKey(String jiraIssueKey);
 }

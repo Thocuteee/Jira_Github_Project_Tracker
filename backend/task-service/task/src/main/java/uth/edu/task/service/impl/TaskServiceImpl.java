@@ -1,5 +1,9 @@
 package uth.edu.task.service.impl;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +52,7 @@ public class TaskServiceImpl implements TaskService {
     private final GroupClient groupClient;
     private final RequirementClient requirementClient;
     private final FileServiceClient fileServiceClient;
+    private final RabbitTemplate rabbitTemplate;
 
     @Override
     @Transactional
@@ -65,14 +70,17 @@ public class TaskServiceImpl implements TaskService {
         task.setCreatedBy(currentUserId);
         task.setStatus(ETaskStatus.TODO);
 
+        // ĐẢM BẢO DÒNG NÀY LÀ save(task)
         Task savedTask = taskRepository.save(task);
 
         saveTaskHistory(savedTask, currentUserId, "CREATE", "null", "Task Created");
 
         try {
             publishTaskEvent(savedTask, "CREATED");
+            // Bắn event Auto-Sync để Jira tự tạo Task tương ứng
+            publishSyncEvent("TASK_CREATED", savedTask);
         } catch (Exception e) {
-            log.warn("Could not publish task event (RabbitMQ unavailable?): {}", e.getMessage());
+            log.warn("Could not publish task event: {}", e.getMessage());
         }
 
         return taskMapper.toResponse(savedTask);
@@ -245,22 +253,65 @@ public class TaskServiceImpl implements TaskService {
     @Transactional
     public void deleteTask(UUID taskId) {
         UUID currentUserId = UserContextHolder.getUserId();
+        log.info("Request to delete task {} by user {}", taskId, currentUserId);
 
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy Task để xóa!"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy Task để xóa!"));
 
-        if (!isLeaderInGroup(task.getGroupId(), currentUserId) && !isAdmin()) {
-            throw new RuntimeException("Chỉ Nhóm trưởng hoặc Admin mới có quyền xóa Task!");
+        // Lấy vai trò thực tế để log debug
+        String groupRole = getUserRoleString(task.getGroupId(), currentUserId);
+        log.info("User {} has role {} in group {}", currentUserId, groupRole, task.getGroupId());
+
+        boolean isAuthorized = "LEADER".equalsIgnoreCase(groupRole) || isAdmin() || isLecturer();
+        
+        if (!isAuthorized) {
+            log.warn("Access denied for user {} on task {}. Role: {}", currentUserId, taskId, groupRole);
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn không có quyền xóa Task này!");
         }
+        
+        try {
+            // Gửi sự kiện xóa sang Jira nếu có liên kết
+            if (task.getJiraIssueKey() != null) {
+                log.info("Task {} is linked to Jira issue {}. Sending delete event.", taskId, task.getJiraIssueKey());
+                publishSyncEvent("TASK_DELETED", task);
+            }
 
-        taskHistoryRepository.deleteAllByTask_TaskId(taskId);
-        taskCommentRepository.deleteAllByTask_TaskId(taskId);
-        
-        // Gọi File Service để xóa toàn bộ file vật lý liên quan tới Task này
-        fileServiceClient.deleteFilesByReference(taskId.toString(), "TASK");
-        
-        attachmentRepository.deleteAllByTask_TaskId(taskId);
-        taskRepository.delete(task);
+            taskHistoryRepository.deleteAllByTask_TaskId(taskId);
+            taskCommentRepository.deleteAllByTask_TaskId(taskId);
+            
+            try {
+                fileServiceClient.deleteFilesByReference(taskId.toString(), "TASK");
+            } catch (Exception e) {
+                log.warn("Could not delete files for task {}: {}", taskId, e.getMessage());
+            }
+            
+            attachmentRepository.deleteAllByTask_TaskId(taskId);
+            taskRepository.delete(task);
+            
+            log.info("Successfully deleted task {}", taskId);
+        } catch (ResponseStatusException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Error during task deletion {}: {}", taskId, e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi hệ thống khi xóa Task: " + e.getMessage());
+        }
+    }
+
+    private void publishSyncEvent(String type, Task task) {
+        try {
+            RequirementResponse req = requirementClient.getRequirementById(task.getRequirementId());
+            java.util.Map<String, Object> event = new java.util.HashMap<>();
+            event.put("type", type);
+            event.put("taskId", task.getTaskId().toString());
+            event.put("groupId", task.getGroupId().toString());
+            event.put("title", task.getTitle());
+            event.put("description", task.getDescription());
+            event.put("parentJiraKey", req != null ? req.getJiraIssueKey() : null);
+            
+            rabbitTemplate.convertAndSend("jira.sync.exchange", "app.task", event);
+        } catch (Exception e) {
+            log.error("Failed to publish Task sync event: {}", e.getMessage());
+        }
     }
 
     // Hàm phụ trợ
@@ -341,5 +392,37 @@ public class TaskServiceImpl implements TaskService {
                 .build();
 
         taskEventPublisher.publishTaskEvent(event);
+    }
+
+    @RabbitListener(queues = "jira_import_queue")
+    @Transactional
+    public void handleJiraEvent(java.util.Map<String, Object> event) {
+        String eventType = (String) event.get("type");
+        if ("jira.assigned".equals(eventType) || event.containsKey("jiraIssueKey")) {
+            String taskIdStr = (String) event.get("taskId");
+            if (taskIdStr != null) {
+                taskRepository.findById(UUID.fromString(taskIdStr)).ifPresent(task -> {
+                    task.setJiraIssueKey((String) event.get("jiraIssueKey"));
+                    taskRepository.save(task);
+                });
+            } else if (event.containsKey("jiraIssueKey") && "Task".equalsIgnoreCase((String) event.get("issueType"))) {
+                autoImportTask(event);
+            }
+        }
+    }
+
+    private void autoImportTask(java.util.Map<String, Object> event) {
+        String key = (String) event.get("jiraIssueKey");
+        if (taskRepository.existsByJiraIssueKey(key)) return;
+
+        Task task = new Task();
+        task.setGroupId(UUID.fromString((String) event.get("groupId")));
+        task.setTitle((String) event.get("title"));
+        task.setDescription((String) event.get("description"));
+        task.setJiraIssueKey(key);
+        task.setStatus(ETaskStatus.TODO);
+        
+        task.setCreatedBy(UUID.fromString("00000000-0000-0000-0000-000000000000")); 
+        taskRepository.save(task);
     }
 }
