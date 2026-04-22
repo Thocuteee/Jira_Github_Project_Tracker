@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { requirementService, type Requirement } from '../api/requirement.service';
 import { Edit3, Trash2, Link as LinkIcon, PlusCircle, Layout, Filter, Search, ChevronDown, ChevronRight, CheckCircle2, Clock, Circle, FileDown } from 'lucide-react';
 import groupService from '../api/group.service';
@@ -9,10 +10,10 @@ import { useGroupContext } from '@/contexts/GroupContext';
 import RequirementModal from '../components/requirements/RequirementModal';
 import JiraKeyModal from '../components/requirements/JiraKeyModal';
 import CreateTaskModal from '../components/CreateTaskModal';
-import ExportSRSModal from '../components/requirements/ExportSRSModal';
 import taskService, { type Task } from '../api/task.service';
 
 const RequirementTable = () => {
+    const navigate = useNavigate();
     const { selectedGroup, loading: groupLoading } = useGroupContext();
     const groupId = selectedGroup?.groupId;
 
@@ -39,7 +40,6 @@ const RequirementTable = () => {
     const [expandedReqId, setExpandedReqId] = useState<string | null>(null);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [taskTargetReqId, setTaskTargetReqId] = useState<string | null>(null);
-    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
     useEffect(() => {
         if (groupId) {
@@ -212,6 +212,17 @@ const RequirementTable = () => {
         setIsTaskModalOpen(true);
     };
 
+    const handleGoToExportReport = () => {
+        if (!groupId) return;
+        const selectedRequirementIds = filteredRequirements.map((req) => req.requirementId);
+        navigate(`/workspace/${groupId}/reports`, {
+            state: {
+                activeTab: 'export',
+                selectedRequirementIds,
+            },
+        });
+    };
+
     return (
         <MainLayout>
             <div className="bg-slate-50 min-h-screen p-8 font-sans">
@@ -235,7 +246,7 @@ const RequirementTable = () => {
                         <div className="flex items-center gap-3">
                             {groupId && (
                                 <button
-                                    onClick={() => setIsExportModalOpen(true)}
+                                    onClick={handleGoToExportReport}
                                     className="bg-white hover:bg-slate-50 text-slate-700 border-2 border-slate-200 hover:border-indigo-300 px-6 py-4 rounded-[1.5rem] font-bold transition-all flex items-center gap-2 hover:-translate-y-1 active:scale-95 text-base shadow-sm"
                                 >
                                     <FileDown size={20} strokeWidth={2.5} />
@@ -490,12 +501,6 @@ const RequirementTable = () => {
                     onSubmit={handleAssignJira}
                     initialKey={selectedReq?.jiraIssueKey}
                     requirementTitle={selectedReq?.title || ''}
-                />
-                <ExportSRSModal
-                    isOpen={isExportModalOpen}
-                    onClose={() => setIsExportModalOpen(false)}
-                    groupId={groupId || ''}
-                    groupName={selectedGroup?.groupName}
                 />
                 {groupId && (
                     <CreateTaskModal 

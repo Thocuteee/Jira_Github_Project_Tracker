@@ -9,8 +9,8 @@ import uth.edu.export.dto.request.ExportDocumentRequest;
 import uth.edu.export.service.IExportService;
 import uth.edu.export.dto.response.ExportResponse;
 import java.util.List;
-
 import java.util.Map;
+import java.util.UUID;
 import uth.edu.export.service.IDocumentGeneratorService;
 import uth.edu.export.client.RequirementClient;
 
@@ -36,10 +36,14 @@ public class ExportController {
         ));
     }
 
-    // API lay danh sach tai lieu da xuat, client co the goi API nay de hien thi lich su tai lieu da xuat
     @GetMapping
-    public ResponseEntity<List<uth.edu.export.dto.response.ExportResponse>> getAllExports() {
-        return ResponseEntity.ok(exportService.getAllExports());
+    public ResponseEntity<List<ExportResponse>> listExportsByGroup(@RequestParam String groupId) {
+        try {
+            UUID groupUuid = UUID.fromString(groupId);
+            return ResponseEntity.ok(exportService.getExportsByGroupId(groupUuid));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     @PostMapping("/srs")
@@ -54,7 +58,13 @@ public class ExportController {
             return ResponseEntity.badRequest().body("GroupId hoặc RequirementIds là bắt buộc".getBytes());
         }
         
-        byte[] content = documentGeneratorService.generateDocument(requirementData, request.getFileType());
+        String projectName = request.getGroupId() != null ? "Group " + request.getGroupId() : "Software Project";
+        String author = request.getRequestedBy() != null ? request.getRequestedBy().toString() : "System";
+        byte[] content = documentGeneratorService.generateDocument(
+                requirementData,
+                request.getFileType(),
+                projectName,
+                author);
         
         String mimeType = request.getFileType().equalsIgnoreCase("PDF") ? "application/pdf" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
         String extension = request.getFileType().toLowerCase();

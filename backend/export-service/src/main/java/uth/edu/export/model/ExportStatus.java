@@ -1,5 +1,5 @@
 package uth.edu.export.model;
 
 public enum ExportStatus {
-    PENDING, PROCESSING, DONE, FAILED
+    PENDING, PROCESSING, DONE, COMPLETED, FAILED
 }

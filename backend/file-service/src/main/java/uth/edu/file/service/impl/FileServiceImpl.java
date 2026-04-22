@@ -53,11 +53,7 @@ public class FileServiceImpl implements FileService {
             case TASK -> authorizeTaskUpload(request.getReferenceId(), requestedBy, isAdmin);
             case AVATAR -> authorizeAvatarUpload(request.getReferenceId(), requestedBy, isAdmin);
             case GROUP -> authorizeGroupUpload(request.getReferenceId(), requestedBy, isAdmin);
-            case EXPORT -> {
-                if (!isAdmin) {
-                    throw new AccessDeniedException("Chỉ Admin mới được phép!");
-                }
-            }
+            case EXPORT -> authorizeExportUpload(request.getReferenceId(), requestedBy, isAdmin);
         }
 
         String uniqueFileName = UUID.randomUUID() + "_" + request.getFileName();
@@ -120,6 +116,29 @@ public class FileServiceImpl implements FileService {
         log.info("User {} uploading to group {}, permissions opened.", requestedBy, groupId);
     }
 
+    private void authorizeExportUpload(String groupId, UUID requestedBy, boolean isAdmin) {
+        if (isAdmin) {
+            return;
+        }
+        if (requestedBy == null) {
+            throw new AccessDeniedException("Không xác định được người dùng upload export.");
+        }
+        try {
+            UUID groupUUID = UUID.fromString(groupId);
+            List<GroupMemberDto> members = groupClient.getGroupMembers(groupUUID);
+            boolean isMember = members.stream().anyMatch(member -> requestedBy.equals(member.getUserId()));
+            if (!isMember) {
+                throw new AccessDeniedException("Bạn không thuộc nhóm này nên không thể upload tài liệu export.");
+            }
+        } catch (IllegalArgumentException e) {
+            throw new AccessDeniedException("groupId không hợp lệ cho export: " + groupId);
+        } catch (FeignException.NotFound e) {
+            throw new ResourceNotFoundException("Không tìm thấy nhóm: " + groupId);
+        } catch (FeignException e) {
+            throw new AccessDeniedException("Không thể xác thực quyền nhóm khi upload export.");
+        }
+    }
+
     @Override
     public FileRecordResponse uploadFile(MultipartFile file, String referenceId, EFileScope scope, UUID requestedBy, String requestedByRole) {
         boolean isAdmin = "ADMIN".equalsIgnoreCase(requestedByRole) || "ROLE_ADMIN".equalsIgnoreCase(requestedByRole);
@@ -132,11 +151,7 @@ public class FileServiceImpl implements FileService {
             case TASK -> authorizeTaskUpload(referenceId, requestedBy, isAdmin);
             case AVATAR -> authorizeAvatarUpload(referenceId, requestedBy, isAdmin);
             case GROUP -> authorizeGroupUpload(referenceId, requestedBy, isAdmin);
-            case EXPORT -> {
-                if (!isAdmin) {
-                    throw new AccessDeniedException("Chỉ Admin mới được phép!");
-                }
-            }
+            case EXPORT -> authorizeExportUpload(referenceId, requestedBy, isAdmin);
         }
 
         String originalFileName = file.getOriginalFilename();

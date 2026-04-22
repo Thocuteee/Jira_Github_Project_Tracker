@@ -49,6 +49,5 @@ backend/.env.*
 # --- Docker ---
 */postgres_data/
 */mysql_data/
-.ai_docs/
-.cursor/
+cursor/
 Jira And Github API

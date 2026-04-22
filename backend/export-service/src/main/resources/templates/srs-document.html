@@ -2,62 +2,208 @@
 <html xmlns:th="http://www.thymeleaf.org">
   <head>
     <meta charset="UTF-8" />
-    <title>Tài liệu SRS</title>
+    <title>Software Requirements Specification</title>
     <style>
+      @page {
+        size: A4;
+        margin: 22mm 16mm 18mm 16mm;
+      }
+
       body {
-        font-family: Arial, sans-serif;
-        margin: 40px;
+        margin: 0;
+        padding: 0;
+        font-family: Arial, Helvetica, sans-serif;
+        color: #1f2937;
+        font-size: 11pt;
+        line-height: 1.5;
       }
-      h1 {
-        color: #2c3e50;
+
+      .cover {
         text-align: center;
+        padding-top: 100px;
+        padding-bottom: 140px;
+        border: 1px solid #dbe2ea;
       }
-      .footer {
-        text-align: right;
-        margin-top: 50px;
-        font-style: italic;
-        color: gray;
+
+      .cover-title {
+        margin: 0;
+        color: #0f172a;
+        font-size: 26pt;
+        font-weight: 700;
+        letter-spacing: 0.8px;
       }
-      table {
+
+      .cover-subtitle {
+        margin: 14px 0 8px 0;
+        color: #334155;
+        font-size: 12pt;
+      }
+
+      .cover-project {
+        margin: 0 0 26px 0;
+        color: #1e3a8a;
+        font-size: 18pt;
+        font-weight: 700;
+      }
+
+      .meta-table {
+        width: 75%;
+        margin: 0 auto;
+        border-collapse: collapse;
+        border: 1px solid #cbd5e1;
+      }
+
+      .meta-table td {
+        border: 1px solid #e2e8f0;
+        padding: 8px 10px;
+        text-align: left;
+      }
+
+      .meta-label {
+        width: 35%;
+        font-weight: 700;
+        color: #334155;
+        background: #f8fafc;
+      }
+
+      .page-break {
+        page-break-before: always;
+      }
+
+      .section {
+        margin-top: 6px;
+      }
+
+      .section-title {
+        margin: 0 0 10px 0;
+        font-size: 16pt;
+        color: #0f172a;
+        border-bottom: 2px solid #1e3a8a;
+        padding-bottom: 6px;
+      }
+
+      .intro {
+        margin: 0;
+        color: #334155;
+        text-align: justify;
+      }
+
+      .requirements-table {
         width: 100%;
         border-collapse: collapse;
-        margin-top: 20px;
+        table-layout: fixed;
+        border: 1px solid #1e293b;
       }
-      th,
-      td {
-        border: 1px solid #dddddd;
+
+      .requirements-table th {
+        background: #1e3a8a;
+        color: #ffffff;
+        border: 1px solid #1e293b;
+        padding: 8px 7px;
         text-align: left;
-        padding: 12px;
+        font-size: 10pt;
       }
-      th {
-        background-color: #1b608e;
-        color: white;
+
+      .requirements-table td {
+        border: 1px solid #cbd5e1;
+        padding: 8px 7px;
+        vertical-align: top;
+        font-size: 10pt;
+        word-wrap: break-word;
+      }
+
+      .requirements-table tr:nth-child(odd) {
+        background: #f8fafc;
+      }
+
+      .id-col {
+        width: 13%;
+      }
+
+      .title-col {
+        width: 24%;
+      }
+
+      .priority-col {
+        width: 13%;
+      }
+
+      .status-col {
+        width: 14%;
+      }
+
+      .desc-col {
+        width: 36%;
+      }
+
+      .doc-footer {
+        margin-top: 16px;
+        padding-top: 8px;
+        border-top: 1px solid #e2e8f0;
+        color: #64748b;
+        font-size: 9pt;
+        text-align: right;
       }
     </style>
   </head>
   <body>
-    <h1>TÀI LIỆU ĐẶC TẢ YÊU CẦU (SRS)</h1>
-    <p><strong>Dự án:</strong> Hệ thống</p>
-    <p>
-      <strong>Ngày xuất file:</strong> <span th:text="${exportDate}"></span>
-    </p>
+    <div class="cover">
+      <p class="cover-title">SOFTWARE REQUIREMENTS SPECIFICATION</p>
+      <p class="cover-subtitle">Prepared for software project documentation</p>
+      <p class="cover-project" th:text="${projectName}">Group Project</p>
 
-    <h3>Danh sách Yêu cầu (Requirements):</h3>
-    <table>
-      <thead>
+      <table class="meta-table">
         <tr>
-          <th>Mã Yêu Cầu (ID)</th>
-          <th>Tên Chức Năng</th>
+          <td class="meta-label">Document Type</td>
+          <td>SRS Report</td>
         </tr>
-      </thead>
-      <tbody>
-        <tr th:each="req : ${requirements}">
-          <td th:text="${req.requirementId ?: req.reqId}">REQ-01</td>
-          <td th:text="${req.title}">Tên chức năng mẫu</td>
+        <tr>
+          <td class="meta-label">Export Date</td>
+          <td th:text="${exportDate}">dd/MM/yyyy</td>
         </tr>
-      </tbody>
-    </table>
+        <tr>
+          <td class="meta-label">Author</td>
+          <td th:text="${author}">System</td>
+        </tr>
+      </table>
+    </div>
 
-    <div class="footer">Được tạo tự động bởi Export</div>
+    <div class="page-break"></div>
+    <div class="section">
+      <h2 class="section-title">1. Introduction</h2>
+      <p class="intro">
+        This Software Requirements Specification (SRS) document is generated automatically from the project requirement management system.
+        It consolidates all selected requirements, including their priority, status, and short description, to support implementation planning,
+        review, and quality assurance activities.
+      </p>
+    </div>
+
+    <div class="page-break"></div>
+    <div class="section">
+      <h2 class="section-title">2. Specific Requirements</h2>
+      <table class="requirements-table">
+        <thead>
+          <tr>
+            <th class="id-col">ID</th>
+            <th class="title-col">Title</th>
+            <th class="priority-col">Priority</th>
+            <th class="status-col">Status</th>
+            <th class="desc-col">Short Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="req : ${requirements}">
+            <td th:text="${req.id}">REQ-001</td>
+            <td th:text="${req.title}">Requirement title</td>
+            <td th:text="${req.priority}">HIGH</td>
+            <td th:text="${req.status}">DONE</td>
+            <td th:text="${req.description}">Requirement description</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="doc-footer">
+        Generated at <span th:text="${exportDateTime}">dd/MM/yyyy HH:mm:ss</span>
+      </div>
+    </div>
   </body>
 </html>

@@ -22,5 +22,6 @@ public class ExportResponse {
     private String status;
     private String generatedBy;
     private LocalDateTime createdAt;
+    private LocalDateTime completedAt;
 }
 

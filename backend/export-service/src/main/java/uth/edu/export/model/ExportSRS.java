@@ -44,6 +44,7 @@ public class ExportSRS {
     private String note;
     
     private LocalDateTime createdAt;
+    private LocalDateTime completedAt;
 
     @PrePersist
     protected void onCreate() {

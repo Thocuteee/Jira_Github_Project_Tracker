@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
 import { useGroupContext } from '@/contexts/GroupContext';
 import fileService from '@/api/file.service';
@@ -8,7 +9,6 @@ import {
   FolderOpen, Upload, FileText, FileImage, File, Trash2,
   Download, Loader2, AlertCircle, FolderX, FileDown, CheckSquare, Square
 } from 'lucide-react';
-import ExportSRSModal from '@/components/requirements/ExportSRSModal';
 
 interface UploadedFile {
   fileKey: string;
@@ -33,6 +33,7 @@ const formatSize = (bytes: number) => {
 };
 
 export default function FilesPage() {
+  const navigate = useNavigate();
   const { selectedGroup } = useGroupContext();
   const groupId = selectedGroup?.groupId;
 
@@ -42,7 +43,6 @@ export default function FilesPage() {
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [dragOver, setDragOver] = useState(false);
-  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -187,6 +187,15 @@ export default function FilesPage() {
     }
   };
 
+  const handleGoToExportReport = () => {
+    if (!groupId) return;
+    navigate(`/workspace/${groupId}/reports`, {
+      state: {
+        activeTab: 'export',
+      },
+    });
+  };
+
   return (
     <MainLayout>
       <div className="bg-slate-50 min-h-screen p-8 font-sans">
@@ -235,7 +244,7 @@ export default function FilesPage() {
               ) : (
                 groupId && (
                   <button
-                    onClick={() => setIsExportModalOpen(true)}
+                    onClick={handleGoToExportReport}
                     className="bg-white hover:bg-slate-50 text-slate-700 border-2 border-slate-200 hover:border-indigo-300 px-6 py-3.5 rounded-2xl font-bold transition-all flex items-center gap-2 hover:-translate-y-1 active:scale-95 text-sm shadow-sm"
                   >
                     <FileDown size={18} strokeWidth={2.5} className="text-indigo-600" />
@@ -358,14 +367,6 @@ export default function FilesPage() {
         </div>
       </div>
 
-      {groupId && (
-        <ExportSRSModal
-          isOpen={isExportModalOpen}
-          onClose={() => setIsExportModalOpen(false)}
-          groupId={groupId}
-          groupName={selectedGroup?.groupName}
-        />
-      )}
     </MainLayout>
   );
 }
