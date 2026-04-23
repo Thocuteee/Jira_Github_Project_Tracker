@@ -157,7 +157,8 @@ public class TaskServiceImpl implements TaskService {
                     .collect(Collectors.toList());
         }
         
-        return java.util.Collections.emptyList();
+        return Collections.emptyList();
+   
     }
 
     @Override
@@ -258,7 +259,7 @@ public class TaskServiceImpl implements TaskService {
         try {
             publishTaskEvent(savedTask, "STATUS_UPDATE");
         } catch (Exception e) {
-            log.warn("Could not publish task event (RabbitMQ unavailable?): {}", e.getMessage());
+            log.warn("Không thể gửi sự kiện lên RabbitMQ (RabbitMQ unavailable?): {}", e.getMessage());
         }
 
         return taskMapper.toResponse(savedTask);
@@ -349,7 +350,7 @@ public class TaskServiceImpl implements TaskService {
                 jiraIssueKey = reqResponse.getJiraIssueKey();
             }
         } catch (Exception e) {
-            log.warn("Could not fetch requirement details for Jira sync: {}", e.getMessage());
+            log.warn("Không thể lấy chi tiết requirement cho việc đồng bộ Jira: {}", e.getMessage());
         }
 
         TaskEvent event = TaskEvent.builder()

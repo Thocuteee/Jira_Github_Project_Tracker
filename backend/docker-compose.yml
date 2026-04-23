@@ -272,11 +272,6 @@ services:
       CLOUDFLARE_R2_ACCESS_KEY: ${CLOUDFLARE_R2_ACCESS_KEY}
       CLOUDFLARE_R2_SECRET_KEY: ${CLOUDFLARE_R2_SECRET_KEY}
       CLOUDFLARE_R2_BUCKET_NAME: ${CLOUDFLARE_R2_BUCKET_NAME}
-      REQUIREMENT_SERVICE_URL: http://requirement-service:8083
-      TASK_SERVICE_URL: http://task-service:8084
-      GROUP_SERVICE_URL: http://group-service:8082
-      AUTH_SERVICE_URL: http://auth-service:8081
-      FILE_SERVICE_URL: http://file-service:8090
 
   file-service:
     image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/file-service:latest
