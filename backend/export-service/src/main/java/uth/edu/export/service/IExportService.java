@@ -10,5 +10,6 @@ public interface IExportService {
 
     List<ExportResponse> getExportsByGroupId(UUID groupId);
 
-    String processExportRequest(ExportDocumentRequest request); // tra ve exportId (UUID) de client sau nay co the check trang thai export
+    /** @param authorizationHeader giá trị header Authorization từ request gốc (Bearer), chuyển tiếp cho file-service qua Feign. */
+    String processExportRequest(ExportDocumentRequest request, String authorizationHeader);
 }

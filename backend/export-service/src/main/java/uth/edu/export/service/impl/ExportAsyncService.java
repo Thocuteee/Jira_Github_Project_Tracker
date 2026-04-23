@@ -67,7 +67,7 @@ public class ExportAsyncService {
     private String routingKey;
 
     @Async
-    public void generateDocumentAsync(UUID exportId, ExportDocumentRequest request) {
+    public void generateDocumentAsync(UUID exportId, ExportDocumentRequest request, String authorizationHeader) {
         log.info("Start async export for exportId={}", exportId);
         try {
             updateStatus(exportId, ExportStatus.PROCESSING, "Đang tạo tài liệu...");
@@ -78,6 +78,7 @@ public class ExportAsyncService {
             if (requestedBy == null) {
                 throw new IllegalArgumentException("Thiếu requestedBy cho yêu cầu export.");
             }
+            ExportFeignContext.setBearerToken(authorizationHeader);
             ExportFeignContext.setRequestingUserId(requestedBy);
 
             String requirementDataJson = maybeFilterCompletedOnly(fetchRequirementData(request), request);
@@ -112,12 +113,30 @@ public class ExportAsyncService {
 
             MultipartFile multipartFile = new InMemoryMultipartFile("file", fileName, contentType, fileData);
 
-            FileRecordResponse fileRecord = fileServiceClient.uploadFile(
-                    multipartFile,
-                    request.getGroupId().toString(),
-                    "EXPORT",
-                    requestedBy.toString(),
-                    "ROLE_TEAM_MEMBER");
+            FileRecordResponse fileRecord;
+            try {
+                fileRecord = fileServiceClient.uploadFile(
+                        multipartFile,
+                        request.getGroupId().toString(),
+                        "EXPORT");
+            } catch (FeignException fe) {
+                log.error(
+                        "Upload file-service thất bại exportId={} HTTP status={} body={}",
+                        exportId,
+                        fe.status(),
+                        fe.contentUTF8(),
+                        fe);
+                markFailed(
+                        exportId,
+                        "Upload file-service thất bại (HTTP " + fe.status() + "): " + fe.getMessage());
+                return;
+            }
+
+            if (fileRecord == null || fileRecord.getFileUrl() == null || fileRecord.getFileUrl().isBlank()) {
+                log.error("file-service trả về thiếu fileUrl exportId={}", exportId);
+                markFailed(exportId, "file-service không trả về fileUrl hợp lệ.");
+                return;
+            }
 
             markCompleted(exportId, requirementDataJson, fileRecord.getFileUrl());
 

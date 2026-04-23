@@ -25,9 +25,10 @@ public class ExportController {
 
     // API endpoint de client goi khi muon xuat file, tra ve exportId de client sau nay check trang thai export
     @PostMapping("/generate")
-    public ResponseEntity<Object> generateDocument(@RequestBody ExportDocumentRequest request) {
-        // goi service de xu ly yeu cau xuat file, tra ve exportId (UUID) de client sau nay co the check trang thai export
-        String exportId = exportService.processExportRequest(request);
+    public ResponseEntity<Object> generateDocument(
+            @RequestBody ExportDocumentRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        String exportId = exportService.processExportRequest(request, authorization);
 
         // tra ve 202 Accepted va exportId
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(Map.of(

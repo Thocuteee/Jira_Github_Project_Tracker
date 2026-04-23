@@ -31,7 +31,7 @@ public class ExportServiceImpl implements IExportService {
     private static final int MAX_BASE_NAME_LENGTH = 120;
 
     private final ExportSRSRepository exportRepository;
-    // goi ExportAsyncService de chay ngam xu ly viec tao file va upload len Cloud Storage, sau do update database, de khong can cho client phai doi cho xong moi tra ve ket qua, nhung van co the tra ve ngay Export ID de client theo doi trang thai sau do
+    // Gọi ExportAsyncService async: tạo file, upload qua file-service, cập nhật DB; trả exportId ngay cho client.
     private final ExportAsyncService exportAsyncService; 
 
     @Override
@@ -58,7 +58,7 @@ public class ExportServiceImpl implements IExportService {
     
     @Override
     @Transactional
-    public String processExportRequest(ExportDocumentRequest request) {
+    public String processExportRequest(ExportDocumentRequest request, String authorizationHeader) {
         if (request.getGroupId() == null) {
             throw new IllegalArgumentException("groupId là bắt buộc.");
         }
@@ -83,7 +83,7 @@ public class ExportServiceImpl implements IExportService {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                exportAsyncService.generateDocumentAsync(savedExport.getExportId(), request);
+                exportAsyncService.generateDocumentAsync(savedExport.getExportId(), request, authorizationHeader);
             }
         });
 
