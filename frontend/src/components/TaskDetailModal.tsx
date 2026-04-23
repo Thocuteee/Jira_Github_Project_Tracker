@@ -54,44 +54,71 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       });
       loadExtraData();
     }
-  }, [isOpen, task]);
+  }, [isOpen, task.taskId]);
 
   const loadExtraData = async () => {
     setLoading(true);
     try {
-      const [commentsData, historyData, globalSettings, mappingData, reqData] = await Promise.all([
+      // Core data for this modal: comments + history.
+      const [commentsResult, historyResult] = await Promise.allSettled([
         taskService.getTaskComments(task.taskId),
-        taskService.getTaskHistory(task.taskId),
+        taskService.getTaskHistory(task.taskId)
+      ]);
+
+      const commentsData =
+        commentsResult.status === 'fulfilled' ? (commentsResult.value || []) : [];
+      const historyData =
+        historyResult.status === 'fulfilled' ? (historyResult.value || []) : [];
+
+      if (commentsResult.status === 'rejected') {
+        console.warn('Không tải được comments:', commentsResult.reason);
+      }
+      if (historyResult.status === 'rejected') {
+        console.warn('Không tải được history:', historyResult.reason);
+      }
+
+      setComments(commentsData);
+      setHistory(historyData);
+
+      // Fetch user names for comments and history
+      const allUserIds = new Set<string>();
+      commentsData.forEach((c: TaskComment) => allUserIds.add(c.userId));
+      historyData.forEach((h: TaskHistory) => allUserIds.add(h.changedBy));
+
+      if (allUserIds.size > 0) {
+        try {
+          const names = await authService.getUserNames(Array.from(allUserIds));
+          setLocalNames(names);
+        } catch (error) {
+          console.warn('Không tải được tên người dùng:', error);
+        }
+      }
+
+      // Non-critical metadata: should never block comments/history rendering.
+      const [globalSettingsResult, mappingResult, requirementResult] = await Promise.allSettled([
         githubService.getGlobalSettings(),
-        githubService.getAllMappings().then(mappings => 
+        githubService.getAllMappings().then(mappings =>
           (mappings || []).find((m: any) => m.groupId === task.groupId)
         ),
-        requirementService.getRequirementsByGroup(task.groupId).then((reqs: any) => 
+        requirementService.getRequirementsByGroup(task.groupId).then((reqs: any) =>
           (reqs as any || []).find((r: any) => r.requirementId === task.requirementId)
         )
       ]);
 
-      setComments(commentsData || []);
-      setHistory(historyData || []);
-      
+      const globalSettings = globalSettingsResult.status === 'fulfilled' ? globalSettingsResult.value : null;
+      const mappingData = mappingResult.status === 'fulfilled' ? mappingResult.value : null;
+      const reqData = requirementResult.status === 'fulfilled' ? requirementResult.value : null;
+
       if (globalSettings?.jiraUrl) setJiraUrl(globalSettings.jiraUrl);
-      if (mappingData?.githubRepo || mappingData?.githubRepoUrl) setGlobalGithubRepo(mappingData.githubRepo || mappingData.githubRepoUrl);
-      
-      // Prefer Requirement's own Epic key, otherwise fallback to the integration's project key
-      if (reqData?.jiraIssueKey) {
-          setGlobalJiraKey(reqData.jiraIssueKey);
-      } else if (mappingData?.jiraProjectKey) {
-          setGlobalJiraKey(mappingData.jiraProjectKey);
+      if (mappingData?.githubRepo || mappingData?.githubRepoUrl) {
+        setGlobalGithubRepo(mappingData.githubRepo || mappingData.githubRepoUrl);
       }
 
-      // Fetch user names for comments and history
-      const allUserIds = new Set<string>();
-      if (commentsData) commentsData.forEach((c: TaskComment) => allUserIds.add(c.userId));
-      if (historyData) historyData.forEach((h: TaskHistory) => allUserIds.add(h.changedBy));
-      
-      if (allUserIds.size > 0) {
-        const names = await authService.getUserNames(Array.from(allUserIds));
-        setLocalNames(names);
+      // Prefer Requirement's own Epic key, otherwise fallback to the integration's project key
+      if (reqData?.jiraIssueKey) {
+        setGlobalJiraKey(reqData.jiraIssueKey);
+      } else if (mappingData?.jiraProjectKey) {
+        setGlobalJiraKey(mappingData.jiraProjectKey);
       }
     } catch (error) {
       console.error('Lỗi khi tải dữ liệu bổ sung:', error);
