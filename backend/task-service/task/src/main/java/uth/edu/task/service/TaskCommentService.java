@@ -12,6 +12,11 @@ public interface TaskCommentService {
 
     List<TaskCommentResponse> getAllCommentsByTaskId(UUID taskId);
 
+    /**
+     * Lấy comment của nhiều task trong một truy vấn (phục vụ export / báo cáo).
+     */
+    List<TaskCommentResponse> getCommentsByTaskIds(List<UUID> taskIds);
+
     TaskCommentResponse updateComment(UUID commentId, TaskCommentRequest request);
 
     void deleteComment(UUID commentId);

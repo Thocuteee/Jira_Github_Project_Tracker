@@ -1,9 +1,17 @@
 package uth.edu.task.service.impl;
 
 
+import java.util.Collections;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import uth.edu.task.client.GroupClient;
 import uth.edu.task.config.UserContextHolder;
+import uth.edu.task.dto.response.external.GroupMemberResponse;
 import uth.edu.task.dto.request.TaskCommentRequest;
 import uth.edu.task.dto.response.TaskCommentResponse;
 import uth.edu.task.mapper.TaskCommentMapper;
@@ -13,10 +21,6 @@ import uth.edu.task.repository.TaskCommentRepository;
 import uth.edu.task.repository.TaskRepository;
 import uth.edu.task.service.TaskCommentService;
 
-import java.util.List;
-import java.util.UUID;
-import java.util.stream.Collectors;
-
 @Service
 @RequiredArgsConstructor
 public class TaskCommentServiceImpl implements TaskCommentService {
@@ -24,6 +28,7 @@ public class TaskCommentServiceImpl implements TaskCommentService {
     private final TaskCommentRepository taskCommentRepository;
     private final TaskRepository taskRepository;
     private final TaskCommentMapper taskCommentMapper;
+    private final GroupClient groupClient;
 
     @Override
     public TaskCommentResponse addComment(UUID taskId, TaskCommentRequest request) {
@@ -52,6 +57,61 @@ public class TaskCommentServiceImpl implements TaskCommentService {
         return comments.stream()
                 .map(taskCommentMapper::toResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<TaskCommentResponse> getCommentsByTaskIds(List<UUID> taskIds) {
+        if (taskIds == null || taskIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<UUID> distinct = taskIds.stream().distinct().toList();
+        List<Task> tasks = taskRepository.findAllById(distinct);
+        if (tasks.isEmpty()) {
+            return Collections.emptyList();
+        }
+        UUID groupId = tasks.get(0).getGroupId();
+        if (!tasks.stream().allMatch(t -> groupId.equals(t.getGroupId()))) {
+            throw new RuntimeException("Không thể tải comment cho task thuộc nhiều nhóm.");
+        }
+        UUID currentUserId = UserContextHolder.getUserId();
+        if (!isMemberOfGroup(groupId, currentUserId) && !isAdmin() && !isLecturer()) {
+            throw new RuntimeException("Bạn không có quyền xem comment của các task này!");
+        }
+        List<TaskComment> comments = taskCommentRepository.findByTask_TaskIdInOrderByTaskAndCreated(distinct);
+        return comments.stream()
+                .map(taskCommentMapper::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    private String getUserRoleString(UUID groupId, UUID userId) {
+        try {
+            List<GroupMemberResponse> members = groupClient.getGroupMembers(groupId);
+            if (members == null) {
+                return "NONE";
+            }
+            return members.stream()
+                    .filter(m -> m.getUserId().equals(userId))
+                    .map(GroupMemberResponse::getRoleInGroup)
+                    .findFirst()
+                    .orElse("NONE");
+        } catch (Exception e) {
+            return "NONE";
+        }
+    }
+
+    private boolean isMemberOfGroup(UUID groupId, UUID userId) {
+        String role = getUserRoleString(groupId, userId);
+        return !"NONE".equalsIgnoreCase(role);
+    }
+
+    private boolean isAdmin() {
+        return SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+    }
+
+    private boolean isLecturer() {
+        return SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_LECTURER"));
     }
 
     @Override

@@ -6,6 +6,8 @@ export interface ExportRequest {
   groupId: string;
   format: 'PDF' | 'DOCX';
   documentName?: string;
+  reportType?: 'SRS' | 'PROGRESS';
+  customIntroduction?: string;
   includeCompletedOnly?: boolean;
   includeTasks?: boolean;
   includeComments?: boolean;
@@ -34,6 +36,8 @@ class ExportService {
       groupId: request.groupId,
       fileType: request.format,
       documentName: request.documentName?.trim() || undefined,
+      reportType: request.reportType ?? 'SRS',
+      customIntroduction: request.customIntroduction?.trim() || undefined,
       requestedBy: request.requestedBy,
       requirementIds: request.requirementIds ?? [],
       includeCompletedOnly: request.includeCompletedOnly ?? false,

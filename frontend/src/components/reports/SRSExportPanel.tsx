@@ -1,23 +1,17 @@
-import { useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
     AlertCircle,
     CheckCircle2,
     Clock3,
-    Cpu,
     Download,
     FileDown,
     FileText,
     Layout,
-    Layers,
     ListChecks,
-    ListTodo,
     Loader2,
-    MessageSquare,
-    SlidersHorizontal,
     Square,
     CheckSquare,
-    TrendingUp,
     Zap,
 } from 'lucide-react';
 import exportService from '@/api/export.service';
@@ -31,42 +25,8 @@ interface SRSExportPanelProps {
     initialSelectedRequirementIds?: string[];
 }
 
-type ExportMode = 'ALL' | 'COMPLETED_ONLY' | 'CUSTOM';
-
-function CustomToggleRow({
-    checked,
-    onToggle,
-    icon,
-    label,
-    desc,
-}: {
-    checked: boolean;
-    onToggle: () => void;
-    icon: ReactNode;
-    label: string;
-    desc: string;
-}) {
-    return (
-        <button
-            type="button"
-            onClick={onToggle}
-            className={`flex w-full items-start gap-3 rounded-xl border-2 p-3 text-left transition-all ${
-                checked ? 'border-indigo-300 bg-indigo-50/70' : 'border-slate-100 bg-white hover:border-slate-200'
-            }`}
-        >
-            <span className={`mt-0.5 shrink-0 ${checked ? 'text-indigo-600' : 'text-slate-300'}`}>
-                {checked ? <CheckSquare size={18} /> : <Square size={18} />}
-            </span>
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-indigo-600 shadow-sm ring-1 ring-slate-100">
-                {icon}
-            </span>
-            <span className="min-w-0">
-                <span className={`block text-sm font-bold ${checked ? 'text-indigo-900' : 'text-slate-700'}`}>{label}</span>
-                <span className="mt-0.5 block text-xs font-medium text-slate-500 leading-snug">{desc}</span>
-            </span>
-        </button>
-    );
-}
+type ReportType = 'SRS' | 'PROGRESS';
+type RequirementScope = 'ALL' | 'COMPLETED_ONLY';
 
 function formatDateTime(iso: string | null | undefined): string {
     if (!iso) return '—';
@@ -81,16 +41,20 @@ function formatDateTime(iso: string | null | undefined): string {
     });
 }
 
+function isRequirementCompleted(status: string | null | undefined): boolean {
+    if (!status) return false;
+    const s = status.trim();
+    return s.toUpperCase() === 'DONE' || s.toUpperCase() === 'COMPLETED';
+}
+
 export default function SRSExportPanel({ groupId, initialSelectedRequirementIds }: SRSExportPanelProps) {
     const location = useLocation();
-    const [exportMode, setExportMode] = useState<ExportMode>('ALL');
-    const [exportConfig, setExportConfig] = useState<Partial<ExportRequest>>({
-        format: 'PDF',
-        includeCompletedOnly: false,
-        includeTasks: true,
-        includeComments: true,
-        includeProgress: true,
-    });
+    const [reportType, setReportType] = useState<ReportType>('SRS');
+    const [requirementScope, setRequirementScope] = useState<RequirementScope>('ALL');
+    const [customIntroduction, setCustomIntroduction] = useState('');
+    const [format, setFormat] = useState<'PDF' | 'DOCX'>('PDF');
+    const [includeTasks, setIncludeTasks] = useState(false);
+    const [includeComments, setIncludeComments] = useState(false);
     const [requirements, setRequirements] = useState<Requirement[]>([]);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [isLoadingReqs, setIsLoadingReqs] = useState(false);
@@ -123,20 +87,22 @@ export default function SRSExportPanel({ groupId, initialSelectedRequirementIds 
                 const response = await requirementService.getByGroup(groupId);
                 const data = Array.isArray(response) ? response : (response as { data?: Requirement[] }).data ?? [];
                 setRequirements(data);
+
                 const preferredSelection =
                     selectedFromRoute && selectedFromRoute.length > 0
                         ? selectedFromRoute
                         : initialSelectedRequirementIds && initialSelectedRequirementIds.length > 0
                           ? initialSelectedRequirementIds
                           : [];
+
+                const allIds = data.map((r) => r.requirementId);
                 if (preferredSelection.length > 0) {
-                    const validIds = data
-                        .map((r) => r.requirementId)
-                        .filter((id) => preferredSelection.includes(id));
-                    setSelectedIds(validIds.length > 0 ? validIds : data.map((r) => r.requirementId));
+                    const validIds = allIds.filter((id) => preferredSelection.includes(id));
+                    setSelectedIds(validIds.length > 0 ? validIds : allIds);
                 } else {
-                    setSelectedIds(data.map((r) => r.requirementId));
+                    setSelectedIds(allIds);
                 }
+                setRequirementScope('ALL');
             } catch (error) {
                 console.error('Lỗi khi tải danh sách yêu cầu:', error);
             } finally {
@@ -145,6 +111,23 @@ export default function SRSExportPanel({ groupId, initialSelectedRequirementIds 
         };
         fetchRequirements();
     }, [groupId, initialSelectedRequirementIds, selectedFromRoute]);
+
+    const applyScopeAll = useCallback((data: Requirement[]) => {
+        setSelectedIds(data.map((r) => r.requirementId));
+    }, []);
+
+    const applyScopeCompletedOnly = useCallback((data: Requirement[]) => {
+        setSelectedIds(data.filter((r) => isRequirementCompleted(r.status)).map((r) => r.requirementId));
+    }, []);
+
+    const onScopeChange = (scope: RequirementScope) => {
+        setRequirementScope(scope);
+        if (scope === 'ALL') {
+            applyScopeAll(requirements);
+        } else {
+            applyScopeCompletedOnly(requirements);
+        }
+    };
 
     const loadHistory = useCallback(async (showSpinner: boolean) => {
         if (!groupId) return;
@@ -180,57 +163,27 @@ export default function SRSExportPanel({ groupId, initialSelectedRequirementIds 
         }
     };
 
-    const applyExportModeAll = () => {
-        setExportMode('ALL');
-        setExportConfig((prev) => ({
-            ...prev,
-            includeCompletedOnly: false,
-            includeTasks: true,
-            includeComments: true,
-            includeProgress: true,
-        }));
-    };
-
-    const applyExportModeCompletedOnly = () => {
-        setExportMode('COMPLETED_ONLY');
-        setExportConfig((prev) => ({
-            ...prev,
-            includeCompletedOnly: true,
-            includeTasks: true,
-            includeComments: false,
-            includeProgress: true,
-        }));
-    };
-
-    const applyExportModeCustom = () => {
-        setExportMode('CUSTOM');
-        setExportConfig((prev) => ({
-            ...prev,
-            includeCompletedOnly: false,
-        }));
-    };
-
-    const modeCardClass = (mode: ExportMode) =>
-        `w-full rounded-xl border-2 p-4 text-left transition-all ${
-            exportMode === mode
-                ? 'border-blue-500 bg-blue-50/90 shadow-sm ring-1 ring-blue-100'
-                : 'border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50/80'
-        }`;
-
     const handleExport = async () => {
         setIsExporting(true);
         try {
-            await exportService.generateSRS({
+            const tasks = reportType === 'SRS' ? false : includeTasks;
+            const comments = reportType === 'SRS' ? false : includeComments;
+
+            const payload: ExportRequest = {
                 groupId,
-                format: exportConfig.format as 'PDF' | 'DOCX',
+                format,
+                documentName: documentName.trim() || undefined,
+                reportType,
+                customIntroduction: customIntroduction.trim() || undefined,
                 requirementIds: selectedIds,
                 requestedBy: currentUserId,
-                includeCompletedOnly: exportConfig.includeCompletedOnly ?? false,
-                includeTasks: exportConfig.includeTasks ?? true,
-                includeComments: exportConfig.includeComments ?? false,
-                includeProgress: exportConfig.includeProgress ?? true,
-                documentName: documentName.trim() || undefined,
-            } as ExportRequest);
+                includeCompletedOnly: false,
+                includeTasks: tasks,
+                includeComments: comments,
+                includeProgress: true,
+            };
+
+            await exportService.generateSRS(payload);
             await loadHistory(true);
             setLastExport(new Date().toLocaleTimeString('vi-VN'));
         } catch (error) {
@@ -249,12 +202,12 @@ export default function SRSExportPanel({ groupId, initialSelectedRequirementIds 
         });
     }, [history]);
 
-    const isCompleted = (status: string | null | undefined) =>
+    const isExportHistoryCompleted = (status: string | null | undefined) =>
         status === 'COMPLETED' || status === 'DONE';
 
     const getStatusBadgeClass = (status: string | null | undefined) => {
         if (!status) return 'bg-slate-50 text-slate-600 border-slate-200';
-        if (isCompleted(status)) return 'bg-emerald-50 text-emerald-800 border-emerald-200';
+        if (isExportHistoryCompleted(status)) return 'bg-emerald-50 text-emerald-800 border-emerald-200';
         if (status === 'FAILED') return 'bg-red-50 text-red-700 border-red-200';
         if (status === 'PROCESSING') return 'bg-sky-50 text-sky-800 border-sky-200';
         if (status === 'PENDING') return 'bg-amber-50 text-amber-800 border-amber-200';
@@ -262,19 +215,24 @@ export default function SRSExportPanel({ groupId, initialSelectedRequirementIds 
     };
 
     const getStatusIcon = (status: string | null | undefined) => {
-        if (isCompleted(status)) return <CheckCircle2 size={14} className="shrink-0" />;
+        if (isExportHistoryCompleted(status)) return <CheckCircle2 size={14} className="shrink-0" />;
         if (status === 'FAILED') return <AlertCircle size={14} className="shrink-0" />;
         return <Loader2 size={14} className="shrink-0 animate-spin" />;
     };
 
     const canDownload = (item: ExportResponse) =>
-        isCompleted(item.status ?? undefined) && Boolean(item.fileUrl);
+        isExportHistoryCompleted(item.status ?? undefined) && Boolean(item.fileUrl);
+
+    const radioClass = (active: boolean) =>
+        `flex cursor-pointer items-start gap-3 rounded-xl border-2 p-3 transition-all ${
+            active ? 'border-blue-500 bg-blue-50/90 shadow-sm ring-1 ring-blue-100' : 'border-slate-100 bg-white hover:border-slate-200'
+        }`;
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm overflow-hidden">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
-                    {/* Khu vực 1: Định dạng */}
+                    {/* Cột 1: Định dạng & meta */}
                     <div className="lg:col-span-3 space-y-4">
                         <div className="flex items-center gap-2 mb-2">
                             <div className="p-2 rounded-lg bg-blue-50 text-blue-600">
@@ -294,14 +252,44 @@ export default function SRSExportPanel({ groupId, initialSelectedRequirementIds 
                             />
                         </div>
 
+                        <div>
+                            <label className="mb-1 block text-xs font-semibold text-slate-600">Lời giới thiệu</label>
+                            <textarea
+                                value={customIntroduction}
+                                onChange={(e) => setCustomIntroduction(e.target.value)}
+                                placeholder="Để trống để dùng đoạn giới thiệu mặc định của hệ thống."
+                                rows={4}
+                                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 resize-y min-h-[96px]"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="mb-1 block text-xs font-semibold text-slate-600">Phân loại báo cáo</label>
+                            <select
+                                value={reportType}
+                                onChange={(e) => {
+                                    const v = e.target.value as ReportType;
+                                    setReportType(v);
+                                    if (v === 'SRS') {
+                                        setIncludeTasks(false);
+                                        setIncludeComments(false);
+                                    }
+                                }}
+                                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 bg-white focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                            >
+                                <option value="SRS">SRS — Đặc tả yêu cầu</option>
+                                <option value="PROGRESS">Progress — Báo cáo tiến độ</option>
+                            </select>
+                        </div>
+
                         <div className="grid gap-3">
                             {(['PDF', 'DOCX'] as const).map((fmt) => (
                                 <button
                                     key={fmt}
                                     type="button"
-                                    onClick={() => setExportConfig({ ...exportConfig, format: fmt })}
+                                    onClick={() => setFormat(fmt)}
                                     className={`flex items-center justify-between px-4 py-4 rounded-xl border-2 transition-all ${
-                                        exportConfig.format === fmt
+                                        format === fmt
                                             ? 'border-blue-600 bg-blue-50/50 text-blue-700 shadow-sm'
                                             : 'border-slate-100 hover:border-slate-200 text-slate-500'
                                     }`}
@@ -309,7 +297,7 @@ export default function SRSExportPanel({ groupId, initialSelectedRequirementIds 
                                     <div className="flex items-center gap-3">
                                         <div
                                             className={`p-2 rounded-lg ${
-                                                exportConfig.format === fmt ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'
+                                                format === fmt ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'
                                             }`}
                                         >
                                             <FileText size={16} />
@@ -318,7 +306,7 @@ export default function SRSExportPanel({ groupId, initialSelectedRequirementIds 
                                             {fmt === 'PDF' ? 'Portable Document (PDF)' : 'Microsoft Word (DOCX)'}
                                         </span>
                                     </div>
-                                    {exportConfig.format === fmt && (
+                                    {format === fmt && (
                                         <div className="h-5 w-5 rounded-full bg-blue-600 flex items-center justify-center">
                                             <CheckCircle2 size={12} className="text-white" />
                                         </div>
@@ -326,132 +314,77 @@ export default function SRSExportPanel({ groupId, initialSelectedRequirementIds 
                                 </button>
                             ))}
                         </div>
-
-                        <div className="mt-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
-                            <div className="flex items-center gap-3 text-slate-400">
-                                <div className="h-8 w-8 rounded-full bg-white flex items-center justify-center shadow-sm">
-                                    <Cpu size={16} />
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Export Engine</p>
-                                    <p className="text-xs font-semibold text-slate-600">Async + lưu trữ</p>
-                                </div>
-                            </div>
-                        </div>
                     </div>
 
-                    {/* Khu vực 2: Tùy chọn nội dung */}
+                    {/* Cột 2: Phạm vi + tùy chọn nâng cao */}
                     <div className="lg:col-span-4 space-y-4">
                         <div className="flex items-center gap-2 mb-2">
                             <div className="p-2 rounded-lg bg-violet-50 text-violet-600">
-                                <Layers size={18} />
+                                <ListChecks size={18} />
                             </div>
-                            <h3 className="font-bold text-slate-900">Tùy chọn nội dung</h3>
+                            <h3 className="font-bold text-slate-900">Phạm vi &amp; tùy chọn</h3>
                         </div>
 
-                        <div className="space-y-3">
-                            <button type="button" onClick={applyExportModeAll} className={modeCardClass('ALL')}>
-                                <div className="flex items-start gap-3">
-                                    <div
-                                        className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-                                            exportMode === 'ALL' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
-                                        }`}
-                                    >
-                                        <ListTodo size={18} />
-                                    </div>
-                                    <div className="min-w-0">
-                                        <p className="text-sm font-bold text-slate-900">Tất cả Requirement (bao gồm Task & Comment)</p>
-                                        <p className="mt-1 text-xs font-medium text-slate-500 leading-snug">
-                                            Xuất đầy đủ yêu cầu đã chọn, kèm chi tiết Task, Comment và báo cáo tiến độ.
-                                        </p>
-                                    </div>
-                                </div>
-                            </button>
-
-                            <button type="button" onClick={applyExportModeCompletedOnly} className={modeCardClass('COMPLETED_ONLY')}>
-                                <div className="flex items-start gap-3">
-                                    <div
-                                        className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-                                            exportMode === 'COMPLETED_ONLY' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
-                                        }`}
-                                    >
-                                        <CheckCircle2 size={18} />
-                                    </div>
-                                    <div className="min-w-0">
-                                        <p className="text-sm font-bold text-slate-900">Chỉ Requirement đã hoàn thành</p>
-                                        <p className="mt-1 text-xs font-medium text-slate-500 leading-snug">
-                                            Lọc các yêu cầu trạng thái DONE trong phạm vi đã tick bên dưới.
-                                        </p>
-                                    </div>
-                                </div>
-                            </button>
-
-                            <button type="button" onClick={applyExportModeCustom} className={modeCardClass('CUSTOM')}>
-                                <div className="flex items-start gap-3">
-                                    <div
-                                        className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-                                            exportMode === 'CUSTOM' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
-                                        }`}
-                                    >
-                                        <SlidersHorizontal size={18} />
-                                    </div>
-                                    <div className="min-w-0">
-                                        <p className="text-sm font-bold text-slate-900">Tuỳ chỉnh</p>
-                                        <p className="mt-1 text-xs font-medium text-slate-500 leading-snug">
-                                            Bật/tắt từng loại nội dung xuất hiện trong tài liệu.
-                                        </p>
-                                    </div>
-                                </div>
-                            </button>
-                        </div>
-
-                        {exportMode === 'CUSTOM' && (
-                            <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/80 p-4">
-                                <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">Chi tiết tuỳ chỉnh</p>
-                                <CustomToggleRow
-                                    checked={Boolean(exportConfig.includeTasks)}
-                                    onToggle={() => {
-                                        setExportMode('CUSTOM');
-                                        setExportConfig((c) => ({
-                                            ...c,
-                                            includeTasks: !c.includeTasks,
-                                        }));
-                                    }}
-                                    icon={<ListTodo size={18} />}
-                                    label="Bao gồm chi tiết Task"
-                                    desc="Liệt kê công việc liên quan từng yêu cầu (khi backend hỗ trợ đầy đủ)."
+                        <fieldset className="space-y-3">
+                            <legend className="mb-1 text-xs font-semibold text-slate-600">Chọn phạm vi requirement</legend>
+                            <label className={radioClass(requirementScope === 'ALL')}>
+                                <input
+                                    type="radio"
+                                    name="requirement-scope"
+                                    className="mt-1 h-4 w-4 shrink-0 text-blue-600 border-slate-300 focus:ring-blue-500"
+                                    checked={requirementScope === 'ALL'}
+                                    onChange={() => onScopeChange('ALL')}
                                 />
-                                <CustomToggleRow
-                                    checked={Boolean(exportConfig.includeComments)}
-                                    onToggle={() => {
-                                        setExportMode('CUSTOM');
-                                        setExportConfig((c) => ({
-                                            ...c,
-                                            includeComments: !c.includeComments,
-                                        }));
-                                    }}
-                                    icon={<MessageSquare size={18} />}
-                                    label="Bao gồm Comment & Trao đổi"
-                                    desc="Ghi nhận trao đổi / bình luận trên yêu cầu."
+                                <span>
+                                    <span className="block text-sm font-bold text-slate-900">Tất cả requirement</span>
+                                    <span className="mt-0.5 block text-xs font-medium text-slate-500 leading-snug">
+                                        Chọn toàn bộ yêu cầu trong nhóm (có thể bỏ tick từng dòng bên dưới).
+                                    </span>
+                                </span>
+                            </label>
+                            <label className={radioClass(requirementScope === 'COMPLETED_ONLY')}>
+                                <input
+                                    type="radio"
+                                    name="requirement-scope"
+                                    className="mt-1 h-4 w-4 shrink-0 text-blue-600 border-slate-300 focus:ring-blue-500"
+                                    checked={requirementScope === 'COMPLETED_ONLY'}
+                                    onChange={() => onScopeChange('COMPLETED_ONLY')}
                                 />
-                                <CustomToggleRow
-                                    checked={Boolean(exportConfig.includeProgress)}
-                                    onToggle={() => {
-                                        setExportMode('CUSTOM');
-                                        setExportConfig((c) => ({
-                                            ...c,
-                                            includeProgress: !c.includeProgress,
-                                        }));
-                                    }}
-                                    icon={<TrendingUp size={18} />}
-                                    label="Báo cáo tiến độ"
-                                    desc="Thống kê % hoàn thành và tiến độ tổng quan."
-                                />
+                                <span>
+                                    <span className="block text-sm font-bold text-slate-900">Chỉ requirement đã hoàn thành</span>
+                                    <span className="mt-0.5 block text-xs font-medium text-slate-500 leading-snug">
+                                        Trạng thái DONE hoặc COMPLETED — danh sách tick bên dưới được cập nhật theo.
+                                    </span>
+                                </span>
+                            </label>
+                        </fieldset>
+
+                        {reportType === 'PROGRESS' && (
+                            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-3">
+                                <p className="text-sm font-bold text-slate-900">Tùy chọn nâng cao</p>
+                                <label className="flex items-center gap-2 cursor-pointer text-sm font-semibold text-slate-700">
+                                    <input
+                                        type="checkbox"
+                                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                        checked={includeTasks}
+                                        onChange={() => setIncludeTasks((v) => !v)}
+                                    />
+                                    Xuất kèm Task
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer text-sm font-semibold text-slate-700">
+                                    <input
+                                        type="checkbox"
+                                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                        checked={includeComments}
+                                        onChange={() => setIncludeComments((v) => !v)}
+                                    />
+                                    Xuất kèm Comment của Task
+                                </label>
                             </div>
                         )}
                     </div>
 
-                    {/* Khu vực 3: Chọn Requirement */}
+                    {/* Cột 3: Danh sách requirement */}
                     <div className="lg:col-span-5 space-y-3">
                         <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
@@ -473,7 +406,8 @@ export default function SRSExportPanel({ groupId, initialSelectedRequirementIds 
                         </div>
 
                         <p className="text-xs font-medium text-slate-500 leading-relaxed border-l-2 border-blue-200 pl-3 py-0.5">
-                            Nếu chọn cấu hình ở trên, hệ thống sẽ áp dụng trong phạm vi các yêu cầu được tick chọn tại đây (ví dụ: chỉ DONE trong số các mục đã chọn).
+                            Danh sách tick phản ánh đúng <code className="text-[11px]">requirementIds</code> gửi lên server. Dùng
+                            radio phạm vi để chọn nhanh, sau đó tinh chỉnh từng dòng nếu cần.
                         </p>
 
                         <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50/50">
@@ -570,7 +504,7 @@ export default function SRSExportPanel({ groupId, initialSelectedRequirementIds 
                             ) : (
                                 <FileDown size={20} />
                             )}
-                            <span>{isExporting ? 'Đang tạo yêu cầu xuất...' : 'Xuất tài liệu SRS'}</span>
+                            <span>{isExporting ? 'Đang tạo yêu cầu xuất...' : 'Xuất báo cáo'}</span>
                         </button>
                     </div>
                 </div>

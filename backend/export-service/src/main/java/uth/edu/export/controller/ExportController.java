@@ -60,11 +60,18 @@ public class ExportController {
         
         String projectName = request.getGroupId() != null ? "Group " + request.getGroupId() : "Software Project";
         String author = request.getRequestedBy() != null ? request.getRequestedBy().toString() : "System";
+        String reportType = request.getReportType();
+        if (reportType == null || reportType.isBlank()) {
+            reportType = "SRS";
+        }
+
         byte[] content = documentGeneratorService.generateDocument(
                 requirementData,
                 request.getFileType(),
                 projectName,
-                author);
+                author,
+                request.getCustomIntroduction(),
+                reportType);
         
         String mimeType = request.getFileType().equalsIgnoreCase("PDF") ? "application/pdf" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
         String extension = request.getFileType().toLowerCase();

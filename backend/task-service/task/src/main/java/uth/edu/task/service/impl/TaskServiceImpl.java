@@ -112,6 +112,29 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
+    public List<TaskResponse> getTasksByRequirementIds(List<UUID> requirementIds) {
+        if (requirementIds == null || requirementIds.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        List<UUID> distinct = requirementIds.stream().distinct().toList();
+        List<Task> tasks = taskRepository.findByRequirementIdIn(distinct);
+        if (tasks.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        UUID currentUserId = UserContextHolder.getUserId();
+        UUID groupId = tasks.get(0).getGroupId();
+        if (!tasks.stream().allMatch(t -> groupId.equals(t.getGroupId()))) {
+            throw new RuntimeException("Danh sách requirement chứa task thuộc nhiều nhóm — không hỗ trợ.");
+        }
+        if (!isMemberOfGroup(groupId, currentUserId) && !isAdmin() && !isLecturer()) {
+            throw new RuntimeException("Bạn không có quyền xem danh sách Task của các requirement này!");
+        }
+        return tasks.stream()
+                .map(taskMapper::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public List<TaskResponse> getTasksForUserInGroup(UUID groupId, UUID userId) {
         String roleInGroup = getUserRoleString(groupId, userId);
         boolean isLeader = "LEADER".equalsIgnoreCase(roleInGroup);

@@ -16,4 +16,7 @@ public class ExportDocumentRequest {
     private Boolean includeTasks;
     private Boolean includeComments;
     private Boolean includeProgress;
+    /** "SRS" hoặc "Progress" (mặc định SRS nếu null). */
+    private String reportType;
+    private String customIntroduction;
 }

@@ -31,6 +31,11 @@ public class TaskCommentController {
         return ResponseEntity.ok(taskCommentService.getAllCommentsByTaskId(taskId));
     }
 
+    @PostMapping("/comments/by-tasks")
+    public ResponseEntity<List<TaskCommentResponse>> listCommentsForTasks(@RequestBody List<UUID> taskIds) {
+        return ResponseEntity.ok(taskCommentService.getCommentsByTaskIds(taskIds));
+    }
+
     @PatchMapping("/{taskId}/comments/{commentId}")
     public ResponseEntity<TaskCommentResponse> updateComment(
             @PathVariable UUID taskId,
