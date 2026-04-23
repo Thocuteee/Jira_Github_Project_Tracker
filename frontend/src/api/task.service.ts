@@ -88,12 +88,21 @@ class TaskService {
   }
 
   // --- Attachments ---
-  async generateAttachmentPresignedUrl(taskId: string, fileName: string, contentType: string): Promise<{ presignedUrl: string, fileKey: string, fileUrl: string }> {
-    return (await axiosClient.post(`${BASE_PATH}/${taskId}/attachments/presigned-url`, { fileName, contentType })) as { presignedUrl: string, fileKey: string, fileUrl: string };
+
+  async uploadAttachment(taskId: string, file: File): Promise<Attachment> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return (await axiosClient.post(`${BASE_PATH}/${taskId}/attachments/upload`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })) as Attachment;
   }
 
-  async saveAttachment(taskId: string, data: { fileKey: string, fileName: string, fileUrl: string }): Promise<Attachment> {
-    return (await axiosClient.post(`${BASE_PATH}/${taskId}/attachments`, data)) as Attachment;
+  async getTaskAttachments(taskId: string): Promise<Attachment[]> {
+    return (await axiosClient.get(`${BASE_PATH}/${taskId}/attachments`)) as Attachment[];
+  }
+
+  async deleteAttachment(taskId: string, attachmentId: string): Promise<void> {
+    await axiosClient.delete(`${BASE_PATH}/${taskId}/attachments/${attachmentId}`);
   }
 }
 

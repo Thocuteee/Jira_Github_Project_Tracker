@@ -29,6 +29,7 @@ import uth.edu.task.dto.response.external.GroupMemberResponse;
 import uth.edu.task.dto.response.external.RequirementResponse;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
