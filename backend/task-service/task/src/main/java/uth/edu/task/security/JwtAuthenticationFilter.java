@@ -47,6 +47,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 if (userIdStr != null) UserContextHolder.setUserId(UUID.fromString(userIdStr));
                 UserContextHolder.setUserRole(role);
+                UserContextHolder.setJwtToken(jwt);
 
                 List<SimpleGrantedAuthority> authorities = Collections.singletonList(new SimpleGrantedAuthority(role));
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
@@ -68,6 +69,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                         UserContextHolder.setUserId(userId);
                         UserContextHolder.setUserRole(role);
+                        UserContextHolder.setJwtToken(null);
 
                         List<SimpleGrantedAuthority> authorities = Collections.singletonList(new SimpleGrantedAuthority(role));
                         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(

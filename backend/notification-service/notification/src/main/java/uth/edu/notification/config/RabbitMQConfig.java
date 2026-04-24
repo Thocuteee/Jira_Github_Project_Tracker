@@ -4,11 +4,13 @@ import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.support.converter.DefaultJackson2JavaTypeMapper;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import uth.edu.notification.dto.event.TaskEvent;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -66,6 +68,16 @@ public class RabbitMQConfig {
 
     @Bean
     public MessageConverter jsonMessageConverter() {
-        return new Jackson2JsonMessageConverter();
+        Jackson2JsonMessageConverter converter = new Jackson2JsonMessageConverter();
+        DefaultJackson2JavaTypeMapper typeMapper = new DefaultJackson2JavaTypeMapper();
+
+        Map<String, Class<?>> idClassMapping = new HashMap<>();
+        idClassMapping.put("uth.edu.task.dto.event.TaskEvent", TaskEvent.class);
+        idClassMapping.put(TaskEvent.class.getName(), TaskEvent.class);
+
+        typeMapper.setIdClassMapping(idClassMapping);
+        typeMapper.setTrustedPackages("uth.edu.notification.dto.event", "uth.edu.task.dto.event", "java.util", "java.time");
+        converter.setJavaTypeMapper(typeMapper);
+        return converter;
     }
 }

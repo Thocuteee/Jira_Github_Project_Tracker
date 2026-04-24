@@ -37,6 +37,7 @@ interface FcmContextProps {
 }
 
 const FcmContext = createContext<FcmContextProps | undefined>(undefined);
+const NOTIFICATION_POLL_INTERVAL_MS = 15000;
 
 let toastIdCounter = 0;
 
@@ -104,6 +105,29 @@ export function FcmProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void refreshNotifications();
   }, [refreshNotifications]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const intervalId = window.setInterval(() => {
+      void refreshNotifications();
+    }, NOTIFICATION_POLL_INTERVAL_MS);
+    return () => window.clearInterval(intervalId);
+  }, [refreshNotifications, userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const refreshOnFocus = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshNotifications();
+      }
+    };
+    window.addEventListener('focus', refreshOnFocus);
+    document.addEventListener('visibilitychange', refreshOnFocus);
+    return () => {
+      window.removeEventListener('focus', refreshOnFocus);
+      document.removeEventListener('visibilitychange', refreshOnFocus);
+    };
+  }, [refreshNotifications, userId]);
 
   const handleNotification = useCallback((notification: { title: string; body: string }) => {
     const id = ++toastIdCounter;

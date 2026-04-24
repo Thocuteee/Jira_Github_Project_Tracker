@@ -21,4 +21,7 @@ public class CreateNotificationRequest {
     // Optional: Firebase token (FCM) của thiết bị/client.
     // Nếu null/trống hoặc cấu hình Firebase thiếu thì notification vẫn được lưu DB bình thường.
     private String fcmToken;
+
+    // Optional: JWT của user phát sinh event, dùng cho service-to-service call cần bảo mật.
+    private String authToken;
 }

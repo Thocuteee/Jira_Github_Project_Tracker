@@ -13,9 +13,13 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class TaskEvent {
     private UUID taskId;
+    private String taskName;
+    private UUID assigneeId;
+    private UUID reporterId;
     private String title;
     private UUID assignedTo;
     private UUID requirementId;
     private String eventType;
+    private String authToken;
     private LocalDateTime timestamp;
 }

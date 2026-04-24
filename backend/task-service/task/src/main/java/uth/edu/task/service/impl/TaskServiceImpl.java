@@ -39,6 +39,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class TaskServiceImpl implements TaskService {
+    private static final String EVENT_TASK_ASSIGNED = "TASK_ASSIGNED";
+    private static final String EVENT_TASK_COMPLETED = "TASK_COMPLETED";
+    private static final String EVENT_TASK_STATUS_UPDATED = "STATUS_UPDATE";
 
     private final TaskRepository taskRepository;
     private final TaskHistoryRepository taskHistoryRepository;
@@ -72,8 +75,11 @@ public class TaskServiceImpl implements TaskService {
 
         try {
             publishTaskEvent(savedTask, "CREATED");
+            if (savedTask.getAssignedTo() != null) {
+                publishTaskEvent(savedTask, EVENT_TASK_ASSIGNED);
+            }
         } catch (Exception e) {
-            log.warn("Could not publish task event (RabbitMQ unavailable?): {}", e.getMessage());
+            log.warn("Không thể gửi sự kiện task (RabbitMQ không khả dụng?): {}", e.getMessage());
         }
 
         return taskMapper.toResponse(savedTask);
@@ -226,13 +232,14 @@ public class TaskServiceImpl implements TaskService {
         }
         task.setAssignedTo(request.getAssignedTo());
 
+        Task updatedTask = taskRepository.save(task);
         try {
-            publishTaskEvent(task, "ASSIGN");
+            if (updatedTask.getAssignedTo() != null) {
+                publishTaskEvent(updatedTask, EVENT_TASK_ASSIGNED);
+            }
         } catch (Exception e) {
             log.warn("Could not publish task event (RabbitMQ unavailable?): {}", e.getMessage());
         }
-
-        Task updatedTask = taskRepository.save(task);
         return taskMapper.toResponse(updatedTask);
     }
 
@@ -256,16 +263,15 @@ public class TaskServiceImpl implements TaskService {
 
         task.setStatus(request.getStatus());
         Task saved = taskRepository.save(task);
-
-        TaskEvent event = TaskEvent.builder()
-                .taskId(saved.getTaskId())
-                .title(saved.getTitle())
-                .assignedTo(saved.getAssignedTo())
-                .requirementId(saved.getRequirementId())
-                .eventType(request.getStatus().name())
-                .timestamp(LocalDateTime.now())
-                .build();
-        taskEventPublisher.publishTaskEvent(event);
+        try {
+            if (request.getStatus() == ETaskStatus.DONE) {
+                publishTaskEvent(saved, EVENT_TASK_COMPLETED);
+            } else {
+                publishTaskEvent(saved, EVENT_TASK_STATUS_UPDATED);
+            }
+        } catch (Exception e) {
+            log.warn("Could not publish task event (RabbitMQ unavailable?): {}", e.getMessage());
+        }
 
         return taskMapper.toResponse(saved);
     }
@@ -360,12 +366,16 @@ public class TaskServiceImpl implements TaskService {
 
         TaskEvent event = TaskEvent.builder()
                 .taskId(task.getTaskId())
+                .taskName(task.getTitle())
+                .assigneeId(task.getAssignedTo())
+                .reporterId(task.getCreatedBy())
                 .title(task.getTitle())
                 .assignedTo(task.getAssignedTo())
                 .requirementId(task.getRequirementId())
                 .jiraIssueKey(jiraIssueKey)
                 .eventType(eventType)
                 .status(task.getStatus() != null ? task.getStatus().name() : null)
+                .authToken(UserContextHolder.getJwtToken())
                 .timestamp(LocalDateTime.now())
                 .build();
 

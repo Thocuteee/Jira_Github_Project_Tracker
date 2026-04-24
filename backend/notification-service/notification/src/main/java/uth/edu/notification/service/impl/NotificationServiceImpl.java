@@ -11,10 +11,13 @@ import org.springframework.util.StringUtils;
 import uth.edu.notification.dto.CreateNotificationRequest;
 import uth.edu.notification.fcm.FcmSender;
 import uth.edu.notification.model.Notification;
+import uth.edu.notification.model.NotificationPreference;
 import uth.edu.notification.repository.NotificationRepository;
+import uth.edu.notification.service.IEmailService;
 import uth.edu.notification.service.IFcmTokenService;
 import uth.edu.notification.service.INotificationService;
 import uth.edu.notification.service.INotificationPreferenceService;
+import uth.edu.notification.service.IUserDirectoryService;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +27,8 @@ public class NotificationServiceImpl implements INotificationService {
     private final FcmSender fcmSender;
     private final IFcmTokenService fcmTokenService;
     private final INotificationPreferenceService notificationPreferenceService;
+    private final IUserDirectoryService userDirectoryService;
+    private final IEmailService emailService;
 
     @Override
     public Notification createNotification(CreateNotificationRequest request) {
@@ -36,7 +41,9 @@ public class NotificationServiceImpl implements INotificationService {
 
         Notification saved = notificationRepository.save(notification);
 
-        boolean pushEnabled = notificationPreferenceService.getOrCreatePreference(request.getUserId()).getPushEnabled();
+        NotificationPreference preference = notificationPreferenceService.getOrCreatePreference(request.getUserId());
+        boolean pushEnabled = preference.getPushEnabled();
+        boolean emailEnabled = preference.getEmailEnabled();
         if (Boolean.TRUE.equals(pushEnabled)) {
             // Best-effort push: try explicit token from request first, then all registered tokens.
             if (StringUtils.hasText(request.getFcmToken())) {
@@ -49,6 +56,15 @@ public class NotificationServiceImpl implements INotificationService {
             }
         } else {
             log.debug("Push notifications disabled for userId={}, skip FCM dispatch", request.getUserId());
+        }
+
+        if (Boolean.TRUE.equals(emailEnabled)) {
+            userDirectoryService.findEmailByUserId(request.getUserId(), request.getAuthToken()).ifPresentOrElse(
+                email -> emailService.sendEmailAsync(email, saved.getTitle(), toHtmlBody(saved.getTitle(), saved.getMessage())),
+                () -> log.debug("Recipient email not found (or auth token missing/expired), skip email notification for userId={}", request.getUserId())
+            );
+        } else {
+            log.debug("Email notifications disabled for userId={}, skip email dispatch", request.getUserId());
         }
 
         return saved;
@@ -64,6 +80,23 @@ public class NotificationServiceImpl implements INotificationService {
         } catch (Exception ex) {
             log.warn("FCM push failed for token (best-effort): {}", token, ex);
         }
+    }
+
+    private String toHtmlBody(String title, String message) {
+        return "<div style=\"font-family:Arial,sans-serif;line-height:1.5;\">"
+            + "<h3 style=\"margin:0 0 12px 0;color:#0f172a;\">" + safe(title) + "</h3>"
+            + "<p style=\"margin:0;color:#334155;\">" + safe(message) + "</p>"
+            + "</div>";
+    }
+
+    private String safe(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;");
     }
 
     @Override
