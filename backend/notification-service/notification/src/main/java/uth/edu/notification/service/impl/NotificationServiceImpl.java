@@ -3,23 +3,24 @@ package uth.edu.notification.service.impl;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import uth.edu.notification.dto.CreateNotificationRequest;
 import uth.edu.notification.fcm.FcmSender;
 import uth.edu.notification.model.Notification;
 import uth.edu.notification.repository.NotificationRepository;
+import uth.edu.notification.service.IFcmTokenService;
 import uth.edu.notification.service.INotificationService;
 
 @Service
+@RequiredArgsConstructor
+@Slf4j
 public class NotificationServiceImpl implements INotificationService {
     private final NotificationRepository notificationRepository;
     private final FcmSender fcmSender;
-
-    public NotificationServiceImpl(NotificationRepository notificationRepository, FcmSender fcmSender) {
-        this.notificationRepository = notificationRepository;
-        this.fcmSender = fcmSender;
-    }
+    private final IFcmTokenService fcmTokenService;
 
     @Override
     public Notification createNotification(CreateNotificationRequest request) {
@@ -30,16 +31,31 @@ public class NotificationServiceImpl implements INotificationService {
         notification.setIsRead(false);
         notification.setCreatedAt(LocalDateTime.now());
 
-        // Best-effort push notification (lỗi FCM không làm request tạo notification thất bại).
+        Notification saved = notificationRepository.save(notification);
+
+        // Best-effort push: try explicit token from request first, then all registered tokens.
         if (StringUtils.hasText(request.getFcmToken())) {
-            try {
-                fcmSender.send(notification.getTitle(), notification.getMessage(), request.getFcmToken());
-            } catch (Exception ignored) {
-                // Intentionally ignore to keep CRUD functional even when Firebase is not configured.
+            sendPushSafely(saved.getTitle(), saved.getMessage(), request.getFcmToken());
+        } else {
+            List<String> tokens = fcmTokenService.getTokensByUserId(request.getUserId());
+            for (String token : tokens) {
+                sendPushSafely(saved.getTitle(), saved.getMessage(), token);
             }
         }
 
-        return notificationRepository.save(notification);
+        return saved;
+    }
+
+    private void sendPushSafely(String title, String message, String token) {
+        try {
+            boolean valid = fcmSender.send(title, message, token);
+            if (!valid) {
+                log.info("Removing invalid FCM token: {}", token);
+                fcmTokenService.removeInvalidToken(token);
+            }
+        } catch (Exception ex) {
+            log.warn("FCM push failed for token (best-effort): {}", token, ex);
+        }
     }
 
     @Override

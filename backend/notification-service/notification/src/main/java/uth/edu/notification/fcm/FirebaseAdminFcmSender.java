@@ -34,10 +34,16 @@ public class FirebaseAdminFcmSender implements FcmSender {
         }
     }
 
+    private static final java.util.Set<String> INVALID_TOKEN_CODES = java.util.Set.of(
+        "registration-token-not-registered",
+        "invalid-registration-token",
+        "invalid-argument"
+    );
+
     @Override
-    public void send(String title, String message, String fcmToken) {
+    public boolean send(String title, String message, String fcmToken) {
         if (fcmToken == null || fcmToken.isBlank()) {
-            return;
+            return true;
         }
 
         try {
@@ -51,13 +57,21 @@ public class FirebaseAdminFcmSender implements FcmSender {
                 .setNotification(firebaseNotification)
                 .build();
 
-            // Best-effort: do not affect CRUD outcome.
-            // Using synchronous send here to keep the implementation simple and compatible
-            // with the ApiFuture return type from firebase-admin.
             FirebaseMessaging.getInstance().send(msg);
-        } catch (Exception ex) {
-            // Intentionally ignore to keep CRUD functional.
+            return true;
+        } catch (com.google.firebase.messaging.FirebaseMessagingException ex) {
+            String errorCode = ex.getMessagingErrorCode() != null
+                ? ex.getMessagingErrorCode().name().toLowerCase().replace('_', '-')
+                : "";
+            if (INVALID_TOKEN_CODES.contains(errorCode)) {
+                log.info("FCM token is invalid/expired, should be removed: {}", fcmToken);
+                return false;
+            }
             log.warn("FCM send threw exception (best-effort).", ex);
+            return true;
+        } catch (Exception ex) {
+            log.warn("FCM send threw exception (best-effort).", ex);
+            return true;
         }
     }
 }
