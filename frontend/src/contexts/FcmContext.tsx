@@ -1,7 +1,11 @@
 import { createContext, useContext, useCallback, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { useFcm } from '../hooks/useFcm';
-import { isFirebaseConfigured } from '../lib/firebase';
+import notificationService, {
+  type NotificationDto,
+  type NotificationPreferenceDto,
+  type NotificationPreferenceUpdateRequest,
+} from '../api/notification.service';
 
 interface FcmToast {
   id: number;
@@ -14,6 +18,21 @@ interface FcmContextProps {
   permissionStatus: NotificationPermission;
   requestPermission: () => Promise<void>;
   toasts: FcmToast[];
+  notifications: NotificationDto[];
+  loadingNotifications: boolean;
+  isNotificationOpen: boolean;
+  setIsNotificationOpen: (open: boolean) => void;
+  isSettingsOpen: boolean;
+  setIsSettingsOpen: (open: boolean) => void;
+  preferences: NotificationPreferenceDto | null;
+  loadingPreferences: boolean;
+  unreadCount: number;
+  refreshNotifications: () => Promise<void>;
+  markNotificationRead: (notificationId: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
+  refreshPreferences: () => Promise<void>;
+  updatePreferences: (payload: NotificationPreferenceUpdateRequest) => Promise<void>;
+  resetUnreadCount: () => Promise<void>;
   dismissToast: (id: number) => void;
 }
 
@@ -32,6 +51,13 @@ function getUserId(): string | null {
 export function FcmProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(getUserId);
   const [toasts, setToasts] = useState<FcmToast[]>([]);
+  const [notifications, setNotifications] = useState<NotificationDto[]>([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [preferences, setPreferences] = useState<NotificationPreferenceDto | null>(null);
+  const [loadingPreferences, setLoadingPreferences] = useState(false);
+  const unreadCount = notifications.filter((item) => !item.isRead).length;
 
   useEffect(() => {
     const sync = () => setUserId(getUserId());
@@ -43,14 +69,51 @@ export function FcmProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const refreshNotifications = useCallback(async () => {
+    if (!userId) {
+      setNotifications([]);
+      return;
+    }
+    setLoadingNotifications(true);
+    try {
+      const items = await notificationService.getByUserId(userId);
+      setNotifications(items);
+    } catch (error) {
+      console.error('Failed to fetch notifications:', error);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  }, [userId]);
+
+  const refreshPreferences = useCallback(async () => {
+    if (!userId) {
+      setPreferences(null);
+      return;
+    }
+    setLoadingPreferences(true);
+    try {
+      const data = await notificationService.getPreferences(userId);
+      setPreferences(data);
+    } catch (error) {
+      console.error('Failed to fetch notification settings:', error);
+    } finally {
+      setLoadingPreferences(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    void refreshNotifications();
+  }, [refreshNotifications]);
+
   const handleNotification = useCallback((notification: { title: string; body: string }) => {
     const id = ++toastIdCounter;
     setToasts((prev) => [...prev, { id, title: notification.title, body: notification.body }]);
+    void refreshNotifications();
 
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 6000);
-  }, []);
+  }, [refreshNotifications]);
 
   const { token, permissionStatus, requestPermission } = useFcm({
     userId,
@@ -61,12 +124,69 @@ export function FcmProvider({ children }: { children: ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  if (!isFirebaseConfigured()) {
-    return <>{children}</>;
-  }
+  const markNotificationRead = useCallback(async (notificationId: string) => {
+    setNotifications((prev) =>
+      prev.map((item) => (item.notificationId === notificationId ? { ...item, isRead: true } : item)),
+    );
+    try {
+      await notificationService.markAsRead(notificationId);
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
+      void refreshNotifications();
+    }
+  }, [refreshNotifications]);
+
+  const markAllNotificationsRead = useCallback(async () => {
+    if (!userId) return;
+    setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
+    try {
+      await notificationService.markAllAsRead(userId);
+    } catch (error) {
+      console.error('Failed to mark all notifications as read:', error);
+      void refreshNotifications();
+    }
+  }, [refreshNotifications, userId]);
+
+  const updatePreferences = useCallback(async (payload: NotificationPreferenceUpdateRequest) => {
+    if (!userId) return;
+    try {
+      const updated = await notificationService.updatePreferences(userId, payload);
+      setPreferences(updated);
+    } catch (error) {
+      console.error('Failed to update notification settings:', error);
+      throw error;
+    }
+  }, [userId]);
+
+  const resetUnreadCount = useCallback(async () => {
+    await markAllNotificationsRead();
+  }, [markAllNotificationsRead]);
 
   return (
-    <FcmContext.Provider value={{ token, permissionStatus, requestPermission, toasts, dismissToast }}>
+    <FcmContext.Provider
+      value={{
+        token,
+        permissionStatus,
+        requestPermission,
+        toasts,
+        notifications,
+        loadingNotifications,
+        isNotificationOpen,
+        setIsNotificationOpen,
+        isSettingsOpen,
+        setIsSettingsOpen,
+        preferences,
+        loadingPreferences,
+        unreadCount,
+        refreshNotifications,
+        markNotificationRead,
+        markAllNotificationsRead,
+        refreshPreferences,
+        updatePreferences,
+        resetUnreadCount,
+        dismissToast,
+      }}
+    >
       {children}
       {toasts.length > 0 && (
         <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm">

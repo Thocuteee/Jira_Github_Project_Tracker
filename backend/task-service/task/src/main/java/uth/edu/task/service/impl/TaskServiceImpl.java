@@ -268,15 +268,6 @@ public class TaskServiceImpl implements TaskService {
         taskEventPublisher.publishTaskEvent(event);
 
         return taskMapper.toResponse(saved);
-        Task savedTask = taskRepository.save(task);
-        
-        try {
-            publishTaskEvent(savedTask, "STATUS_UPDATE");
-        } catch (Exception e) {
-            log.warn("Không thể gửi sự kiện lên RabbitMQ (RabbitMQ unavailable?): {}", e.getMessage());
-        }
-
-        return taskMapper.toResponse(savedTask);
     }
 
     @Override

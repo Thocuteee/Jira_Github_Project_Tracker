@@ -11,6 +11,18 @@ export interface NotificationDto {
   createdAt: string;
 }
 
+export interface NotificationPreferenceDto {
+  userId: string;
+  pushEnabled: boolean;
+  emailEnabled: boolean;
+  updatedAt: string;
+}
+
+export interface NotificationPreferenceUpdateRequest {
+  pushEnabled: boolean;
+  emailEnabled: boolean;
+}
+
 const notificationService = {
   getByUserId(userId: string): Promise<NotificationDto[]> {
     return axiosClient.get(`${NOTIFICATION_URL}/users/${userId}`);
@@ -20,8 +32,20 @@ const notificationService = {
     return axiosClient.put(`${NOTIFICATION_URL}/${notificationId}/read`, { isRead: true });
   },
 
+  markAllAsRead(userId: string): Promise<number> {
+    return axiosClient.put(`${NOTIFICATION_URL}/users/${userId}/read-all`);
+  },
+
   deleteNotification(notificationId: string): Promise<void> {
     return axiosClient.delete(`${NOTIFICATION_URL}/${notificationId}`);
+  },
+
+  getPreferences(userId: string): Promise<NotificationPreferenceDto> {
+    return axiosClient.get(`${NOTIFICATION_URL}/settings/${userId}`);
+  },
+
+  updatePreferences(userId: string, payload: NotificationPreferenceUpdateRequest): Promise<NotificationPreferenceDto> {
+    return axiosClient.put(`${NOTIFICATION_URL}/settings/${userId}`, payload);
   },
 
   registerFcmToken(userId: string, token: string): Promise<void> {

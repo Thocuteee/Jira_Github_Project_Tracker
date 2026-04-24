@@ -32,6 +32,7 @@ axiosClient.interceptors.response.use(
                 localStorage.removeItem('userName');
                 localStorage.removeItem('userSubtitle');
                 localStorage.removeItem('userRoles');
+                localStorage.removeItem('userId');
                 window.dispatchEvent(new Event('auth-changed'));
                 window.location.href = '/login';
                 return Promise.reject(refreshError);

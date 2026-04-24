@@ -1,15 +1,19 @@
 package uth.edu.notification.fcm;
 
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.util.StringUtils;
+import uth.edu.notification.service.IFcmTokenService;
 
 @Configuration
+@RequiredArgsConstructor
 public class FcmSenderConfig {
     private static final Logger log = LoggerFactory.getLogger(FcmSenderConfig.class);
+    private final IFcmTokenService fcmTokenService;
 
     /**
      * Service account JSON file path.
@@ -27,7 +31,7 @@ public class FcmSenderConfig {
         }
 
         try {
-            return new FirebaseAdminFcmSender(firebaseCredentialsPath);
+            return new FirebaseAdminFcmSender(firebaseCredentialsPath, fcmTokenService);
         } catch (Exception ex) {
             log.warn("FCM disabled due to credential init error.", ex);
             return new NoOpFcmSender();

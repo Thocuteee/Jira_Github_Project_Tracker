@@ -6,6 +6,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import uth.edu.notification.dto.CreateNotificationRequest;
 import uth.edu.notification.fcm.FcmSender;
@@ -13,6 +14,7 @@ import uth.edu.notification.model.Notification;
 import uth.edu.notification.repository.NotificationRepository;
 import uth.edu.notification.service.IFcmTokenService;
 import uth.edu.notification.service.INotificationService;
+import uth.edu.notification.service.INotificationPreferenceService;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +23,7 @@ public class NotificationServiceImpl implements INotificationService {
     private final NotificationRepository notificationRepository;
     private final FcmSender fcmSender;
     private final IFcmTokenService fcmTokenService;
+    private final INotificationPreferenceService notificationPreferenceService;
 
     @Override
     public Notification createNotification(CreateNotificationRequest request) {
@@ -33,14 +36,19 @@ public class NotificationServiceImpl implements INotificationService {
 
         Notification saved = notificationRepository.save(notification);
 
-        // Best-effort push: try explicit token from request first, then all registered tokens.
-        if (StringUtils.hasText(request.getFcmToken())) {
-            sendPushSafely(saved.getTitle(), saved.getMessage(), request.getFcmToken());
-        } else {
-            List<String> tokens = fcmTokenService.getTokensByUserId(request.getUserId());
-            for (String token : tokens) {
-                sendPushSafely(saved.getTitle(), saved.getMessage(), token);
+        boolean pushEnabled = notificationPreferenceService.getOrCreatePreference(request.getUserId()).getPushEnabled();
+        if (Boolean.TRUE.equals(pushEnabled)) {
+            // Best-effort push: try explicit token from request first, then all registered tokens.
+            if (StringUtils.hasText(request.getFcmToken())) {
+                sendPushSafely(saved.getTitle(), saved.getMessage(), request.getFcmToken());
+            } else {
+                List<String> tokens = fcmTokenService.getTokensByUserId(request.getUserId());
+                for (String token : tokens) {
+                    sendPushSafely(saved.getTitle(), saved.getMessage(), token);
+                }
             }
+        } else {
+            log.debug("Push notifications disabled for userId={}, skip FCM dispatch", request.getUserId());
         }
 
         return saved;
@@ -75,6 +83,12 @@ public class NotificationServiceImpl implements INotificationService {
             .orElseThrow(() -> new RuntimeException("Notification not found"));
         notification.setIsRead(isRead);
         return notificationRepository.save(notification);
+    }
+
+    @Override
+    @Transactional
+    public int markAllAsReadByUserId(UUID userId) {
+        return notificationRepository.markAllAsReadByUserId(userId);
     }
 
     @Override

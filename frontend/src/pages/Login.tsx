@@ -21,11 +21,21 @@ export default function Login() {
         setSubmitting(true)
         try {
         const response = await authService.login({ email: email.trim(), password })
+        let profileUserId: string | null = null;
+        try {
+          const profile = await authService.getProfile();
+          profileUserId = profile?.userId ?? null;
+        } catch (profileErr) {
+          console.warn('Could not fetch profile after login, FCM token registration may be skipped.', profileErr);
+        }
 
         localStorage.setItem('userEmail', response.email)
         localStorage.setItem('userName', response.email.split('@')[0] || response.email)
         localStorage.setItem('userSubtitle', getPrimaryRole(response.roles ?? []))
         localStorage.setItem('userRoles', JSON.stringify(response.roles ?? []))
+        if (profileUserId) {
+          localStorage.setItem('userId', profileUserId);
+        }
         window.dispatchEvent(new Event('auth-changed'))
 
         navigate('/', { replace: true })

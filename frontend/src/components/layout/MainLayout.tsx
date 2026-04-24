@@ -16,6 +16,7 @@ import {
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import authService from '@/api/auth.service';
 import { getPrimaryRole } from '@/utils/authDisplay';
+import { useFcmContext } from '@/contexts/FcmContext';
 
 import { useGroup } from '@/contexts/GroupContext';
 
@@ -25,8 +26,19 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     const { selectedGroup, setSelectedGroup, myGroups, loading } = useGroup();
     const [menuOpen, setMenuOpen] = useState(false);
     const [groupDropdownOpen, setGroupDropdownOpen] = useState(false);
+    const {
+        unreadCount,
+        notifications,
+        loadingNotifications,
+        isNotificationOpen,
+        setIsNotificationOpen,
+        refreshNotifications,
+        markNotificationRead,
+        markAllNotificationsRead,
+    } = useFcmContext();
     const menuRef = useRef<HTMLDivElement | null>(null);
     const dropdownRef = useRef<HTMLDivElement | null>(null);
+    const notificationRef = useRef<HTMLDivElement | null>(null);
 
     const authed = (() => {
         try {
@@ -72,11 +84,20 @@ export default function MainLayout({ children }: { children: ReactNode }) {
             if (groupDropdownOpen && !dropdownRef.current?.contains(event.target as Node)) {
                 setGroupDropdownOpen(false);
             }
+            if (isNotificationOpen && !notificationRef.current?.contains(event.target as Node)) {
+                setIsNotificationOpen(false);
+            }
         };
 
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [menuOpen, groupDropdownOpen]);
+    }, [groupDropdownOpen, isNotificationOpen, menuOpen, setIsNotificationOpen]);
+
+    useEffect(() => {
+        if (isNotificationOpen) {
+            void refreshNotifications();
+        }
+    }, [isNotificationOpen, refreshNotifications]);
 
     const handleLogout = async () => {
         setMenuOpen(false);
@@ -89,6 +110,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
             localStorage.removeItem('userName');
             localStorage.removeItem('userSubtitle');
             localStorage.removeItem('userRoles');
+            localStorage.removeItem('userId');
             localStorage.removeItem('selectedGroupId');
             window.dispatchEvent(new Event('auth-changed'));
             navigate('/login', { replace: true });
@@ -104,6 +126,15 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     const handleUserInfo = () => {
         setMenuOpen(false);
         navigate('/dashboard');
+    };
+
+    const toggleNotifications = () => {
+        setIsNotificationOpen(!isNotificationOpen);
+    };
+
+    const openSettings = () => {
+        setIsNotificationOpen(false);
+        navigate('/notifications?tab=settings');
     };
 
     const initials = userName
@@ -229,7 +260,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                         </h3>
                         <div className="flex flex-col gap-0.5">
                             <NavItem icon={<RefreshCw size={18} />} label="Trung tâm Tích hợp" to="/settings/integrations" active={location.pathname === '/settings/integrations' || location.pathname === '/settings/github' || location.pathname === '/settings/jira'} />
-                            <NavItem icon={<Bell size={18} />} label="Thông báo" active={location.pathname === '/notifications'} />
+                            <NavItem icon={<Bell size={18} />} label="Thông báo" to="/notifications" active={location.pathname === '/notifications'} />
                             <NavItem icon={<Settings size={18} />} label="Hồ sơ cá nhân" active={location.pathname === '/profile'} />
                             {(() => {
                                 try {
@@ -279,14 +310,77 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                                 <RefreshCw size={18} />
                             </button>
                         </div>
-                        <button
-                            type="button"
-                            className="relative rounded-full p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
-                            aria-label="Notifications"
-                        >
-                            <Bell size={20} />
-                            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
-                        </button>
+                        <div className="relative" ref={notificationRef}>
+                            <button
+                                type="button"
+                                onClick={toggleNotifications}
+                                className="relative rounded-full p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+                                aria-label="Notifications"
+                            >
+                                <Bell size={20} />
+                                {unreadCount > 0 && (
+                                    <span className="absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-4 text-white ring-2 ring-white">
+                                        {unreadCount > 99 ? '99+' : unreadCount}
+                                    </span>
+                                )}
+                            </button>
+                            {isNotificationOpen && (
+                                <div className="absolute right-0 top-12 z-40 w-96 rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
+                                    <div className="mb-2 flex items-center justify-between">
+                                        <h4 className="text-sm font-semibold text-slate-900">Thông báo</h4>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={openSettings}
+                                                className="rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                                                aria-label="Notification settings"
+                                            >
+                                                <Settings size={16} />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => void markAllNotificationsRead()}
+                                                className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                                            >
+                                                Đánh dấu tất cả đã đọc
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="max-h-80 overflow-y-auto">
+                                        {loadingNotifications ? (
+                                            <div className="p-3 text-sm text-slate-500">Đang tải thông báo...</div>
+                                        ) : notifications.length === 0 ? (
+                                            <div className="p-3 text-sm text-slate-500">Chưa có thông báo nào.</div>
+                                        ) : (
+                                            notifications.slice(0, 15).map((item) => (
+                                                <button
+                                                    key={item.notificationId}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        void markNotificationRead(item.notificationId);
+                                                        setIsNotificationOpen(false);
+                                                        navigate(`/notifications?notificationId=${item.notificationId}`);
+                                                    }}
+                                                    className={`mb-1 w-full rounded-lg border p-3 text-left transition ${
+                                                        item.isRead
+                                                            ? 'border-slate-200 bg-slate-50'
+                                                            : 'border-blue-100 bg-blue-50'
+                                                    }`}
+                                                >
+                                                    <p className={`text-sm ${item.isRead ? 'font-medium text-slate-700' : 'font-semibold text-slate-900'}`}>
+                                                        {item.title}
+                                                    </p>
+                                                    <p className="mt-1 text-xs text-slate-600">{item.message}</p>
+                                                    <p className="mt-2 text-[11px] text-slate-500">
+                                                        {new Date(item.createdAt).toLocaleString('vi-VN')}
+                                                    </p>
+                                                </button>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                         {authed ? (
                             <div className="relative flex items-center gap-3 border-l border-slate-200 pl-5" ref={menuRef}>
                                 <div className="hidden text-right sm:block">

@@ -1,5 +1,11 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { requestNotificationPermission, onForegroundMessage, isFirebaseConfigured } from '../lib/firebase';
+import type { MessagePayload } from 'firebase/messaging';
+import {
+  requestNotificationPermission,
+  getFcmToken,
+  onForegroundMessage,
+  isFirebaseConfigured,
+} from '../lib/firebase';
 import { registerFirebaseServiceWorker } from '../lib/registerServiceWorker';
 import notificationService from '../api/notification.service';
 
@@ -23,13 +29,23 @@ export function useFcm({ userId, onNotification }: UseFcmOptions) {
   const registeredTokenRef = useRef<string | null>(null);
 
   const initFcm = useCallback(async () => {
-    if (!isFirebaseConfigured() || !userId) return;
+    if (!isFirebaseConfigured()) return;
+    if (!userId) {
+      console.debug('Skipping FCM token registration because userId is missing.');
+      return;
+    }
 
-    await registerFirebaseServiceWorker();
+    if (!('Notification' in window)) {
+      setPermissionStatus('denied');
+      return;
+    }
 
-    const fcmToken = await requestNotificationPermission();
-    setPermissionStatus('Notification' in window ? Notification.permission : 'default');
+    const permission = await requestNotificationPermission();
+    setPermissionStatus(permission);
+    if (permission !== 'granted') return;
 
+    const registration = await registerFirebaseServiceWorker();
+    const fcmToken = await getFcmToken(registration ?? undefined);
     if (!fcmToken) return;
     setToken(fcmToken);
 
@@ -50,12 +66,11 @@ export function useFcm({ userId, onNotification }: UseFcmOptions) {
   useEffect(() => {
     if (!isFirebaseConfigured()) return;
 
-    const unsub = onForegroundMessage((payload: unknown) => {
-      const p = payload as { notification?: { title?: string; body?: string }; data?: Record<string, string> };
+    const unsub = onForegroundMessage((payload: MessagePayload) => {
       const notification: FcmNotification = {
-        title: p.notification?.title || 'New Notification',
-        body: p.notification?.body || '',
-        data: p.data,
+        title: payload.notification?.title || 'New Notification',
+        body: payload.notification?.body || '',
+        data: payload.data,
       };
 
       onNotification?.(notification);

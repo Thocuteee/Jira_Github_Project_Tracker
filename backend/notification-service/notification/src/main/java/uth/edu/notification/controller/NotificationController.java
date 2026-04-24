@@ -59,6 +59,16 @@ public class NotificationController {
         }
     }
 
+    @PutMapping("/users/{userId}/read-all")
+    public ResponseEntity<?> markAllAsRead(@PathVariable UUID userId) {
+        try {
+            int updatedCount = notificationService.markAllAsReadByUserId(userId);
+            return ResponseEntity.ok(updatedCount);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
     @DeleteMapping("/{notificationId}")
     public ResponseEntity<?> deleteNotification(@PathVariable UUID notificationId) {
         try {

@@ -3,7 +3,19 @@ importScripts('https://www.gstatic.com/firebasejs/11.8.1/firebase-app-compat.js'
 importScripts('https://www.gstatic.com/firebasejs/11.8.1/firebase-messaging-compat.js');
 
 function initFirebase(cfg) {
-  if (!firebase.apps.length && cfg && cfg.apiKey) {
+  const hasRequiredConfig =
+    cfg &&
+    typeof cfg === 'object' &&
+    cfg.apiKey &&
+    cfg.projectId &&
+    cfg.messagingSenderId &&
+    cfg.appId;
+
+  if (!hasRequiredConfig) {
+    return;
+  }
+
+  if (!firebase.apps.length) {
     firebase.initializeApp(cfg);
     setupMessaging();
   }
@@ -27,7 +39,9 @@ let config = {};
 try {
   const url = new URL(self.location.href);
   const raw = url.searchParams.get('config');
-  if (raw) config = JSON.parse(decodeURIComponent(raw));
+  if (raw) {
+    config = JSON.parse(decodeURIComponent(raw));
+  }
 } catch (_) { /* fallback to postMessage */ }
 
 initFirebase(config);

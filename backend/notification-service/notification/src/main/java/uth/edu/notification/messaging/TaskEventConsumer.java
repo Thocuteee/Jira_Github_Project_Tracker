@@ -1,7 +1,10 @@
 package uth.edu.notification.messaging;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 import uth.edu.notification.config.RabbitMQConfig;
@@ -14,28 +17,34 @@ import uth.edu.notification.service.INotificationService;
 @Slf4j
 public class TaskEventConsumer {
     private final INotificationService notificationService;
+    private final ObjectMapper objectMapper;
 
     @RabbitListener(queues = RabbitMQConfig.NOTIFICATION_QUEUE)
-    public void handleTaskEvent(TaskEvent event) {
-        if (event.getAssignedTo() == null) {
-            log.debug("Skipping task event without assignee: taskId={}", event.getTaskId());
-            return;
-        }
-
-        String title = buildTitle(event);
-        String message = buildMessage(event);
-
-        CreateNotificationRequest request = new CreateNotificationRequest();
-        request.setUserId(event.getAssignedTo());
-        request.setTitle(title);
-        request.setMessage(message);
-
+    public void handleTaskEvent(String rawPayload) {
         try {
+            TaskEvent event = objectMapper.readValue(rawPayload, TaskEvent.class);
+            if (event.getAssignedTo() == null) {
+                log.debug("Skipping task event without assignee: taskId={}", event.getTaskId());
+                return;
+            }
+
+            String title = buildTitle(event);
+            String message = buildMessage(event);
+
+            CreateNotificationRequest request = new CreateNotificationRequest();
+            request.setUserId(event.getAssignedTo());
+            request.setTitle(title);
+            request.setMessage(message);
+
             notificationService.createNotification(request);
             log.info("Created notification for task event: type={}, taskId={}, userId={}",
                 event.getEventType(), event.getTaskId(), event.getAssignedTo());
+        } catch (JsonProcessingException | IllegalArgumentException ex) {
+            log.error("Invalid task event payload, rejecting without requeue: payload={}", rawPayload, ex);
+            throw new AmqpRejectAndDontRequeueException("Invalid task event payload", ex);
         } catch (Exception ex) {
-            log.error("Failed to create notification for task event: taskId={}", event.getTaskId(), ex);
+            log.error("Failed to process task event payload", ex);
+            throw ex;
         }
     }
 

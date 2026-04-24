@@ -2,7 +2,9 @@ package uth.edu.notification.fcm;
 
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
+import com.google.firebase.messaging.MessagingErrorCode;
 import com.google.firebase.messaging.FirebaseMessaging;
+import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.Notification;
 import com.google.auth.oauth2.GoogleCredentials;
@@ -10,6 +12,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import uth.edu.notification.service.IFcmTokenService;
 
 /**
  * Firebase Admin SDK based sender.
@@ -18,11 +21,13 @@ import org.slf4j.LoggerFactory;
  */
 public class FirebaseAdminFcmSender implements FcmSender {
     private static final Logger log = LoggerFactory.getLogger(FirebaseAdminFcmSender.class);
+    private final IFcmTokenService fcmTokenService;
 
-    public FirebaseAdminFcmSender(String credentialsPath) throws IOException {
+    public FirebaseAdminFcmSender(String credentialsPath, IFcmTokenService fcmTokenService) throws IOException {
         if (credentialsPath == null || credentialsPath.isBlank()) {
             throw new IllegalArgumentException("Firebase credentials path is empty");
         }
+        this.fcmTokenService = fcmTokenService;
 
         if (FirebaseApp.getApps().isEmpty()) {
             try (FileInputStream serviceAccount = new FileInputStream(credentialsPath)) {
@@ -33,12 +38,6 @@ public class FirebaseAdminFcmSender implements FcmSender {
             }
         }
     }
-
-    private static final java.util.Set<String> INVALID_TOKEN_CODES = java.util.Set.of(
-        "registration-token-not-registered",
-        "invalid-registration-token",
-        "invalid-argument"
-    );
 
     @Override
     public boolean send(String title, String message, String fcmToken) {
@@ -59,12 +58,10 @@ public class FirebaseAdminFcmSender implements FcmSender {
 
             FirebaseMessaging.getInstance().send(msg);
             return true;
-        } catch (com.google.firebase.messaging.FirebaseMessagingException ex) {
-            String errorCode = ex.getMessagingErrorCode() != null
-                ? ex.getMessagingErrorCode().name().toLowerCase().replace('_', '-')
-                : "";
-            if (INVALID_TOKEN_CODES.contains(errorCode)) {
-                log.info("FCM token is invalid/expired, should be removed: {}", fcmToken);
+        } catch (FirebaseMessagingException ex) {
+            if (isInvalidTokenError(ex.getMessagingErrorCode())) {
+                log.info("FCM token is invalid/expired, removing token immediately: {}", fcmToken);
+                fcmTokenService.removeInvalidToken(fcmToken);
                 return false;
             }
             log.warn("FCM send threw exception (best-effort).", ex);
@@ -73,6 +70,10 @@ public class FirebaseAdminFcmSender implements FcmSender {
             log.warn("FCM send threw exception (best-effort).", ex);
             return true;
         }
+    }
+
+    private boolean isInvalidTokenError(MessagingErrorCode errorCode) {
+        return errorCode == MessagingErrorCode.UNREGISTERED || errorCode == MessagingErrorCode.INVALID_ARGUMENT;
     }
 }
 

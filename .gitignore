@@ -51,3 +51,4 @@ backend/.env.*
 */mysql_data/
 cursor/
 Jira And Github API
+firebase-adminsdk.json

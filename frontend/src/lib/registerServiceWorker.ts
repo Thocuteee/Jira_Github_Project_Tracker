@@ -18,6 +18,7 @@ export async function registerFirebaseServiceWorker(): Promise<ServiceWorkerRegi
     const swUrl = `/firebase-messaging-sw.js?config=${serialized}`;
 
     const registration = await navigator.serviceWorker.register(swUrl, { scope: '/' });
+    await navigator.serviceWorker.ready;
 
     if (registration.active) {
       registration.active.postMessage({ type: 'FIREBASE_CONFIG', config: firebaseConfig });

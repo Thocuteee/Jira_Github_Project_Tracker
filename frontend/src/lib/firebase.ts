@@ -1,5 +1,11 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app';
-import { getMessaging, getToken, onMessage, type Messaging } from 'firebase/messaging';
+import {
+  getMessaging,
+  getToken,
+  onMessage,
+  type Messaging,
+  type MessagePayload,
+} from 'firebase/messaging';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -36,18 +42,26 @@ function getFirebaseMessaging(): Messaging | null {
   return messaging;
 }
 
-export async function requestNotificationPermission(): Promise<string | null> {
+export async function requestNotificationPermission(): Promise<NotificationPermission> {
   if (!('Notification' in window)) {
     console.warn('This browser does not support push notifications.');
-    return null;
+    return 'denied';
+  }
+
+  if (Notification.permission === 'granted' || Notification.permission === 'denied') {
+    return Notification.permission;
   }
 
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') {
     console.info('Notification permission denied by user.');
-    return null;
   }
+  return permission;
+}
 
+export async function getFcmToken(
+  registration?: ServiceWorkerRegistration,
+): Promise<string | null> {
   const msg = getFirebaseMessaging();
   if (!msg) {
     console.warn('Firebase Messaging is not configured.');
@@ -55,7 +69,7 @@ export async function requestNotificationPermission(): Promise<string | null> {
   }
 
   try {
-    const token = await getToken(msg, { vapidKey: VAPID_KEY });
+    const token = await getToken(msg, { vapidKey: VAPID_KEY, serviceWorkerRegistration: registration });
     return token || null;
   } catch (err) {
     console.error('Failed to get FCM token:', err);
@@ -63,7 +77,7 @@ export async function requestNotificationPermission(): Promise<string | null> {
   }
 }
 
-export function onForegroundMessage(callback: (payload: unknown) => void): (() => void) | null {
+export function onForegroundMessage(callback: (payload: MessagePayload) => void): (() => void) | null {
   const msg = getFirebaseMessaging();
   if (!msg) return null;
   return onMessage(msg, callback);
