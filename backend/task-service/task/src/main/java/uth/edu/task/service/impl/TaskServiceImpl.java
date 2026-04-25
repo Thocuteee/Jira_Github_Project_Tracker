@@ -250,11 +250,13 @@ public class TaskServiceImpl implements TaskService {
         Task task = taskRepository.findById(taskId).orElseThrow(
                 () -> new RuntimeException("Không tìm thấy Task!"));
 
-        // Chỉ Leader của group hiện tại hoặc Admin mới được đổi trạng thái
+        // Leader / Admin: mọi task trong nhóm. Người được giao: đổi trạng thái task của chính mình.
         boolean isLeader = isLeaderInGroup(task.getGroupId(), currentUserId);
+        boolean isAssignee = task.getAssignedTo() != null && currentUserId.equals(task.getAssignedTo());
 
-        if (!isLeader && !isAdmin()) {
-            throw new RuntimeException("Chỉ Nhóm trưởng của group hoặc Admin mới được đổi trạng thái Task!");
+        if (!isLeader && !isAdmin() && !isAssignee) {
+            throw new RuntimeException(
+                "Chỉ Nhóm trưởng, Admin, hoặc người được giao task mới được đổi trạng thái Task!");
         }
 
         if (!Objects.equals(task.getStatus(), request.getStatus())) {
@@ -270,7 +272,7 @@ public class TaskServiceImpl implements TaskService {
                 publishTaskEvent(saved, EVENT_TASK_STATUS_UPDATED);
             }
         } catch (Exception e) {
-            log.warn("Could not publish task event (RabbitMQ unavailable?): {}", e.getMessage());
+            log.warn("Không thể gửi sự kiện task (RabbitMQ không khả dụng?): {}", e.getMessage());
         }
 
         return taskMapper.toResponse(saved);

@@ -99,7 +99,7 @@ export default function NotificationsPage() {
       <div className="mx-auto max-w-7xl">
         <div className="mb-8 flex items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Notifications Center</h1>
+            <h1 className="text-2xl font-bold text-slate-900">Trung tâm thông báo</h1>
             <p className="mt-1 text-sm text-slate-500">
               Theo dõi thông báo, đánh dấu đã đọc và quản lý cấu hình thông báo theo thời gian thực.
             </p>

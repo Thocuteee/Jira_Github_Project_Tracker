@@ -1,5 +1,6 @@
 package uth.edu.notification.fcm;
 
+import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.messaging.MessagingErrorCode;
@@ -7,9 +8,6 @@ import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.Notification;
-import com.google.auth.oauth2.GoogleCredentials;
-import java.io.FileInputStream;
-import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uth.edu.notification.service.IFcmTokenService;
@@ -17,25 +15,23 @@ import uth.edu.notification.service.IFcmTokenService;
 /**
  * Firebase Admin SDK based sender.
  * <p>
- * Credentials are provided via service account JSON file path.
+ * Credentials are provided as {@link GoogleCredentials} (from Base64 JSON or file stream).
  */
 public class FirebaseAdminFcmSender implements FcmSender {
     private static final Logger log = LoggerFactory.getLogger(FirebaseAdminFcmSender.class);
     private final IFcmTokenService fcmTokenService;
 
-    public FirebaseAdminFcmSender(String credentialsPath, IFcmTokenService fcmTokenService) throws IOException {
-        if (credentialsPath == null || credentialsPath.isBlank()) {
-            throw new IllegalArgumentException("Firebase credentials path is empty");
+    public FirebaseAdminFcmSender(GoogleCredentials credentials, IFcmTokenService fcmTokenService) {
+        if (credentials == null) {
+            throw new IllegalArgumentException("Firebase credentials are null");
         }
         this.fcmTokenService = fcmTokenService;
 
         if (FirebaseApp.getApps().isEmpty()) {
-            try (FileInputStream serviceAccount = new FileInputStream(credentialsPath)) {
-                FirebaseOptions options = FirebaseOptions.builder()
-                    .setCredentials(GoogleCredentials.fromStream(serviceAccount))
-                    .build();
-                FirebaseApp.initializeApp(options);
-            }
+            FirebaseOptions options = FirebaseOptions.builder()
+                .setCredentials(credentials)
+                .build();
+            FirebaseApp.initializeApp(options);
         }
     }
 
@@ -76,4 +72,3 @@ public class FirebaseAdminFcmSender implements FcmSender {
         return errorCode == MessagingErrorCode.UNREGISTERED || errorCode == MessagingErrorCode.INVALID_ARGUMENT;
     }
 }
-

@@ -200,6 +200,10 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   if (!isOpen) return null;
 
+  const isCurrentUserAssignee =
+    Boolean(currentUserId && task.assignedTo && currentUserId === task.assignedTo);
+  const canEditStatus = role === 'LEADER' || isCurrentUserAssignee;
+
   const statusIcons: Record<string, any> = {
     DONE: <CheckCircle2 className="text-green-500" size={16} />,
     IN_PROGRESS: <Clock className="text-blue-500" size={16} />,
@@ -415,7 +419,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Trạng thái</label>
                     <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
                       {statusIcons[editedTask.status || task.status]}
-                      {role === 'LEADER' ? (
+                      {canEditStatus ? (
                         <select 
                           value={editedTask.status} 
                           onChange={e => setEditedTask({...editedTask, status: e.target.value as any})}

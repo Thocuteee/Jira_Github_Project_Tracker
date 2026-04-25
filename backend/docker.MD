@@ -16,12 +16,26 @@ docker compose --env-file .env.local -f docker-compose.yml -f docker-compose.dev
 - Bật **Cloud Messaging** trong Project Settings > Cloud Messaging.
 - Tạo Web App, copy các giá trị config vào biến `VITE_FIREBASE_*` trong `.env.local` / `.env`.
 - Vào Project Settings > Cloud Messaging > Web Push certificates, tạo VAPID key, copy vào `VITE_FIREBASE_VAPID_KEY`.
-- Tạo Service Account JSON (Project Settings > Service accounts > Generate new private key), lưu file vào thư mục an toàn.
-- Trong `.env.local` / `.env` thêm:
+- Tạo Service Account JSON (Project Settings > Service accounts > Generate new private key). **Khuyến nghị:** mã hóa Base64 toàn bộ nội dung file và đặt vào biến môi trường (không commit file JSON vào repo).
+- Trong `.env.local` / `.env` thêm (một trong hai cách):
+
+  **Cách 1 — Base64 (khuyến nghị cho Docker / VPS):**
+  ```bash
+  # Linux/macOS: tạo chuỗi một dòng
+  base64 -w0 path/to/serviceAccount.json
+  ```
+  Sau đó trong `.env` / `.env.local`:
+  ```
+  FIREBASE_CREDENTIALS_BASE64=<chuỗi_base64>
+  ```
+
+  Với `docker-compose.dev.yml`, `notification-service` dùng `env_file: .env.local`: thêm biến ở trên vào `.env.local` là đủ (không cần mount thêm nếu chỉ dùng Base64).
+
+  **Cách 2 — File trong container (fallback):**
   ```
   FIREBASE_CREDENTIALS_PATH=/app/firebase-credentials.json
-  FIREBASE_CREDENTIALS_HOST_PATH=./path/to/your-service-account.json
   ```
+  (Kèm volume mount file JSON vào đường dẫn đó nếu dùng cách này.)
 
 ## VPS/Production
 - Tạo `backend/.env` trên VPS (không commit), rồi:

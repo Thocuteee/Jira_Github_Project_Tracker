@@ -14,14 +14,17 @@ import uth.edu.notification.service.IEmailService;
 public class ResendEmailServiceImpl implements IEmailService {
     private final Resend resend;
     private final String fromEmail;
+    private final String fromName;
     private final boolean enabled;
 
     public ResendEmailServiceImpl(
         @Value("${resend.api-key:}") String resendApiKey,
         @Value("${resend.from-email:no-reply@example.com}") String fromEmail,
+        @Value("${resend.from-name:${RESEND_NAME:Hệ thống UTH}}") String fromName,
         @Value("${resend.enabled:true}") boolean enabled
     ) {
         this.fromEmail = fromEmail;
+        this.fromName = fromName;
         this.enabled = enabled;
         this.resend = resendApiKey != null && !resendApiKey.isBlank() ? new Resend(resendApiKey) : null;
     }
@@ -42,8 +45,9 @@ public class ResendEmailServiceImpl implements IEmailService {
             return;
         }
         try {
+            String senderFormat = String.format("%s <%s>", fromName, fromEmail);
             CreateEmailOptions request = CreateEmailOptions.builder()
-                .from(fromEmail)
+                .from(senderFormat)
                 .to(to)
                 .subject(subject)
                 .html(body)

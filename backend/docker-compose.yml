@@ -197,6 +197,7 @@ services:
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
       RABBITMQ_USER: ${RABBITMQ_USERNAME}
       RABBITMQ_PASS: ${RABBITMQ_PASSWORD}
+      FIREBASE_CREDENTIALS_BASE64: ${FIREBASE_CREDENTIALS_BASE64:-}
 
   github-service:
     image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/github-service:latest
