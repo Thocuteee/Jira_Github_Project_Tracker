@@ -59,7 +59,7 @@ public class GroupServiceImpl implements IGroupService {
         memberReq.setUserId(creatorId);
         memberReq.setRoleInGroup("LEADER");
 
-        addMemberToGroup(saved.getGroupId(), memberReq, creatorId);
+        addMemberToGroup(saved.getGroupId(), memberReq, creatorId, null);
 
         return groupMapper.toResponse(saved);
     }
@@ -128,7 +128,7 @@ public class GroupServiceImpl implements IGroupService {
     }
 
     @Override
-    public void addMemberToGroup(UUID groupId, MemberRequest req, UUID adderId) {
+    public void addMemberToGroup(UUID groupId, MemberRequest req, UUID adderId, String authToken) {
 
         long currentCount = memberRepo.countByGroupGroupId(groupId);
         if (currentCount >= 8) {
@@ -157,7 +157,7 @@ public class GroupServiceImpl implements IGroupService {
             setGroupLeader(groupId, req.getUserId());
         }
 
-        publishMemberAddedEvent(group, savedMember, adderId, normalizedRole);
+        publishMemberAddedEvent(group, savedMember, adderId, normalizedRole, authToken);
     }
 
     @Override
@@ -273,8 +273,9 @@ public class GroupServiceImpl implements IGroupService {
         return ALLOWED_GROUP_ROLES.contains(normalized) ? normalized : "MEMBER";
     }
 
-    private void publishMemberAddedEvent(Group group, GroupMember savedMember, UUID adderId, String role) {
+    private void publishMemberAddedEvent(Group group, GroupMember savedMember, UUID adderId, String role, String authToken) {
         try {
+            String normalizedAuthToken = extractBearerToken(authToken);
             GroupMemberEvent event = GroupMemberEvent.builder()
                 .groupId(group.getGroupId())
                 .groupName(group.getGroupName())
@@ -282,6 +283,7 @@ public class GroupServiceImpl implements IGroupService {
                 .adderId(adderId)
                 .role(role)
                 .eventType("MEMBER_ADDED")
+                .authToken(normalizedAuthToken)
                 .build();
 
             rabbitTemplate.convertAndSend(
@@ -293,5 +295,20 @@ public class GroupServiceImpl implements IGroupService {
             log.warn("Could not publish group member event (best-effort): groupId={}, userId={}",
                 group.getGroupId(), savedMember.getUserId(), ex);
         }
+    }
+
+    private String extractBearerToken(String authHeader) {
+        if (authHeader == null) {
+            return null;
+        }
+        String trimmed = authHeader.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        if (trimmed.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            String token = trimmed.substring(7).trim();
+            return token.isEmpty() ? null : token;
+        }
+        return trimmed;
     }
 }

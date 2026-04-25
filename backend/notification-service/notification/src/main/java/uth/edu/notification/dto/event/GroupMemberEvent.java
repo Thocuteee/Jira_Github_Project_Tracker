@@ -17,4 +17,5 @@ public class GroupMemberEvent {
     private UUID adderId;
     private String role;
     private String eventType;
+    private String authToken;
 }

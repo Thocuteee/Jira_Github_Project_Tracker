@@ -35,6 +35,7 @@ public class GroupMemberEventConsumer {
             request.setUserId(event.getUserId());
             request.setTitle("Bạn đã được thêm vào nhóm dự án");
             request.setMessage(buildMemberAddedMessage(event));
+            request.setAuthToken(event.getAuthToken());
 
             notificationService.createNotification(request);
             log.info("Created group member notification: groupId={}, userId={}, role={}",

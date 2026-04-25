@@ -63,10 +63,11 @@ public class GroupController {
             @RequestBody MemberRequest request,
             @RequestHeader(value = "X-User-Id", required = false) UUID userId,
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
-            @RequestHeader(value = "X-User-Roles", required = false) String userRoles
+            @RequestHeader(value = "X-User-Roles", required = false) String userRoles,
+            @RequestHeader(value = "Authorization", required = false) String authorization
     ) {
         requireAdminOrLeader(groupId, userId, userRole, userRoles);
-        groupService.addMemberToGroup(groupId, request, userId);
+        groupService.addMemberToGroup(groupId, request, userId, authorization);
         return ResponseEntity.status(HttpStatus.CREATED).body("Đã thêm Thành Viên!");
     }
 

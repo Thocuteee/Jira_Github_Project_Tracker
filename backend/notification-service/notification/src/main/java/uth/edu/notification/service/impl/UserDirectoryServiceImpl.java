@@ -30,8 +30,13 @@ public class UserDirectoryServiceImpl implements IUserDirectoryService {
         }
         String url = authServiceBaseUrl + "/api/auth/users/" + userId;
         try {
+            String normalizedToken = extractBearerToken(authToken);
+            if (!StringUtils.hasText(normalizedToken)) {
+                log.debug("Skip resolving recipient email because auth token is missing after normalization for userId={}", userId);
+                return Optional.empty();
+            }
             HttpHeaders headers = new HttpHeaders();
-            headers.setBearerAuth(authToken.trim());
+            headers.setBearerAuth(normalizedToken);
             HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
             ResponseEntity<Map> response = restTemplate.exchange(url, org.springframework.http.HttpMethod.GET, requestEntity, Map.class);
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
@@ -46,5 +51,17 @@ public class UserDirectoryServiceImpl implements IUserDirectoryService {
             log.warn("Failed to resolve recipient email from auth-service for userId={}: {}", userId, ex.getMessage());
             return Optional.empty();
         }
+    }
+
+    private String extractBearerToken(String authHeader) {
+        if (!StringUtils.hasText(authHeader)) {
+            return null;
+        }
+        String trimmed = authHeader.trim();
+        if (trimmed.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            String token = trimmed.substring(7).trim();
+            return token.isEmpty() ? null : token;
+        }
+        return trimmed;
     }
 }
