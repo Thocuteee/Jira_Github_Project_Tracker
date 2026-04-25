@@ -203,6 +203,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const isCurrentUserAssignee =
     Boolean(currentUserId && task.assignedTo && currentUserId === task.assignedTo);
   const canEditStatus = role === 'LEADER' || isCurrentUserAssignee;
+  const canEditTaskDetails = role === 'LEADER' || isCurrentUserAssignee;
 
   const statusIcons: Record<string, any> = {
     DONE: <CheckCircle2 className="text-green-500" size={16} />,
@@ -267,7 +268,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                     <Info size={14} /> Mô tả công việc
                   </label>
-                  {role === 'LEADER' ? (
+                  {canEditTaskDetails ? (
                     <textarea
                       rows={8}
                       className="w-full px-6 py-5 bg-white border border-slate-200 rounded-[1.5rem] focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all resize-none shadow-sm text-slate-700 font-medium leading-relaxed"
@@ -287,16 +288,18 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                       <Paperclip size={14} /> Tài liệu đính kèm
                     </label>
-                    <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-50 text-blue-700 text-xs font-bold cursor-pointer hover:bg-blue-100 transition-colors">
-                      <Upload size={14} />
-                      {uploadingAttachment ? 'Đang tải...' : 'Upload File'}
-                      <input
-                        type="file"
-                        className="hidden"
-                        onChange={handleAttachmentUpload}
-                        disabled={uploadingAttachment}
-                      />
-                    </label>
+                    {canEditTaskDetails && (
+                      <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-50 text-blue-700 text-xs font-bold cursor-pointer hover:bg-blue-100 transition-colors">
+                        <Upload size={14} />
+                        {uploadingAttachment ? 'Đang tải...' : 'Upload File'}
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={handleAttachmentUpload}
+                          disabled={uploadingAttachment}
+                        />
+                      </label>
+                    )}
                   </div>
 
                   {attachments.length === 0 ? (
@@ -326,14 +329,16 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                               <Download size={13} />
                               Mở
                             </a>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteAttachment(attachment.attachmentId)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-50 text-red-600 text-xs font-bold hover:bg-red-100"
-                            >
-                              <Trash2 size={13} />
-                              Xóa
-                            </button>
+                            {canEditTaskDetails && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteAttachment(attachment.attachmentId)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-50 text-red-600 text-xs font-bold hover:bg-red-100"
+                              >
+                                <Trash2 size={13} />
+                                Xóa
+                              </button>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -580,7 +585,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         </div>
 
         {/* Footer for Actions */}
-        {activeTab === 'details' && (
+        {activeTab === 'details' && canEditTaskDetails && (
           <div className="px-10 py-7 border-t border-slate-50 flex justify-end bg-white">
             <button
               onClick={handleSave}

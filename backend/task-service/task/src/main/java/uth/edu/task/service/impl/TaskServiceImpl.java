@@ -155,11 +155,10 @@ public class TaskServiceImpl implements TaskService {
                     .collect(Collectors.toList());
         }
 
-        // 2. Team Member: Theo yêu cầu chỉ xem các task được giao cho mình
+        // 2. Team Member: được xem toàn bộ task trong group (quyền thao tác vẫn kiểm soát ở API riêng)
         if (isMember) {
             List<Task> tasks = taskRepository.findByGroupId(groupId);
             return tasks.stream()
-                    .filter(t -> userId.equals(t.getAssignedTo())) // Chỉ lấy task của mình
                     .map(taskMapper::toResponse)
                     .collect(Collectors.toList());
         }
