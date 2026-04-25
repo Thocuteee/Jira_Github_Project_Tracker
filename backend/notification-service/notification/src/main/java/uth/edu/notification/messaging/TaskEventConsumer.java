@@ -8,13 +8,17 @@ import uth.edu.notification.config.RabbitMQConfig;
 import uth.edu.notification.dto.CreateNotificationRequest;
 import uth.edu.notification.dto.event.TaskEvent;
 import uth.edu.notification.service.INotificationService;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class TaskEventConsumer {
+    private static final long DEDUPE_TTL_MS = 60_000L;
     private final INotificationService notificationService;
+    private final Map<String, Long> processedEventCache = new ConcurrentHashMap<>();
 
     @RabbitListener(queues = RabbitMQConfig.NOTIFICATION_QUEUE)
     public void handleTaskEvent(TaskEvent event) {
@@ -23,6 +27,11 @@ public class TaskEventConsumer {
             NotificationMessageData messageData = buildMessageData(event, eventType);
             if (messageData == null || messageData.recipientId() == null) {
                 log.debug("Skipping unsupported or incomplete task event: eventType={}, taskId={}", eventType, event.getTaskId());
+                return;
+            }
+            String eventKey = buildEventKey(event, eventType, messageData.recipientId());
+            if (isDuplicateEvent(eventKey)) {
+                log.debug("Skip duplicate task event: key={}, taskId={}", eventKey, event.getTaskId());
                 return;
             }
 
@@ -68,6 +77,22 @@ public class TaskEventConsumer {
             return event.getTitle();
         }
         return "Untitled";
+    }
+
+    private String buildEventKey(TaskEvent event, String eventType, UUID recipientId) {
+        String taskId = event.getTaskId() != null ? event.getTaskId().toString() : "no-task-id";
+        String timestamp = event.getTimestamp() != null ? event.getTimestamp().toString() : "no-timestamp";
+        return eventType + "|" + taskId + "|" + recipientId + "|" + timestamp;
+    }
+
+    private boolean isDuplicateEvent(String eventKey) {
+        long now = System.currentTimeMillis();
+        processedEventCache.entrySet().removeIf(entry -> now - entry.getValue() > DEDUPE_TTL_MS);
+        Long previous = processedEventCache.putIfAbsent(eventKey, now);
+        if (previous == null) {
+            return false;
+        }
+        return now - previous <= DEDUPE_TTL_MS;
     }
 
     private record NotificationMessageData(UUID recipientId, String title, String message) {

@@ -66,7 +66,7 @@ public class GroupController {
             @RequestHeader(value = "X-User-Roles", required = false) String userRoles
     ) {
         requireAdminOrLeader(groupId, userId, userRole, userRoles);
-        groupService.addMemberToGroup(groupId, request);
+        groupService.addMemberToGroup(groupId, request, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body("Đã thêm Thành Viên!");
     }
 

@@ -1,4 +1,4 @@
-import { createContext, useContext, useCallback, useState, useEffect } from 'react';
+import { createContext, useContext, useCallback, useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { useFcm } from '../hooks/useFcm';
 import notificationService, {
@@ -61,7 +61,8 @@ export function FcmProvider({ children }: { children: ReactNode }) {
   const [preferences, setPreferences] = useState<NotificationPreferenceDto | null>(null);
   const [loadingPreferences, setLoadingPreferences] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [recentMessageKeys, setRecentMessageKeys] = useState<string[]>([]);
+  const syncFetchTimeoutRef = useRef<number | null>(null);
+  const processedEventKeysRef = useRef<Map<string, number>>(new Map());
 
   const isTempNotificationId = useCallback((notificationId: string) => {
     return notificationId.startsWith(TEMP_NOTIFICATION_PREFIX);
@@ -99,16 +100,29 @@ export function FcmProvider({ children }: { children: ReactNode }) {
     }
   }, [userId]);
 
+  const scheduleNotificationSync = useCallback(() => {
+    void fetchNotifications();
+    if (syncFetchTimeoutRef.current) {
+      window.clearTimeout(syncFetchTimeoutRef.current);
+    }
+    syncFetchTimeoutRef.current = window.setTimeout(() => {
+      void fetchNotifications();
+    }, 900);
+  }, [fetchNotifications]);
+
   const hasProcessedMessageRecently = useCallback((key: string) => {
-    return recentMessageKeys.includes(key);
-  }, [recentMessageKeys]);
+    const now = Date.now();
+    const map = processedEventKeysRef.current;
+    for (const [k, ts] of map.entries()) {
+      if (now - ts > 60_000) {
+        map.delete(k);
+      }
+    }
+    return map.has(key);
+  }, []);
 
   const markMessageProcessed = useCallback((key: string) => {
-    setRecentMessageKeys((prev) => {
-      const merged = [...prev, key];
-      // Keep a small rolling window to avoid duplicate processing.
-      return merged.slice(-50);
-    });
+    processedEventKeysRef.current.set(key, Date.now());
   }, []);
 
   const refreshPreferences = useCallback(async () => {
@@ -147,10 +161,10 @@ export function FcmProvider({ children }: { children: ReactNode }) {
       }
 
       setUnreadCount((prev) => prev + 1);
-      if (userId && d?.notificationId && d.userId === userId) {
+      if (d?.notificationId) {
         const dto: NotificationDto = {
           notificationId: d.notificationId,
-          userId: d.userId,
+          userId: d.userId || userId || '',
           title: (d.title && d.title.length > 0 ? d.title : notification.title) || 'Thông báo',
           message: (d.message && d.message.length > 0 ? d.message : notification.body) || '',
           isRead: d.isRead === 'true',
@@ -175,17 +189,18 @@ export function FcmProvider({ children }: { children: ReactNode }) {
         setNotifications((prev) => [tempNotification, ...prev]);
 
         // Fallback: payload thiếu data định danh, lấy lại danh sách để đồng bộ realtime UI.
-        void fetchNotifications();
-        window.setTimeout(() => {
-          void fetchNotifications();
-        }, 800);
+        scheduleNotificationSync();
+      }
+
+      if (userId) {
+        scheduleNotificationSync();
       }
 
       setTimeout(() => {
         setToasts((prev) => prev.filter((t) => t.id !== id));
       }, 6000);
     },
-    [fetchNotifications, hasProcessedMessageRecently, markMessageProcessed, userId],
+    [hasProcessedMessageRecently, markMessageProcessed, scheduleNotificationSync, userId],
   );
 
   useEffect(() => {
@@ -207,9 +222,39 @@ export function FcmProvider({ children }: { children: ReactNode }) {
     };
   }, [handleNotification]);
 
+  useEffect(() => {
+    if (typeof BroadcastChannel === 'undefined') return;
+    const channel = new BroadcastChannel('fcm-events');
+    const onChannelMessage = (event: MessageEvent) => {
+      const data = event.data;
+      if (!data || data.type !== 'FCM_FOREGROUND_SYNC') return;
+      const payload = data.payload;
+      if (!payload) return;
+      handleNotification({
+        title: payload.notification?.title || 'New Notification',
+        body: payload.notification?.body || '',
+        data: payload.data,
+      });
+    };
+    channel.addEventListener('message', onChannelMessage);
+    return () => {
+      channel.removeEventListener('message', onChannelMessage);
+      channel.close();
+    };
+  }, [handleNotification]);
+
+  useEffect(() => {
+    return () => {
+      if (syncFetchTimeoutRef.current) {
+        window.clearTimeout(syncFetchTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const { token, permissionStatus, requestPermission } = useFcm({
     userId,
-    onNotification: handleNotification,
+    // Realtime ingest is handled via service worker bridge to avoid duplicate events.
+    onNotification: undefined,
   });
 
   const dismissToast = useCallback((id: number) => {

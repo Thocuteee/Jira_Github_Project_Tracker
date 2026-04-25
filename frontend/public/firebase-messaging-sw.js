@@ -23,6 +23,7 @@ function initFirebase(cfg) {
 
 function setupMessaging() {
   const messaging = firebase.messaging();
+  const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('fcm-events') : null;
 
   messaging.onBackgroundMessage((payload) => {
     const title = payload.notification?.title || 'New Notification';
@@ -31,18 +32,36 @@ function setupMessaging() {
       icon: '/icons.svg',
       data: payload.data,
     };
-    self.registration.showNotification(title, options);
 
     // Broadcast payload to opened app tabs so React context updates immediately.
     self.clients
       .matchAll({ type: 'window', includeUncontrolled: true })
       .then((clients) => {
+        const hasVisibleClient = clients.some((client) => client.visibilityState === 'visible');
+
+        // Only show native browser notification when no active visible tab.
+        // Avoid duplicate browser notifications: when payload already contains
+        // `notification`, many browsers/FCM paths can auto-display it.
+        // In that case, do not show it manually from SW.
+        const shouldShowNative =
+          !hasVisibleClient &&
+          (!payload.notification || (!payload.notification.title && !payload.notification.body));
+        if (shouldShowNative) {
+          self.registration.showNotification(title, options);
+        }
+
         clients.forEach((client) => {
           client.postMessage({
             type: 'FCM_FOREGROUND_SYNC',
             payload,
           });
         });
+        if (channel) {
+          channel.postMessage({
+            type: 'FCM_FOREGROUND_SYNC',
+            payload,
+          });
+        }
       })
       .catch(() => {
         // ignore broadcast failures

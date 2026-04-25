@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import uth.edu.group.config.RabbitMQConfig;
 import uth.edu.group.dto.*;
+import uth.edu.group.dto.event.GroupMemberEvent;
 import uth.edu.group.mapper.GroupMapper;
 import uth.edu.group.model.*;
 import uth.edu.group.repository.*;
@@ -58,7 +59,7 @@ public class GroupServiceImpl implements IGroupService {
         memberReq.setUserId(creatorId);
         memberReq.setRoleInGroup("LEADER");
 
-        addMemberToGroup(saved.getGroupId(), memberReq);
+        addMemberToGroup(saved.getGroupId(), memberReq, creatorId);
 
         return groupMapper.toResponse(saved);
     }
@@ -127,7 +128,7 @@ public class GroupServiceImpl implements IGroupService {
     }
 
     @Override
-    public void addMemberToGroup(UUID groupId, MemberRequest req) {
+    public void addMemberToGroup(UUID groupId, MemberRequest req, UUID adderId) {
 
         long currentCount = memberRepo.countByGroupGroupId(groupId);
         if (currentCount >= 8) {
@@ -150,11 +151,13 @@ public class GroupServiceImpl implements IGroupService {
         member.setGithubUsername(req.getGithubUsername());
         member.setJiraAccountId(req.getJiraAccountId());
 
-        memberRepo.save(member);
+        GroupMember savedMember = memberRepo.save(member);
 
         if ("LEADER".equals(normalizedRole)) {
             setGroupLeader(groupId, req.getUserId());
         }
+
+        publishMemberAddedEvent(group, savedMember, adderId, normalizedRole);
     }
 
     @Override
@@ -268,5 +271,27 @@ public class GroupServiceImpl implements IGroupService {
         }
         String normalized = rawRole.trim().toUpperCase(Locale.ROOT);
         return ALLOWED_GROUP_ROLES.contains(normalized) ? normalized : "MEMBER";
+    }
+
+    private void publishMemberAddedEvent(Group group, GroupMember savedMember, UUID adderId, String role) {
+        try {
+            GroupMemberEvent event = GroupMemberEvent.builder()
+                .groupId(group.getGroupId())
+                .groupName(group.getGroupName())
+                .userId(savedMember.getUserId())
+                .adderId(adderId)
+                .role(role)
+                .eventType("MEMBER_ADDED")
+                .build();
+
+            rabbitTemplate.convertAndSend(
+                RabbitMQConfig.GROUP_EXCHANGE,
+                RabbitMQConfig.GROUP_MEMBER_ADDED_ROUTING_KEY,
+                event
+            );
+        } catch (Exception ex) {
+            log.warn("Could not publish group member event (best-effort): groupId={}, userId={}",
+                group.getGroupId(), savedMember.getUserId(), ex);
+        }
     }
 }
