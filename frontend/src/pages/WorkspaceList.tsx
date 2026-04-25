@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout, Plus, Users, ArrowRight } from 'lucide-react';
-import axios from 'axios';
+import groupService from '@/api/group.service';
 
 interface Workspace {
   id: string;
@@ -15,7 +15,6 @@ interface Workspace {
 const WorkspaceList = () => {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const navigate = useNavigate();
-  const apiGatewayBaseUrl = import.meta.env.VITE_API_GATEWAY_URL || window.location.origin;
 
   useEffect(() => {
     const fetchWorkspaces = async () => {
@@ -25,14 +24,12 @@ const WorkspaceList = () => {
         const isAdmin = roles.includes('ROLE_ADMIN');
         
         // Admin see all, others see their own
-        const endpoint = isAdmin 
-          ? `${apiGatewayBaseUrl}/api/groups` 
-          : `${apiGatewayBaseUrl}/api/groups/my-groups`;
-          
-        const response = await axios.get(endpoint, { withCredentials: true });
+        const data = isAdmin
+          ? await groupService.getAllGroups()
+          : await groupService.getMyGroups();
         
         // Map backend fields to frontend interface
-        const mapped = (response.data || []).map((item: any) => ({
+        const mapped = (data || []).map((item: any) => ({
           id: item.groupId,
           name: item.groupName,
           groupPrefix: item.jiraProjectKey || 'N/A',
@@ -47,7 +44,7 @@ const WorkspaceList = () => {
       }
     };
     fetchWorkspaces();
-  }, [apiGatewayBaseUrl]);
+  }, []);
 
   return (
     <div className="p-8 bg-slate-50 min-h-screen">

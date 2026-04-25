@@ -51,6 +51,14 @@ function getUserId(): string | null {
   }
 }
 
+function isAuthedSession(): boolean {
+  try {
+    return Boolean(localStorage.getItem('userId') || localStorage.getItem('userEmail') || localStorage.getItem('userName'));
+  } catch {
+    return false;
+  }
+}
+
 export function FcmProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(getUserId);
   const [toasts, setToasts] = useState<FcmToast[]>([]);
@@ -83,7 +91,7 @@ export function FcmProvider({ children }: { children: ReactNode }) {
   }, [notifications]);
 
   const fetchNotifications = useCallback(async () => {
-    if (!userId) {
+    if (!userId || !isAuthedSession()) {
       setNotifications([]);
       setUnreadCount(0);
       return;
@@ -126,7 +134,7 @@ export function FcmProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshPreferences = useCallback(async () => {
-    if (!userId) {
+    if (!userId || !isAuthedSession()) {
       setPreferences(null);
       return;
     }
@@ -142,8 +150,16 @@ export function FcmProvider({ children }: { children: ReactNode }) {
   }, [userId]);
 
   useEffect(() => {
+    if (!userId || !isAuthedSession()) {
+      setNotifications([]);
+      setUnreadCount(0);
+      setPreferences(null);
+      setLoadingNotifications(false);
+      setLoadingPreferences(false);
+      return;
+    }
     void fetchNotifications();
-  }, [fetchNotifications]);
+  }, [fetchNotifications, userId]);
 
   const handleNotification = useCallback(
     (notification: { title: string; body: string; data?: Record<string, string> }) => {

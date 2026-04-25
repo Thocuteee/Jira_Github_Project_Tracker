@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import axios from 'axios';
 import { Clock, CheckCircle2, GitBranch, Circle, Activity } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import type { Task } from '@/api/task.service';
 import taskService from '@/api/task.service';
 import requirementService, { type Requirement } from '@/api/requirement.service';
+import groupService from '@/api/group.service';
 
 function calculateTrueProgress(tasks: Task[], requirements: Requirement[]) {
   const reqsWithTasks = new Set(
@@ -31,14 +31,13 @@ const WorkspaceDashboard = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [loadingProjectData, setLoadingProjectData] = useState(false);
-  const apiGatewayBaseUrl = import.meta.env.VITE_API_GATEWAY_URL || window.location.origin;
 
   useEffect(() => {
     if (!groupId) return;
 
-    axios
-      .get(`${apiGatewayBaseUrl}/api/groups/${groupId}`)
-      .then((res) => setGroupInfo(res.data))
+    groupService
+      .getGroupById(groupId)
+      .then((res) => setGroupInfo(res))
       .catch((err) => console.error('Lỗi lấy thông tin group:', err));
 
     setLoadingProjectData(true);
@@ -56,7 +55,7 @@ const WorkspaceDashboard = () => {
         setRequirements([]);
       })
       .finally(() => setLoadingProjectData(false));
-  }, [apiGatewayBaseUrl, groupId]);
+  }, [groupId]);
 
   const { effectiveTotalTasks, doneTasks, progressPercent } = useMemo(
     () => calculateTrueProgress(tasks, requirements),

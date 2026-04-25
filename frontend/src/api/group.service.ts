@@ -1,7 +1,6 @@
-import axios from 'axios';
+import authClient from './authClient';
 
-const apiGatewayBaseUrl = import.meta.env.VITE_API_GATEWAY_URL || window.location.origin;
-const API_URL = `${apiGatewayBaseUrl}/api/groups`;
+const API_URL = '/api/groups';
 
 class GroupService {
   // --- Group Endpoints ---
@@ -15,71 +14,57 @@ class GroupService {
     status?: 'ACTIVE' | 'LOCKED';
     maxMembers?: number;
   }) {
-    const response = await axios.post(API_URL, data, {
-      withCredentials: true,
-    });
-    return response.data;
+    return await authClient.post(API_URL, data) as any;
   }
 
   async getAllGroups() {
-    const response = await axios.get(API_URL, { withCredentials: true });
-    return response.data;
+    return await authClient.get(API_URL) as any;
   }
 
   async getGroupById(groupId: string) {
-    const response = await axios.get(`${API_URL}/${groupId}`, { withCredentials: true });
-    return response.data;
+    return await authClient.get(`${API_URL}/${groupId}`) as any;
   }
 
   async deleteGroup(groupId: string) {
-    const response = await axios.delete(`${API_URL}/${groupId}`, { withCredentials: true });
-    return response.data;
+    return await authClient.delete(`${API_URL}/${groupId}`) as any;
   }
 
   // Cập nhật Leader
   async setGroupLeader(groupId: string, leaderId: string) {
-    const response = await axios.put(`${API_URL}/${groupId}/leader`, { userId: leaderId }, { withCredentials: true });
-    return response.data;
+    return await authClient.put(`${API_URL}/${groupId}/leader`, { userId: leaderId }) as any;
   }
 
   // --- Member Endpoints ---
 
   async addMember(groupId: string, userId: string, roleInGroup: string) {
-    const response = await axios.post(`${API_URL}/${groupId}/members`, {
+    return await authClient.post(`${API_URL}/${groupId}/members`, {
       userId,
       roleInGroup
-    }, { withCredentials: true });
-    return response.data;
+    }) as any;
   }
 
   async getMembers(groupId: string) {
-    const response = await axios.get(`${API_URL}/${groupId}/members`, { withCredentials: true });
-    return response.data;
+    return await authClient.get(`${API_URL}/${groupId}/members`) as any;
   }
 
   async getMemberIds(groupId: string) {
-    const response = await axios.get(`${API_URL}/${groupId}/members/ids`, { withCredentials: true });
-    return response.data;
+    return await authClient.get(`${API_URL}/${groupId}/members/ids`) as any;
   }
 
   async updateMemberRole(groupId: string, userId: string, role: string) {
-    const response = await axios.put(`${API_URL}/${groupId}/members/${userId}/role`, { roleInGroup: role }, { withCredentials: true });
-    return response.data;
+    return await authClient.put(`${API_URL}/${groupId}/members/${userId}/role`, { roleInGroup: role }) as any;
   }
 
   async removeMember(groupId: string, userId: string) {
-    const response = await axios.delete(`${API_URL}/${groupId}/members/${userId}`, { withCredentials: true });
-    return response.data;
+    return await authClient.delete(`${API_URL}/${groupId}/members/${userId}`) as any;
   }
 
   async getMyGroups() {
-    const response = await axios.get(`${API_URL}/my-groups`, { withCredentials: true });
-    return response.data;
+    return await authClient.get(`${API_URL}/my-groups`) as any;
   }
 
   async checkLeader(groupId: string) {
-    const response = await axios.get(`${API_URL}/${groupId}/checkLeader`, { withCredentials: true });
-    return response.data;
+    return await authClient.get(`${API_URL}/${groupId}/checkLeader`) as any;
   }
 }
 

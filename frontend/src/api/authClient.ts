@@ -1,6 +1,7 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 
 const authBaseUrl = import.meta.env.VITE_API_GATEWAY_URL || window.location.origin;
+let isHandlingAuthFailure = false;
 
 type RetryableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
@@ -28,13 +29,22 @@ axiosClient.interceptors.response.use(
                 return axiosClient(originalRequest);
             } catch (refreshError) {
                 // Nếu refresh thất bại -> Logout
+                if (isHandlingAuthFailure) {
+                    return Promise.reject(refreshError);
+                }
+                isHandlingAuthFailure = true;
                 localStorage.removeItem('userEmail');
                 localStorage.removeItem('userName');
                 localStorage.removeItem('userSubtitle');
                 localStorage.removeItem('userRoles');
                 localStorage.removeItem('userId');
                 window.dispatchEvent(new Event('auth-changed'));
-                window.location.href = '/login';
+                if (window.location.pathname !== '/login') {
+                    window.location.href = '/login';
+                }
+                window.setTimeout(() => {
+                    isHandlingAuthFailure = false;
+                }, 250);
                 return Promise.reject(refreshError);
             }
         }
