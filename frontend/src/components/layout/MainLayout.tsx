@@ -32,7 +32,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
         loadingNotifications,
         isNotificationOpen,
         setIsNotificationOpen,
-        refreshNotifications,
+        fetchNotifications,
         markNotificationRead,
         markAllNotificationsRead,
     } = useFcmContext();
@@ -95,9 +95,9 @@ export default function MainLayout({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         if (isNotificationOpen) {
-            void refreshNotifications();
+            void fetchNotifications();
         }
-    }, [isNotificationOpen, refreshNotifications]);
+    }, [fetchNotifications, isNotificationOpen]);
 
     const handleLogout = async () => {
         setMenuOpen(false);

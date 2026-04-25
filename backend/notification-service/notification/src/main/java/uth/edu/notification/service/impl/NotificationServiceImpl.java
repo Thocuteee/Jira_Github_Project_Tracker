@@ -1,7 +1,9 @@
 package uth.edu.notification.service.impl;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,11 +49,11 @@ public class NotificationServiceImpl implements INotificationService {
         if (Boolean.TRUE.equals(pushEnabled)) {
             // Best-effort push: try explicit token from request first, then all registered tokens.
             if (StringUtils.hasText(request.getFcmToken())) {
-                sendPushSafely(saved.getTitle(), saved.getMessage(), request.getFcmToken());
+                sendPushSafely(saved, request.getFcmToken());
             } else {
                 List<String> tokens = fcmTokenService.getTokensByUserId(request.getUserId());
                 for (String token : tokens) {
-                    sendPushSafely(saved.getTitle(), saved.getMessage(), token);
+                    sendPushSafely(saved, token);
                 }
             }
         } else {
@@ -70,9 +72,17 @@ public class NotificationServiceImpl implements INotificationService {
         return saved;
     }
 
-    private void sendPushSafely(String title, String message, String token) {
+    private void sendPushSafely(Notification saved, String token) {
         try {
-            boolean valid = fcmSender.send(title, message, token);
+            Map<String, String> data = new HashMap<>();
+            data.put("notificationId", saved.getNotificationId().toString());
+            data.put("userId", saved.getUserId().toString());
+            data.put("title", saved.getTitle() != null ? saved.getTitle() : "");
+            data.put("message", saved.getMessage() != null ? saved.getMessage() : "");
+            data.put("createdAt", saved.getCreatedAt() != null ? saved.getCreatedAt().toString() : "");
+            data.put("isRead", Boolean.TRUE.equals(saved.getIsRead()) ? "true" : "false");
+
+            boolean valid = fcmSender.send(saved.getTitle(), saved.getMessage(), token, data);
             if (!valid) {
                 log.info("Removing invalid FCM token: {}", token);
                 fcmTokenService.removeInvalidToken(token);

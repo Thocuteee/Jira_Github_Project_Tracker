@@ -1,6 +1,6 @@
 import MainLayout from '@/components/layout/MainLayout';
 import { useFcmContext } from '@/contexts/FcmContext';
-import { Bell, CheckCheck, Filter, Settings } from 'lucide-react';
+import { Bell, CheckCheck, Filter, Settings, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
@@ -16,10 +16,11 @@ export default function NotificationsPage() {
     loadingNotifications,
     preferences,
     loadingPreferences,
-    refreshNotifications,
+    fetchNotifications,
     refreshPreferences,
     markNotificationRead,
     markAllNotificationsRead,
+    deleteNotification,
     updatePreferences,
     requestPermission,
     permissionStatus,
@@ -27,12 +28,14 @@ export default function NotificationsPage() {
   const [filter, setFilter] = useState<NotificationFilter>('all');
   const [page, setPage] = useState(1);
   const [highlightedNotificationId, setHighlightedNotificationId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     document.title = 'Notifications | Project Tracker';
-    void refreshNotifications();
+    void fetchNotifications();
     void refreshPreferences();
-  }, [refreshNotifications, refreshPreferences]);
+  }, [fetchNotifications, refreshPreferences]);
 
   const filtered = useMemo(() => {
     if (filter === 'read') return notifications.filter((item) => item.isRead);
@@ -47,6 +50,12 @@ export default function NotificationsPage() {
   useEffect(() => {
     setPage(1);
   }, [filter]);
+
+  useEffect(() => {
+    if (!deleteError) return;
+    const t = window.setTimeout(() => setDeleteError(null), 5200);
+    return () => window.clearTimeout(t);
+  }, [deleteError]);
 
   useEffect(() => {
     if (searchParams.get('tab') === 'settings') {
@@ -94,9 +103,31 @@ export default function NotificationsPage() {
     });
   };
 
+  const handleDeleteNotification = async (e: React.MouseEvent, notificationId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDeletingId(notificationId);
+    try {
+      await deleteNotification(notificationId);
+    } catch {
+      setDeleteError('Không xóa được thông báo. Vui lòng thử lại.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <MainLayout>
       <div className="mx-auto max-w-7xl">
+        {deleteError && (
+          <div
+            role="alert"
+            className="fixed bottom-6 left-1/2 z-[60] max-w-md -translate-x-1/2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-medium text-red-800 shadow-lg transition-all duration-300 ease-out animate-in fade-in slide-in-from-bottom-2"
+          >
+            {deleteError}
+          </div>
+        )}
+
         <div className="mb-8 flex items-end justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Trung tâm thông báo</h1>
@@ -133,18 +164,16 @@ export default function NotificationsPage() {
 
             <div className="space-y-2">
               {loadingNotifications ? (
-                <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-500">Dang tai thong bao...</div>
+                <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-500">Đang tải thông báo...</div>
               ) : pagedNotifications.length === 0 ? (
                 <div className="rounded-xl border border-slate-100 bg-slate-50 p-6 text-center text-sm text-slate-500">
                   Không có thông báo nào theo bộ lọc hiện tại.
                 </div>
               ) : (
                 pagedNotifications.map((item) => (
-                  <button
+                  <div
                     key={item.notificationId}
-                    type="button"
-                    onClick={() => void markNotificationRead(item.notificationId)}
-                    className={`w-full rounded-xl border p-4 text-left transition ${
+                    className={`group flex min-h-[5.5rem] overflow-hidden rounded-xl border text-left transition-all duration-200 ease-out ${
                       highlightedNotificationId === item.notificationId
                         ? 'ring-2 ring-blue-400 ring-offset-2'
                         : ''
@@ -154,17 +183,38 @@ export default function NotificationsPage() {
                         : 'border-blue-100 bg-blue-50 hover:bg-blue-100/60'
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className={`text-sm ${item.isRead ? 'font-medium text-slate-800' : 'font-semibold text-slate-900'}`}>
-                          {item.title}
-                        </p>
-                        <p className="mt-1 text-sm text-slate-600">{item.message}</p>
+                    <button
+                      type="button"
+                      onClick={() => void markNotificationRead(item.notificationId)}
+                      className="min-w-0 flex-1 p-4 text-left outline-none transition-colors duration-200"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <p className={`text-sm ${item.isRead ? 'font-medium text-slate-800' : 'font-semibold text-slate-900'}`}>
+                            {item.title}
+                          </p>
+                          <p className="mt-1 text-sm text-slate-600">{item.message}</p>
+                        </div>
+                        {!item.isRead && (
+                          <span className="shrink-0 rounded-full bg-blue-600 px-2 py-0.5 text-[11px] font-semibold text-white">
+                            New
+                          </span>
+                        )}
                       </div>
-                      {!item.isRead && <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[11px] font-semibold text-white">New</span>}
+                      <p className="mt-3 text-xs text-slate-500">{new Date(item.createdAt).toLocaleString('vi-VN')}</p>
+                    </button>
+                    <div className="flex w-12 shrink-0 flex-col items-center border-l border-slate-200/60 bg-white/40 pt-3">
+                      <button
+                        type="button"
+                        aria-label="Xóa thông báo"
+                        disabled={deletingId === item.notificationId}
+                        onClick={(e) => void handleDeleteNotification(e, item.notificationId)}
+                        className="rounded-lg p-2 text-slate-400 opacity-70 transition-all duration-200 hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 disabled:pointer-events-none disabled:opacity-40"
+                      >
+                        <Trash2 size={18} strokeWidth={2} />
+                      </button>
                     </div>
-                    <p className="mt-3 text-xs text-slate-500">{new Date(item.createdAt).toLocaleString('vi-VN')}</p>
-                  </button>
+                  </div>
                 ))
               )}
             </div>

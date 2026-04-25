@@ -27,9 +27,11 @@ interface FcmContextProps {
   preferences: NotificationPreferenceDto | null;
   loadingPreferences: boolean;
   unreadCount: number;
+  fetchNotifications: () => Promise<void>;
   refreshNotifications: () => Promise<void>;
   markNotificationRead: (notificationId: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
+  deleteNotification: (notificationId: string) => Promise<void>;
   refreshPreferences: () => Promise<void>;
   updatePreferences: (payload: NotificationPreferenceUpdateRequest) => Promise<void>;
   resetUnreadCount: () => Promise<void>;
@@ -37,9 +39,9 @@ interface FcmContextProps {
 }
 
 const FcmContext = createContext<FcmContextProps | undefined>(undefined);
-const NOTIFICATION_POLL_INTERVAL_MS = 15000;
 
 let toastIdCounter = 0;
+const TEMP_NOTIFICATION_PREFIX = 'temp-';
 
 function getUserId(): string | null {
   try {
@@ -58,7 +60,12 @@ export function FcmProvider({ children }: { children: ReactNode }) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [preferences, setPreferences] = useState<NotificationPreferenceDto | null>(null);
   const [loadingPreferences, setLoadingPreferences] = useState(false);
-  const unreadCount = notifications.filter((item) => !item.isRead).length;
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [recentMessageKeys, setRecentMessageKeys] = useState<string[]>([]);
+
+  const isTempNotificationId = useCallback((notificationId: string) => {
+    return notificationId.startsWith(TEMP_NOTIFICATION_PREFIX);
+  }, []);
 
   useEffect(() => {
     const sync = () => setUserId(getUserId());
@@ -70,21 +77,39 @@ export function FcmProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const refreshNotifications = useCallback(async () => {
+  useEffect(() => {
+    setUnreadCount(notifications.filter((item) => !item.isRead).length);
+  }, [notifications]);
+
+  const fetchNotifications = useCallback(async () => {
     if (!userId) {
       setNotifications([]);
+      setUnreadCount(0);
       return;
     }
     setLoadingNotifications(true);
     try {
       const items = await notificationService.getByUserId(userId);
       setNotifications(items);
+      setUnreadCount(items.filter((item) => !item.isRead).length);
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
     } finally {
       setLoadingNotifications(false);
     }
   }, [userId]);
+
+  const hasProcessedMessageRecently = useCallback((key: string) => {
+    return recentMessageKeys.includes(key);
+  }, [recentMessageKeys]);
+
+  const markMessageProcessed = useCallback((key: string) => {
+    setRecentMessageKeys((prev) => {
+      const merged = [...prev, key];
+      // Keep a small rolling window to avoid duplicate processing.
+      return merged.slice(-50);
+    });
+  }, []);
 
   const refreshPreferences = useCallback(async () => {
     if (!userId) {
@@ -103,41 +128,84 @@ export function FcmProvider({ children }: { children: ReactNode }) {
   }, [userId]);
 
   useEffect(() => {
-    void refreshNotifications();
-  }, [refreshNotifications]);
+    void fetchNotifications();
+  }, [fetchNotifications]);
 
-  useEffect(() => {
-    if (!userId) return;
-    const intervalId = window.setInterval(() => {
-      void refreshNotifications();
-    }, NOTIFICATION_POLL_INTERVAL_MS);
-    return () => window.clearInterval(intervalId);
-  }, [refreshNotifications, userId]);
+  const handleNotification = useCallback(
+    (notification: { title: string; body: string; data?: Record<string, string> }) => {
+      const id = ++toastIdCounter;
+      setToasts((prev) => [...prev, { id, title: notification.title, body: notification.body }]);
 
-  useEffect(() => {
-    if (!userId) return;
-    const refreshOnFocus = () => {
-      if (document.visibilityState === 'visible') {
-        void refreshNotifications();
+      const d = notification.data;
+      const messageKey =
+        d?.notificationId || `${notification.title || ''}::${notification.body || ''}::${d?.createdAt || ''}`;
+      if (messageKey && hasProcessedMessageRecently(messageKey)) {
+        return;
       }
+      if (messageKey) {
+        markMessageProcessed(messageKey);
+      }
+
+      setUnreadCount((prev) => prev + 1);
+      if (userId && d?.notificationId && d.userId === userId) {
+        const dto: NotificationDto = {
+          notificationId: d.notificationId,
+          userId: d.userId,
+          title: (d.title && d.title.length > 0 ? d.title : notification.title) || 'Thông báo',
+          message: (d.message && d.message.length > 0 ? d.message : notification.body) || '',
+          isRead: d.isRead === 'true',
+          createdAt: d.createdAt || new Date().toISOString(),
+        };
+        setNotifications((prev) => {
+          if (prev.some((x) => x.notificationId === dto.notificationId)) return prev;
+          return [dto, ...prev];
+        });
+        if (!dto.isRead) {
+          // Already incremented optimistically at message arrival.
+        }
+      } else if (userId) {
+        const tempNotification: NotificationDto = {
+          notificationId: `${TEMP_NOTIFICATION_PREFIX}${Date.now()}-${id}`,
+          userId,
+          title: notification.title || 'Thông báo',
+          message: notification.body || '',
+          isRead: false,
+          createdAt: new Date().toISOString(),
+        };
+        setNotifications((prev) => [tempNotification, ...prev]);
+
+        // Fallback: payload thiếu data định danh, lấy lại danh sách để đồng bộ realtime UI.
+        void fetchNotifications();
+        window.setTimeout(() => {
+          void fetchNotifications();
+        }, 800);
+      }
+
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 6000);
+    },
+    [fetchNotifications, hasProcessedMessageRecently, markMessageProcessed, userId],
+  );
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    const onServiceWorkerMessage = (event: MessageEvent) => {
+      const data = event.data;
+      if (!data || data.type !== 'FCM_FOREGROUND_SYNC') return;
+      const payload = data.payload;
+      if (!payload) return;
+      handleNotification({
+        title: payload.notification?.title || 'New Notification',
+        body: payload.notification?.body || '',
+        data: payload.data,
+      });
     };
-    window.addEventListener('focus', refreshOnFocus);
-    document.addEventListener('visibilitychange', refreshOnFocus);
+    navigator.serviceWorker.addEventListener('message', onServiceWorkerMessage);
     return () => {
-      window.removeEventListener('focus', refreshOnFocus);
-      document.removeEventListener('visibilitychange', refreshOnFocus);
+      navigator.serviceWorker.removeEventListener('message', onServiceWorkerMessage);
     };
-  }, [refreshNotifications, userId]);
-
-  const handleNotification = useCallback((notification: { title: string; body: string }) => {
-    const id = ++toastIdCounter;
-    setToasts((prev) => [...prev, { id, title: notification.title, body: notification.body }]);
-    void refreshNotifications();
-
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 6000);
-  }, [refreshNotifications]);
+  }, [handleNotification]);
 
   const { token, permissionStatus, requestPermission } = useFcm({
     userId,
@@ -149,27 +217,64 @@ export function FcmProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const markNotificationRead = useCallback(async (notificationId: string) => {
+    let unreadDelta = 0;
     setNotifications((prev) =>
-      prev.map((item) => (item.notificationId === notificationId ? { ...item, isRead: true } : item)),
+      prev.map((item) => {
+        if (item.notificationId !== notificationId) return item;
+        if (!item.isRead) unreadDelta = 1;
+        return { ...item, isRead: true };
+      }),
     );
+    if (unreadDelta > 0) {
+      setUnreadCount((prev) => Math.max(0, prev - unreadDelta));
+    }
+    if (isTempNotificationId(notificationId)) {
+      void fetchNotifications();
+      return;
+    }
     try {
       await notificationService.markAsRead(notificationId);
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
-      void refreshNotifications();
+      void fetchNotifications();
     }
-  }, [refreshNotifications]);
+  }, [fetchNotifications, isTempNotificationId]);
 
   const markAllNotificationsRead = useCallback(async () => {
     if (!userId) return;
     setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
+    setUnreadCount(0);
     try {
       await notificationService.markAllAsRead(userId);
     } catch (error) {
       console.error('Failed to mark all notifications as read:', error);
-      void refreshNotifications();
+      void fetchNotifications();
     }
-  }, [refreshNotifications, userId]);
+  }, [fetchNotifications, userId]);
+
+  const deleteNotification = useCallback(async (notificationId: string) => {
+    let previous: NotificationDto[] = [];
+    let removedWasUnread = false;
+    setNotifications((prev) => {
+      previous = prev;
+      removedWasUnread = prev.some((n) => n.notificationId === notificationId && !n.isRead);
+      return prev.filter((n) => n.notificationId !== notificationId);
+    });
+    if (removedWasUnread) {
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    }
+    if (isTempNotificationId(notificationId)) {
+      void fetchNotifications();
+      return;
+    }
+    try {
+      await notificationService.deleteNotification(notificationId);
+    } catch (error) {
+      console.error('Failed to delete notification:', error);
+      setNotifications(previous);
+      throw error;
+    }
+  }, [fetchNotifications, isTempNotificationId]);
 
   const updatePreferences = useCallback(async (payload: NotificationPreferenceUpdateRequest) => {
     if (!userId) return;
@@ -202,9 +307,11 @@ export function FcmProvider({ children }: { children: ReactNode }) {
         preferences,
         loadingPreferences,
         unreadCount,
-        refreshNotifications,
+        fetchNotifications,
+        refreshNotifications: fetchNotifications,
         markNotificationRead,
         markAllNotificationsRead,
+        deleteNotification,
         refreshPreferences,
         updatePreferences,
         resetUnreadCount,

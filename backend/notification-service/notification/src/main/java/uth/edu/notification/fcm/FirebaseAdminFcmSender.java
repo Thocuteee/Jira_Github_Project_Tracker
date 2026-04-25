@@ -8,6 +8,7 @@ import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.Notification;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uth.edu.notification.service.IFcmTokenService;
@@ -36,7 +37,7 @@ public class FirebaseAdminFcmSender implements FcmSender {
     }
 
     @Override
-    public boolean send(String title, String message, String fcmToken) {
+    public boolean send(String title, String message, String fcmToken, Map<String, String> data) {
         if (fcmToken == null || fcmToken.isBlank()) {
             return true;
         }
@@ -47,10 +48,13 @@ public class FirebaseAdminFcmSender implements FcmSender {
                 .setBody(message == null ? "" : message)
                 .build();
 
-            Message msg = Message.builder()
+            Message.Builder msgBuilder = Message.builder()
                 .setToken(fcmToken)
-                .setNotification(firebaseNotification)
-                .build();
+                .setNotification(firebaseNotification);
+            if (data != null && !data.isEmpty()) {
+                msgBuilder.putAllData(data);
+            }
+            Message msg = msgBuilder.build();
 
             FirebaseMessaging.getInstance().send(msg);
             return true;

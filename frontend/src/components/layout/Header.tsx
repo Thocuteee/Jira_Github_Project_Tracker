@@ -1,8 +1,11 @@
 import { Search, Bell } from 'lucide-react';
+import { useFcmContext } from '@/contexts/FcmContext';
+import { useNavigate } from 'react-router-dom';
 
 export default function Header() {
-  // Giả sử lấy thông tin user từ LocalStorage hoặc Context
-    const username = localStorage.getItem('username') || 'User';
+    const navigate = useNavigate();
+    const { unreadCount } = useFcmContext();
+    const username = localStorage.getItem('username') || localStorage.getItem('userName') || 'User';
 
     return (
         <header className="h-16 border-b border-slate-200 flex items-center justify-between px-6 bg-slate-50">
@@ -14,9 +17,18 @@ export default function Header() {
         
         {/* Thông báo và User Avatar */}
         <div className="flex items-center gap-4">
-            <button className="relative text-slate-500 hover:text-slate-900">
+            <button
+              className="relative text-slate-500 hover:text-slate-900"
+              onClick={() => navigate('/notifications')}
+              type="button"
+              aria-label="Mở trung tâm thông báo"
+            >
             <Bell className="w-5 h-5" />
-            <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500"></span>
+            {unreadCount > 0 && (
+              <span className="absolute -top-2 -right-2 min-w-4 rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-4 text-white">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
             </button>
             <div className="flex items-center gap-2 border-l border-slate-200 pl-4">
             <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold text-sm">

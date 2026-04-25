@@ -32,6 +32,21 @@ function setupMessaging() {
       data: payload.data,
     };
     self.registration.showNotification(title, options);
+
+    // Broadcast payload to opened app tabs so React context updates immediately.
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({
+            type: 'FCM_FOREGROUND_SYNC',
+            payload,
+          });
+        });
+      })
+      .catch(() => {
+        // ignore broadcast failures
+      });
   });
 }
 
