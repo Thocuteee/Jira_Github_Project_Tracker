@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import groupService from '@/api/group.service';
 import taskService from '@/api/task.service';
+import authService from '@/api/auth.service';
 import { getPrimaryRole } from '@/utils/authDisplay';
 import { Users, Filter, AlertCircle } from 'lucide-react';
 
@@ -31,6 +32,10 @@ export default function TaskExecutionReport({ groupId }: TaskExecutionReportProp
                 // Fetch members
                 const rawMembers = await groupService.getMembers(groupId);
                 const members = Array.isArray(rawMembers) ? rawMembers : [];
+                const filteredMembers = members.filter((member: any) => {
+                    const role = String(member?.roleInGroup || '').toUpperCase();
+                    return role === 'MEMBER' || role === 'LEADER';
+                });
 
                 // Fetch roles
                 let userRoles = [];
@@ -45,14 +50,35 @@ export default function TaskExecutionReport({ groupId }: TaskExecutionReportProp
                 const rawTasks = await taskService.getTasksByGroup(groupId, primaryRole);
                 const tasks = Array.isArray(rawTasks) ? rawTasks : [];
 
-                const memberStats = members.map((member: any) => {
+                const memberIds = filteredMembers
+                    .map((member: any) => String(member?.userId || member?.id || ''))
+                    .filter(Boolean);
+                let userNameMap: Record<string, string> = {};
+                if (memberIds.length > 0) {
+                    try {
+                        userNameMap = await authService.getUserNames(memberIds);
+                    } catch (nameErr) {
+                        console.warn('Cannot fetch user names for allocation report:', nameErr);
+                    }
+                }
+
+                const memberStats = filteredMembers.map((member: any) => {
                     if (!member || typeof member !== 'object') return null;
-                    
-                    const userId = member.userId || member.id;
-                    const memberTasks = tasks.filter((t: any) => t && t.assignedTo === userId);
-                    
+
+                    const userId = String(member.userId || member.id || '');
+                    if (!userId) return null;
+                    const memberTasks = tasks.filter((t: any) => t && String(t.assignedTo || '') === userId);
+                    const fullName =
+                        member.fullName ||
+                        member.userName ||
+                        member.username ||
+                        userNameMap[userId] ||
+                        `User ${userId.slice(0, 8)}`;
+
                     return {
-                        name: member.userName || member.email || 'Vô danh',
+                        userId,
+                        roleInGroup: String(member.roleInGroup || '').toUpperCase(),
+                        name: fullName,
                         'Hoàn thành': memberTasks.filter((t: any) => t.status === 'DONE').length,
                         'Đang làm': memberTasks.filter((t: any) => t.status === 'IN_PROGRESS').length,
                         'Chưa làm': memberTasks.filter((t: any) => t.status === 'TODO').length,

@@ -11,6 +11,7 @@ import RequirementModal from '../components/requirements/RequirementModal';
 import JiraKeyModal from '../components/requirements/JiraKeyModal';
 import CreateTaskModal from '../components/CreateTaskModal';
 import taskService, { type Task } from '../api/task.service';
+import { normalizeGroupRole } from '../utils/groupRole';
 
 const RequirementTable = () => {
     const navigate = useNavigate();
@@ -89,10 +90,19 @@ const RequirementTable = () => {
 
             // Fetch group members - always do this if we have a gid
             const members = await groupService.getMembers(gid);
-            setGroupMembers(members || []);
+            const normalizedMembers = Array.isArray(members)
+                ? members.map((member: any) => {
+                    const normalizedRole = normalizeGroupRole(String(member?.roleInGroup || member?.role || ''));
+                    return {
+                        userId: String(member?.userId || ''),
+                        roleInGroup: normalizedRole === 'UNKNOWN' ? 'MEMBER' : normalizedRole,
+                    };
+                }).filter((member: any) => member.userId)
+                : [];
+            setGroupMembers(normalizedMembers);
 
             // Fetch user names for the members
-            const memberIds = (members || []).map((m: any) => String(m.userId));
+            const memberIds = normalizedMembers.map((m: any) => String(m.userId));
             if (memberIds.length > 0) {
                 const names = await authService.getUserNames(memberIds);
                 setUserNameMap(names);
@@ -109,12 +119,12 @@ const RequirementTable = () => {
                 return;
             }
 
-            const member = (members || []).find((m: any) => 
+            const member = normalizedMembers.find((m: any) => 
                 String(m.userId) === currUid
             );
             
             if (member) {
-                const roleUpper = String(member.roleInGroup || member.role).toUpperCase();
+                const roleUpper = String(member.roleInGroup || '').toUpperCase();
                 if (roleUpper === 'LEADER') {
                     setUserRole('Leader');
                 } else {

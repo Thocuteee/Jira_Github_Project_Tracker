@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, MessageSquare, History, Info, Save, User, AlertCircle, Calendar, CheckCircle2, Clock, Circle, ArrowRight, Paperclip, Upload, Trash2, Download } from 'lucide-react';
 import type { Task, TaskComment, TaskHistory, Attachment } from '../api/task.service';
 import taskService from '../api/task.service';
@@ -6,6 +6,8 @@ import githubService from '../api/github.service';
 import requirementService from '../api/requirement.service';
 import authService from '../api/auth.service';
 import { ExternalLink, GitBranch } from 'lucide-react';
+import { getMemberRole } from '../utils/groupRole';
+import { formatUtc7DateTime, formatUtc7Time } from '../utils/datetime';
 
 interface TaskDetailModalProps {
   task: Task;
@@ -41,6 +43,15 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [jiraUrl, setJiraUrl] = useState('');
   const [globalGithubRepo, setGlobalGithubRepo] = useState('');
   const [globalJiraKey, setGlobalJiraKey] = useState('');
+
+  const assignableMembers = useMemo(
+    () =>
+      groupMembers.filter((member) => {
+        const normalizedRole = getMemberRole(member);
+        return normalizedRole === 'LEADER' || normalizedRole === 'MEMBER';
+      }),
+    [groupMembers]
+  );
 
   useEffect(() => {
     if (isOpen) {
@@ -316,7 +327,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                           <div className="min-w-0">
                             <p className="text-sm font-bold text-slate-800 truncate">{attachment.fileName}</p>
                             <p className="text-xs text-slate-400">
-                              {attachment.uploadedAt ? new Date(attachment.uploadedAt).toLocaleString() : ''}
+                              {attachment.uploadedAt ? formatUtc7DateTime(attachment.uploadedAt) : ''}
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
@@ -453,7 +464,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                           onChange={e => setEditedTask({ ...editedTask, assignedTo: e.target.value })}
                         >
                           <option value="">Chưa giao</option>
-                          {groupMembers.map(m => (
+                          {assignableMembers.map(m => (
                             <option key={m.userId} value={m.userId}>
                               {m.userId === currentUserId ? 'Bạn' : (localNames[m.userId] || userNameMap[m.userId] || `User: ${m.userId.slice(0, 8)}...`)}
                             </option>
@@ -541,7 +552,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       <div className="flex-1 space-y-1">
                         <div className="flex items-center gap-3">
                           <span className="text-sm font-black text-slate-900">{c.userId === currentUserId ? 'Bạn' : (localNames[c.userId] || userNameMap[c.userId] || `User: ${c.userId.slice(0, 8)}`)}</span>
-                          <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{formatUtc7Time(c.createdAt)}</span>
                         </div>
                         <div className="bg-white px-5 py-4 rounded-[1.5rem] rounded-tl-none border border-slate-100 shadow-sm text-slate-600 text-[15px] font-medium leading-relaxed">
                           {c.content}
@@ -568,7 +579,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       <div className="space-y-1">
                         <div className="flex items-center gap-3">
                           <span className="text-xs font-black text-slate-900">{h.changedBy === currentUserId ? 'Bạn' : (localNames[h.changedBy] || userNameMap[h.changedBy] || `User: ${h.changedBy.slice(0, 8)}`)}</span>
-                          <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{new Date(h.changedAt).toLocaleString()}</span>
+                          <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{formatUtc7DateTime(h.changedAt)}</span>
                         </div>
                         <p className="text-sm text-slate-500 font-medium">
                           Đã cập nhật <span className="text-slate-900 font-black">{h.fieldChanged}</span> 

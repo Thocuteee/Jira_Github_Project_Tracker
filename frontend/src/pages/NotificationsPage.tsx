@@ -3,6 +3,7 @@ import { useFcmContext } from '@/contexts/FcmContext';
 import { Bell, CheckCheck, Filter, Settings, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { formatUtc7DateTime } from '@/utils/datetime';
 
 type NotificationFilter = 'all' | 'unread' | 'read';
 
@@ -201,7 +202,7 @@ export default function NotificationsPage() {
                           </span>
                         )}
                       </div>
-                      <p className="mt-3 text-xs text-slate-500">{new Date(item.createdAt).toLocaleString('vi-VN')}</p>
+                      <p className="mt-3 text-xs text-slate-500">{formatUtc7DateTime(item.createdAt)}</p>
                     </button>
                     <div className="flex w-12 shrink-0 flex-col items-center border-l border-slate-200/60 bg-white/40 pt-3">
                       <button

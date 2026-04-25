@@ -7,6 +7,7 @@ import authService from '../api/auth.service';
 import { useGroupContext } from '../contexts/GroupContext';
 import TaskDetailModal from '../components/TaskDetailModal';
 import CreateTaskModal from '../components/CreateTaskModal';
+import { getMemberRole } from '../utils/groupRole';
 import { 
   Search, 
   Filter, 
@@ -125,6 +126,15 @@ const TaskTable = () => {
       return matchesSearch && matchesStatus && matchesPriority && matchesMine;
     });
   }, [tasks, searchQuery, statusFilter, priorityFilter, myTaskFilter, currentUserId]);
+
+  const assignableMembers = useMemo(
+    () =>
+      groupMembers.filter((member) => {
+        const normalizedRole = getMemberRole(member);
+        return normalizedRole === 'LEADER' || normalizedRole === 'MEMBER';
+      }),
+    [groupMembers]
+  );
 
   const handleStatusChange = async (taskId: string, newStatus: string) => {
     try {
@@ -385,13 +395,13 @@ const TaskTable = () => {
                             <td className="py-5 px-6">
                               {role === 'LEADER' ? (
                                 <select 
-                                  disabled={assigningTaskId === task.taskId || groupMembers.length === 0}
+                                  disabled={assigningTaskId === task.taskId || assignableMembers.length === 0}
                                   value={task.assignedTo || ''}
                                   onChange={(e) => handleAssignTask(task.taskId, e.target.value)}
                                   className="bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all disabled:opacity-50"
                                 >
                                   <option value="">Chưa giao</option>
-                                  {groupMembers.map(m => (
+                                  {assignableMembers.map(m => (
                                     <option key={m.userId} value={m.userId}>
                                       {m.userId === currentUserId ? 'Bạn' : (userNameMap[m.userId] || `Member: ${m.userId.slice(0, 8)}...`)}
                                     </option>

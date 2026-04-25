@@ -17,6 +17,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import authService from '@/api/auth.service';
 import { getPrimaryRole } from '@/utils/authDisplay';
 import { useFcmContext } from '@/contexts/FcmContext';
+import { formatUtc7DateTime } from '@/utils/datetime';
 
 import { useGroup } from '@/contexts/GroupContext';
 
@@ -372,7 +373,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                                                     </p>
                                                     <p className="mt-1 text-xs text-slate-600">{item.message}</p>
                                                     <p className="mt-2 text-[11px] text-slate-500">
-                                                        {new Date(item.createdAt).toLocaleString('vi-VN')}
+                                                        {formatUtc7DateTime(item.createdAt)}
                                                     </p>
                                                 </button>
                                             ))

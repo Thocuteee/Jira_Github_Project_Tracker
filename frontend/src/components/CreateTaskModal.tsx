@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { X, Plus, ClipboardList, AlertCircle, Calendar, Hash } from 'lucide-react';
 import taskService from '../api/task.service';
 import type { Requirement } from '../api/requirement.service';
 import requirementService from '../api/requirement.service';
+import { getMemberRole } from '../utils/groupRole';
 
 interface CreateTaskModalProps {
   isOpen: boolean;
@@ -34,6 +35,15 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const assignableMembers = useMemo(
+    () =>
+      groupMembers.filter((member) => {
+        const normalizedRole = getMemberRole(member);
+        return normalizedRole === 'LEADER' || normalizedRole === 'MEMBER';
+      }),
+    [groupMembers]
+  );
 
   useEffect(() => {
     if (isOpen && groupId) {
@@ -187,7 +197,7 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 onChange={e => setAssignedTo(e.target.value)}
               >
                 <option value="">Chưa giao (Unassigned)</option>
-                {groupMembers.map(member => (
+                {assignableMembers.map(member => (
                   <option key={member.userId} value={member.userId}>
                     {member.userId === currentUserId ? 'Bạn (Cá nhân)' : (userNameMap[member.userId] || `Thành viên: ${member.userId.slice(0, 8)}`)}
                   </option>
