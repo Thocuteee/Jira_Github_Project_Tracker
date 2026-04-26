@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "KAN-40-Improve-Export" ]
 
 env:
   REGISTRY: ghcr.io
@@ -45,6 +45,8 @@ jobs:
             context: ./backend/jira-service/jira
           - service: export-service
             context: ./backend/export-service
+          - service: file-service
+            context: ./backend/file-service
 
     steps:
       - name: Checkout repository
@@ -99,7 +101,7 @@ jobs:
             else
               git remote set-url origin https://github.com/$GH_REPO.git
             fi
-            git fetch origin main
+            git fetch origin KAN-40-Improve-Export
             git reset --hard FETCH_HEAD
 
             cd backend

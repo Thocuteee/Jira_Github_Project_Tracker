@@ -36,6 +36,13 @@ services:
         VITE_GITHUB_SERVICE_URL: ${VITE_GITHUB_SERVICE_URL}
         VITE_JIRA_SERVICE_URL: ${VITE_JIRA_SERVICE_URL}
         VITE_EXPORT_SERVICE_URL: ${VITE_EXPORT_SERVICE_URL}
+        VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY:-}
+        VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN:-}
+        VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID:-}
+        VITE_FIREBASE_STORAGE_BUCKET: ${VITE_FIREBASE_STORAGE_BUCKET:-}
+        VITE_FIREBASE_MESSAGING_SENDER_ID: ${VITE_FIREBASE_MESSAGING_SENDER_ID:-}
+        VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID:-}
+        VITE_FIREBASE_VAPID_KEY: ${VITE_FIREBASE_VAPID_KEY:-}
     container_name: frontend
     restart: always
     ports:
@@ -48,8 +55,6 @@ services:
     build: ./api-gateway/gateway
     container_name: api-gateway
     restart: always
-    ports:
-      - "${API_GATEWAY_PORT:-8080}:8080"
     environment:
       SERVER_PORT: 8080
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -64,8 +69,6 @@ services:
     build: ./auth-service/auth
     container_name: auth-service
     restart: always
-    ports:
-      - "${AUTH_SERVICE_PORT:-8081}:8081"
     environment:
       SERVER_PORT: 8081
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_AUTH}
@@ -74,6 +77,10 @@ services:
       SPRING_DATA_REDIS_HOST: ${SPRING_DATA_REDIS_HOST:-redis}
       SPRING_DATA_REDIS_PORT: ${SPRING_DATA_REDIS_PORT:-6379}
       SPRING_RABBITMQ_HOST: ${SPRING_RABBITMQ_HOST:-rabbitmq}
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      RABBITMQ_USER: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASS: ${RABBITMQ_PASSWORD}
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
       JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-604800000}
@@ -92,8 +99,6 @@ services:
     build: ./group-service
     container_name: group-service
     restart: always
-    ports:
-      - "${GROUP_SERVICE_PORT:-8082}:8082"
     environment:
       SERVER_PORT: 8082
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -102,14 +107,16 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASS_GROUP}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_RABBITMQ_HOST: ${SPRING_RABBITMQ_HOST:-rabbitmq}
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      RABBITMQ_USER: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASS: ${RABBITMQ_PASSWORD}
 
   requirement-service:
     image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/requirement-service:latest
     build: ./requirement-service/requirement
     container_name: requirement-service
     restart: always
-    ports:
-      - "${REQUIREMENT_SERVICE_PORT:-8083}:8083"
     environment:
       SERVER_PORT: 8083
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -118,14 +125,16 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASS_REQUIREMENT}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_RABBITMQ_HOST: ${SPRING_RABBITMQ_HOST:-rabbitmq}
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      RABBITMQ_USER: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASS: ${RABBITMQ_PASSWORD}
 
   task-service:
     image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/task-service:latest
     build: ./task-service/task
     container_name: task-service
     restart: always
-    ports:
-      - "${TASK_SERVICE_PORT:-8084}:8084"
     environment:
       SERVER_PORT: 8084
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -134,19 +143,16 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASS_TASK}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_RABBITMQ_HOST: ${SPRING_RABBITMQ_HOST:-rabbitmq}
-      CLOUDFLARE_R2_ENDPOINT: ${CLOUDFLARE_R2_ENDPOINT}
-      CLOUDFLARE_R2_PUBLIC_DOMAIN: ${CLOUDFLARE_R2_PUBLIC_DOMAIN}
-      CLOUDFLARE_R2_ACCESS_KEY: ${CLOUDFLARE_R2_ACCESS_KEY}
-      CLOUDFLARE_R2_SECRET_KEY: ${CLOUDFLARE_R2_SECRET_KEY}
-      CLOUDFLARE_R2_BUCKET_NAME: ${CLOUDFLARE_R2_BUCKET_NAME}
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      RABBITMQ_USER: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASS: ${RABBITMQ_PASSWORD}
 
   report-service:
     image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/report-service:latest
     build: ./report-service/report
     container_name: report-service
     restart: always
-    ports:
-      - "${REPORT_SERVICE_PORT:-8085}:8085"
     environment:
       SERVER_PORT: 8085
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -155,14 +161,16 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASS_REPORT}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_RABBITMQ_HOST: ${SPRING_RABBITMQ_HOST:-rabbitmq}
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      RABBITMQ_USER: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASS: ${RABBITMQ_PASSWORD}
 
   notification-service:
     image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/notification-service:latest
     build: ./notification-service/notification
     container_name: notification-service
     restart: always
-    ports:
-      - "${NOTIFICATION_SERVICE_PORT:-8086}:8086"
     environment:
       SERVER_PORT: 8086
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -171,14 +179,17 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASS_NOTIFICATION}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_RABBITMQ_HOST: ${SPRING_RABBITMQ_HOST:-rabbitmq}
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      RABBITMQ_USER: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASS: ${RABBITMQ_PASSWORD}
+      FIREBASE_CREDENTIALS_BASE64: ${FIREBASE_CREDENTIALS_BASE64:-}
 
   github-service:
     image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/github-service:latest
     build: ./github-service/github
     container_name: github-service
     restart: always
-    ports:
-      - "${GITHUB_SERVICE_PORT:-8087}:8087"
     environment:
       SERVER_PORT: 8087
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -189,6 +200,10 @@ services:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      RABBITMQ_USER: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASS: ${RABBITMQ_PASSWORD}
     depends_on:
       - rabbitmq
 
@@ -197,8 +212,6 @@ services:
     build: ./jira-service/jira
     container_name: jira-service
     restart: always
-    ports:
-      - "${JIRA_SERVICE_PORT:-8088}:8088"
     environment:
       SERVER_PORT: 8088
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -207,6 +220,10 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASS_JIRA}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_RABBITMQ_HOST: ${SPRING_RABBITMQ_HOST:-rabbitmq}
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      RABBITMQ_USER: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASS: ${RABBITMQ_PASSWORD}
       JIRA_API_URL: ${JIRA_API_URL}
       JIRA_USERNAME: ${JIRA_USERNAME}
       JIRA_API_TOKEN: ${JIRA_API_TOKEN}
@@ -221,8 +238,6 @@ services:
     build: ./export-service/
     container_name: export-service
     restart: always
-    ports:
-      - "${EXPORT_SERVICE_PORT:-8089}:8089"
     environment:
       SERVER_PORT: 8089
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -231,19 +246,16 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASS_EXPORT}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_RABBITMQ_HOST: ${SPRING_RABBITMQ_HOST:-rabbitmq}
-      CLOUDFLARE_R2_ENDPOINT: ${CLOUDFLARE_R2_ENDPOINT}
-      CLOUDFLARE_R2_PUBLIC_DOMAIN: ${CLOUDFLARE_R2_PUBLIC_DOMAIN}
-      CLOUDFLARE_R2_ACCESS_KEY: ${CLOUDFLARE_R2_ACCESS_KEY}
-      CLOUDFLARE_R2_SECRET_KEY: ${CLOUDFLARE_R2_SECRET_KEY}
-      CLOUDFLARE_R2_BUCKET_NAME: ${CLOUDFLARE_R2_BUCKET_NAME}
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      RABBITMQ_USER: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASS: ${RABBITMQ_PASSWORD}
 
   file-service:
     image: ${IMAGE_PREFIX:-ghcr.io/thocuteee/jira_github_project_tracker}/file-service:latest
     build: ./file-service
     container_name: file-service
     restart: always
-    ports:
-      - "${FILE_SERVICE_PORT:-8090}:8090"
     environment:
       SERVER_PORT: 8090
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}

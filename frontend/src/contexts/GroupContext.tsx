@@ -31,7 +31,22 @@ export function GroupProvider({ children }: { children: ReactNode }) {
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
 
+    const isAuthed = useCallback(() => {
+        try {
+            return Boolean(localStorage.getItem('userId') || localStorage.getItem('userEmail') || localStorage.getItem('userName'));
+        } catch {
+            return false;
+        }
+    }, []);
+
     const fetchGroups = useCallback(async () => {
+        if (!isAuthed()) {
+            setGroups([]);
+            setSelectedGroup(null);
+            setError(null);
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         setError(null);
         try {
@@ -72,7 +87,7 @@ export function GroupProvider({ children }: { children: ReactNode }) {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [isAuthed]);
 
     useEffect(() => {
         const sync = () => {

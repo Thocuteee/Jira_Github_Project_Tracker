@@ -8,7 +8,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 
 @SpringBootApplication
 @EnableAsync // cho phep su dung @Async trong cac service
-@EnableFeignClients // su dung FeignClient de goi cac service khac 
+@EnableFeignClients(defaultConfiguration = uth.edu.export.config.ExportFeignConfig.class) // Feign + forward X-User-Id khi export async
 public class ExportServiceApplication {
 	public static void main(String[] args) {
 		TimeZone.setDefault(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));

@@ -17,6 +17,11 @@ public interface TaskService {
 
     List<TaskResponse> getTasksByRequirementId(UUID requirementId);
 
+    /**
+     * Lấy toàn bộ task thuộc các requirement trong một lần gọi (tránh N+1).
+     */
+    List<TaskResponse> getTasksByRequirementIds(List<UUID> requirementIds);
+
     List<TaskResponse> getTasksForUserInGroup(UUID groupId, UUID userId);
 
     TaskResponse updateTask(UUID taskId, TaskUpdateRequest request);

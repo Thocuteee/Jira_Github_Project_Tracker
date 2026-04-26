@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import { 
     BarChart3, 
     GitBranch,
@@ -17,11 +17,24 @@ import SRSExportPanel from '../components/reports/SRSExportPanel';
 import MainLayout from '../components/layout/MainLayout';
 
 type TabType = 'progress' | 'tasks' | 'github' | 'export';
+type ReportsNavState = {
+    activeTab?: TabType;
+    selectedRequirementIds?: string[];
+};
 
 export default function ReportsDashboard() {
     const { groupId } = useParams<{ groupId: string }>();
+    const location = useLocation();
     const { selectedGroup } = useGroup();
     const [activeTab, setActiveTab] = useState<TabType>('progress');
+    const navState = location.state as ReportsNavState | null;
+    const selectedRequirementIds = navState?.selectedRequirementIds;
+
+    useEffect(() => {
+        if (navState?.activeTab) {
+            setActiveTab(navState.activeTab);
+        }
+    }, [navState?.activeTab]);
 
     const content = !selectedGroup ? (
         <div className="flex h-[400px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white/50">
@@ -82,7 +95,9 @@ export default function ReportsDashboard() {
                     {activeTab === 'progress' && <ProjectProgressReport groupId={groupId!} />}
                     {activeTab === 'tasks' && <TaskExecutionReport groupId={groupId!} />}
                     {activeTab === 'github' && <CommitStatisticsReport groupId={groupId!} />}
-                    {activeTab === 'export' && <SRSExportPanel groupId={groupId!} />}
+                    {activeTab === 'export' && (
+                        <SRSExportPanel groupId={groupId!} initialSelectedRequirementIds={selectedRequirementIds} />
+                    )}
                 </div>
             </div>
         </div>

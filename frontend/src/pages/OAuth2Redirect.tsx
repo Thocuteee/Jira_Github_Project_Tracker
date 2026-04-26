@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import authService from '@/api/auth.service'
 import { getPrimaryRole } from '@/utils/authDisplay'
 
 export default function OAuth2Redirect() {
@@ -20,8 +21,19 @@ export default function OAuth2Redirect() {
       localStorage.setItem('userName', name || email.split('@')[0] || email)
       localStorage.setItem('userRoles', JSON.stringify(roles))
       localStorage.setItem('userSubtitle', getPrimaryRole(roles))
-      window.dispatchEvent(new Event('auth-changed'))
-      navigate('/dashboard', { replace: true })
+      authService.getProfile()
+        .then((profile) => {
+          if (profile?.userId) {
+            localStorage.setItem('userId', profile.userId);
+          }
+        })
+        .catch((err) => {
+          console.warn('Could not fetch profile after OAuth redirect, FCM token registration may be skipped.', err);
+        })
+        .finally(() => {
+          window.dispatchEvent(new Event('auth-changed'))
+          navigate('/dashboard', { replace: true })
+        })
       return
     }
 

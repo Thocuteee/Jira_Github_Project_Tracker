@@ -29,6 +29,7 @@ import uth.edu.task.dto.response.external.GroupMemberResponse;
 import uth.edu.task.dto.response.external.RequirementResponse;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -38,6 +39,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class TaskServiceImpl implements TaskService {
+    private static final String EVENT_TASK_ASSIGNED = "TASK_ASSIGNED";
+    private static final String EVENT_TASK_COMPLETED = "TASK_COMPLETED";
+    private static final String EVENT_TASK_STATUS_UPDATED = "STATUS_UPDATE";
 
     private final TaskRepository taskRepository;
     private final TaskHistoryRepository taskHistoryRepository;
@@ -71,8 +75,11 @@ public class TaskServiceImpl implements TaskService {
 
         try {
             publishTaskEvent(savedTask, "CREATED");
+            if (savedTask.getAssignedTo() != null) {
+                publishTaskEvent(savedTask, EVENT_TASK_ASSIGNED);
+            }
         } catch (Exception e) {
-            log.warn("Could not publish task event (RabbitMQ unavailable?): {}", e.getMessage());
+            log.warn("Không thể gửi sự kiện task (RabbitMQ không khả dụng?): {}", e.getMessage());
         }
 
         return taskMapper.toResponse(savedTask);
@@ -112,6 +119,29 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
+    public List<TaskResponse> getTasksByRequirementIds(List<UUID> requirementIds) {
+        if (requirementIds == null || requirementIds.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        List<UUID> distinct = requirementIds.stream().distinct().toList();
+        List<Task> tasks = taskRepository.findByRequirementIdIn(distinct);
+        if (tasks.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        UUID currentUserId = UserContextHolder.getUserId();
+        UUID groupId = tasks.get(0).getGroupId();
+        if (!tasks.stream().allMatch(t -> groupId.equals(t.getGroupId()))) {
+            throw new RuntimeException("Danh sách requirement chứa task thuộc nhiều nhóm — không hỗ trợ.");
+        }
+        if (!isMemberOfGroup(groupId, currentUserId) && !isAdmin() && !isLecturer()) {
+            throw new RuntimeException("Bạn không có quyền xem danh sách Task của các requirement này!");
+        }
+        return tasks.stream()
+                .map(taskMapper::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public List<TaskResponse> getTasksForUserInGroup(UUID groupId, UUID userId) {
         String roleInGroup = getUserRoleString(groupId, userId);
         boolean isLeader = "LEADER".equalsIgnoreCase(roleInGroup);
@@ -125,16 +155,16 @@ public class TaskServiceImpl implements TaskService {
                     .collect(Collectors.toList());
         }
 
-        // 2. Team Member: Theo yêu cầu chỉ xem các task được giao cho mình
+        // 2. Team Member: được xem toàn bộ task trong group (quyền thao tác vẫn kiểm soát ở API riêng)
         if (isMember) {
             List<Task> tasks = taskRepository.findByGroupId(groupId);
             return tasks.stream()
-                    .filter(t -> userId.equals(t.getAssignedTo())) // Chỉ lấy task của mình
                     .map(taskMapper::toResponse)
                     .collect(Collectors.toList());
         }
         
-        return java.util.Collections.emptyList();
+        return Collections.emptyList();
+   
     }
 
     @Override
@@ -201,13 +231,14 @@ public class TaskServiceImpl implements TaskService {
         }
         task.setAssignedTo(request.getAssignedTo());
 
+        Task updatedTask = taskRepository.save(task);
         try {
-            publishTaskEvent(task, "ASSIGN");
+            if (updatedTask.getAssignedTo() != null) {
+                publishTaskEvent(updatedTask, EVENT_TASK_ASSIGNED);
+            }
         } catch (Exception e) {
             log.warn("Could not publish task event (RabbitMQ unavailable?): {}", e.getMessage());
         }
-
-        Task updatedTask = taskRepository.save(task);
         return taskMapper.toResponse(updatedTask);
     }
 
@@ -218,11 +249,13 @@ public class TaskServiceImpl implements TaskService {
         Task task = taskRepository.findById(taskId).orElseThrow(
                 () -> new RuntimeException("Không tìm thấy Task!"));
 
-        // Chỉ Leader của group hiện tại hoặc Admin mới được đổi trạng thái
+        // Leader / Admin: mọi task trong nhóm. Người được giao: đổi trạng thái task của chính mình.
         boolean isLeader = isLeaderInGroup(task.getGroupId(), currentUserId);
+        boolean isAssignee = task.getAssignedTo() != null && currentUserId.equals(task.getAssignedTo());
 
-        if (!isLeader && !isAdmin()) {
-            throw new RuntimeException("Chỉ Nhóm trưởng của group hoặc Admin mới được đổi trạng thái Task!");
+        if (!isLeader && !isAdmin() && !isAssignee) {
+            throw new RuntimeException(
+                "Chỉ Nhóm trưởng, Admin, hoặc người được giao task mới được đổi trạng thái Task!");
         }
 
         if (!Objects.equals(task.getStatus(), request.getStatus())) {
@@ -230,15 +263,18 @@ public class TaskServiceImpl implements TaskService {
         }
 
         task.setStatus(request.getStatus());
-        Task savedTask = taskRepository.save(task);
-        
+        Task saved = taskRepository.save(task);
         try {
-            publishTaskEvent(savedTask, "STATUS_UPDATE");
+            if (request.getStatus() == ETaskStatus.DONE) {
+                publishTaskEvent(saved, EVENT_TASK_COMPLETED);
+            } else {
+                publishTaskEvent(saved, EVENT_TASK_STATUS_UPDATED);
+            }
         } catch (Exception e) {
-            log.warn("Could not publish task event (RabbitMQ unavailable?): {}", e.getMessage());
+            log.warn("Không thể gửi sự kiện task (RabbitMQ không khả dụng?): {}", e.getMessage());
         }
 
-        return taskMapper.toResponse(savedTask);
+        return taskMapper.toResponse(saved);
     }
 
     @Override
@@ -326,17 +362,21 @@ public class TaskServiceImpl implements TaskService {
                 jiraIssueKey = reqResponse.getJiraIssueKey();
             }
         } catch (Exception e) {
-            log.warn("Could not fetch requirement details for Jira sync: {}", e.getMessage());
+            log.warn("Không thể lấy chi tiết requirement cho việc đồng bộ Jira: {}", e.getMessage());
         }
 
         TaskEvent event = TaskEvent.builder()
                 .taskId(task.getTaskId())
+                .taskName(task.getTitle())
+                .assigneeId(task.getAssignedTo())
+                .reporterId(task.getCreatedBy())
                 .title(task.getTitle())
                 .assignedTo(task.getAssignedTo())
                 .requirementId(task.getRequirementId())
                 .jiraIssueKey(jiraIssueKey)
                 .eventType(eventType)
                 .status(task.getStatus() != null ? task.getStatus().name() : null)
+                .authToken(UserContextHolder.getJwtToken())
                 .timestamp(LocalDateTime.now())
                 .build();
 

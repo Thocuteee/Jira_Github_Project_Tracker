@@ -51,6 +51,12 @@ public class TaskController {
         return ResponseEntity.ok(responses);
     }
 
+    @PostMapping("/by-requirements")
+    @PreAuthorize("hasAnyRole('ADMIN', 'LECTURER', 'TEAM_LEADER', 'TEAM_MEMBER', 'STUDENT')")
+    public ResponseEntity<List<TaskResponse>> getTasksByRequirementIds(@RequestBody List<UUID> requirementIds) {
+        return ResponseEntity.ok(taskService.getTasksByRequirementIds(requirementIds));
+    }
+
     @GetMapping("/group/{groupId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'LECTURER', 'TEAM_LEADER', 'TEAM_MEMBER', 'STUDENT')")
     public ResponseEntity<List<TaskResponse>> getTasksByGroup(@PathVariable UUID groupId) {

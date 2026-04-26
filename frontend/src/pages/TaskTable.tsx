@@ -7,6 +7,7 @@ import authService from '../api/auth.service';
 import { useGroupContext } from '../contexts/GroupContext';
 import TaskDetailModal from '../components/TaskDetailModal';
 import CreateTaskModal from '../components/CreateTaskModal';
+import { getMemberRole } from '../utils/groupRole';
 import { 
   Search, 
   Filter, 
@@ -21,7 +22,8 @@ import {
   Circle,
   AlertTriangle,
   Calendar,
-  Trash2
+  Trash2,
+  BadgeCheck
 } from 'lucide-react';
 
 interface GroupMemberRow {
@@ -42,6 +44,7 @@ const TaskTable = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [priorityFilter, setPriorityFilter] = useState('ALL');
+  const [myTaskFilter, setMyTaskFilter] = useState<'ALL' | 'MINE'>('ALL');
 
   // Modal State
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -119,9 +122,19 @@ const TaskTable = () => {
       const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = statusFilter === 'ALL' || task.status === statusFilter;
       const matchesPriority = priorityFilter === 'ALL' || task.priority === priorityFilter;
-      return matchesSearch && matchesStatus && matchesPriority;
+      const matchesMine = myTaskFilter === 'ALL' || (currentUserId != null && task.assignedTo === currentUserId);
+      return matchesSearch && matchesStatus && matchesPriority && matchesMine;
     });
-  }, [tasks, searchQuery, statusFilter, priorityFilter]);
+  }, [tasks, searchQuery, statusFilter, priorityFilter, myTaskFilter, currentUserId]);
+
+  const assignableMembers = useMemo(
+    () =>
+      groupMembers.filter((member) => {
+        const normalizedRole = getMemberRole(member);
+        return normalizedRole === 'LEADER' || normalizedRole === 'MEMBER';
+      }),
+    [groupMembers]
+  );
 
   const handleStatusChange = async (taskId: string, newStatus: string) => {
     try {
@@ -267,6 +280,31 @@ const TaskTable = () => {
                       <option value="LOW">Ưu tiên Thấp</option>
                     </select>
                   </div>
+
+                  <div className="flex items-center gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-1">
+                    <button
+                      type="button"
+                      onClick={() => setMyTaskFilter('ALL')}
+                      className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
+                        myTaskFilter === 'ALL'
+                          ? 'bg-white text-slate-800 shadow-sm'
+                          : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      Tất cả
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMyTaskFilter('MINE')}
+                      className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
+                        myTaskFilter === 'MINE'
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      Task của tôi
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -302,18 +340,33 @@ const TaskTable = () => {
                         </td></tr>
                       ) : (
                         filteredTasks.map(task => (
-                          <tr key={task.taskId} className="hover:bg-blue-50/30 transition-all group">
+                          <tr
+                            key={task.taskId}
+                            className={`transition-all group ${
+                              task.assignedTo === currentUserId
+                                ? 'bg-blue-50/60 hover:bg-blue-100/60 border-l-4 border-l-blue-500'
+                                : 'hover:bg-blue-50/30'
+                            }`}
+                          >
                             <td className="py-5 px-8">
                               <div className="flex flex-col">
-                                <span 
-                                  className="font-bold text-slate-800 text-lg cursor-pointer hover:text-blue-600 transition-colors leading-tight"
-                                  onClick={() => {
-                                    setSelectedTask(task);
-                                    setIsDetailOpen(true);
-                                  }}
-                                >
-                                  {task.title}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  <span 
+                                    className="font-bold text-slate-800 text-lg cursor-pointer hover:text-blue-600 transition-colors leading-tight"
+                                    onClick={() => {
+                                      setSelectedTask(task);
+                                      setIsDetailOpen(true);
+                                    }}
+                                  >
+                                    {task.title}
+                                  </span>
+                                  {task.assignedTo === currentUserId && (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white">
+                                      <BadgeCheck size={11} />
+                                      Của tôi
+                                    </span>
+                                  )}
+                                </div>
                                 <span className="text-xs text-slate-400 mt-1 flex items-center gap-1 font-medium">
                                   <Calendar size={12} /> Hạn: {task.dueDate || 'N/A'}
                                 </span>
@@ -342,13 +395,13 @@ const TaskTable = () => {
                             <td className="py-5 px-6">
                               {role === 'LEADER' ? (
                                 <select 
-                                  disabled={assigningTaskId === task.taskId || groupMembers.length === 0}
+                                  disabled={assigningTaskId === task.taskId || assignableMembers.length === 0}
                                   value={task.assignedTo || ''}
                                   onChange={(e) => handleAssignTask(task.taskId, e.target.value)}
                                   className="bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all disabled:opacity-50"
                                 >
                                   <option value="">Chưa giao</option>
-                                  {groupMembers.map(m => (
+                                  {assignableMembers.map(m => (
                                     <option key={m.userId} value={m.userId}>
                                       {m.userId === currentUserId ? 'Bạn' : (userNameMap[m.userId] || `Member: ${m.userId.slice(0, 8)}...`)}
                                     </option>

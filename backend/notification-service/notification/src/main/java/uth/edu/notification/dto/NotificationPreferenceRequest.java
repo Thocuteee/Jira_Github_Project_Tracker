@@ -1,0 +1,15 @@
+package uth.edu.notification.dto;
+
+import jakarta.validation.constraints.NotNull;
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter
+@Setter
+public class NotificationPreferenceRequest {
+    @NotNull
+    private Boolean pushEnabled;
+
+    @NotNull
+    private Boolean emailEnabled;
+}

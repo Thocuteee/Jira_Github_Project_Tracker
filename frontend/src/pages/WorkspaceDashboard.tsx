@@ -1,41 +1,66 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import axios from 'axios';
 import { Clock, CheckCircle2, GitBranch, Circle, Activity } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import type { Task } from '@/api/task.service';
 import taskService from '@/api/task.service';
+import requirementService, { type Requirement } from '@/api/requirement.service';
+import groupService from '@/api/group.service';
+
+function calculateTrueProgress(tasks: Task[], requirements: Requirement[]) {
+  const reqsWithTasks = new Set(
+    tasks
+      .map((task) => task.requirementId)
+      .filter((requirementId): requirementId is string => Boolean(requirementId)),
+  );
+  const reqsWithoutTasksCount = requirements.filter(
+    (requirement) => !reqsWithTasks.has(requirement.requirementId),
+  ).length;
+
+  const effectiveTotalTasks = tasks.length + reqsWithoutTasksCount;
+  const doneTasks = tasks.filter((task) => task.status === 'DONE').length;
+  const progressPercent =
+    effectiveTotalTasks === 0 ? 0 : Math.round((doneTasks / effectiveTotalTasks) * 100);
+
+  return { effectiveTotalTasks, doneTasks, progressPercent };
+}
 
 const WorkspaceDashboard = () => {
   const { groupId } = useParams();
   const [groupInfo, setGroupInfo] = useState<{ name?: string; groupName?: string } | null>(null);
-  const [stats, setStats] = useState({ total: 0, done: 0 });
   const [tasks, setTasks] = useState<Task[]>([]);
-  const apiGatewayBaseUrl = import.meta.env.VITE_API_GATEWAY_URL || window.location.origin;
+  const [requirements, setRequirements] = useState<Requirement[]>([]);
+  const [loadingProjectData, setLoadingProjectData] = useState(false);
 
   useEffect(() => {
     if (!groupId) return;
 
-    axios
-      .get(`${apiGatewayBaseUrl}/api/groups/${groupId}`)
-      .then((res) => setGroupInfo(res.data))
+    groupService
+      .getGroupById(groupId)
+      .then((res) => setGroupInfo(res))
       .catch((err) => console.error('Lỗi lấy thông tin group:', err));
 
-    axios
-      .get(`${apiGatewayBaseUrl}/api/tasks/stats?groupId=${groupId}`)
-      .then((res) => setStats(res.data))
+    setLoadingProjectData(true);
+    Promise.all([
+      taskService.getTasksByGroup(groupId, 'MEMBER'),
+      requirementService.getRequirementsByGroup(groupId),
+    ])
+      .then(([taskRes, reqRes]) => {
+        setTasks(Array.isArray(taskRes) ? taskRes : []);
+        setRequirements(Array.isArray(reqRes) ? reqRes : []);
+      })
       .catch((err) => {
-        console.error('Lỗi lấy thống kê task:', err);
-        setStats({ total: 0, done: 0 });
-      });
+        console.error('Lỗi lấy dữ liệu tiến độ dự án:', err);
+        setTasks([]);
+        setRequirements([]);
+      })
+      .finally(() => setLoadingProjectData(false));
+  }, [groupId]);
 
-    taskService
-      .getTasksByGroup(groupId, 'MEMBER')
-      .then((res) => setTasks(Array.isArray(res) ? res : []))
-      .catch(() => setTasks([]));
-  }, [apiGatewayBaseUrl, groupId]);
-
-  const progress = stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0;
+  const { effectiveTotalTasks, doneTasks, progressPercent } = useMemo(
+    () => calculateTrueProgress(tasks, requirements),
+    [requirements, tasks],
+  );
   const groupName = groupInfo?.groupName || groupInfo?.name || 'Loading...';
   const todoCount = useMemo(() => tasks.filter((t) => t.status === 'TODO').length, [tasks]);
   const inProgressCount = useMemo(() => tasks.filter((t) => t.status === 'IN_PROGRESS').length, [tasks]);
@@ -60,12 +85,17 @@ const WorkspaceDashboard = () => {
         <section className="bg-white border border-slate-200 rounded-3xl p-8 text-slate-800 mb-10 shadow-sm">
           <div className="flex justify-between items-center mb-4">
             <span className="text-slate-500 font-medium">Tiến độ tổng thể dự án</span>
-            <span className="text-4xl font-black text-slate-800">{progress}%</span>
+            <div className="text-right">
+              <span className="text-4xl font-black text-slate-800">{loadingProjectData ? '--' : progressPercent}%</span>
+              <p className="text-xs text-slate-500 mt-1">
+                {loadingProjectData ? 'Đang tính toán...' : `${doneTasks}/${effectiveTotalTasks} hoàn thành`}
+              </p>
+            </div>
           </div>
           <div className="w-full bg-slate-100 h-4 rounded-full overflow-hidden">
             <div
               className="bg-slate-500 h-full transition-all duration-1000 ease-out"
-              style={{ width: `${progress}%` }}
+              style={{ width: `${loadingProjectData ? 0 : progressPercent}%` }}
             />
           </div>
         </section>
@@ -77,7 +107,9 @@ const WorkspaceDashboard = () => {
             </div>
             <div>
               <p className="text-slate-500 text-sm font-medium">Công việc đang làm</p>
-              <h4 className="text-2xl font-bold text-slate-900">{Math.max(stats.total - stats.done, 0)} Tasks</h4>
+              <h4 className="text-2xl font-bold text-slate-900">
+                {loadingProjectData ? '--' : Math.max(effectiveTotalTasks - doneTasks, 0)} Tasks
+              </h4>
             </div>
           </div>
           <div className="bg-white p-6 rounded-2xl border border-slate-200 flex items-center gap-4 shadow-sm">
@@ -86,7 +118,7 @@ const WorkspaceDashboard = () => {
             </div>
             <div>
               <p className="text-slate-500 text-sm font-medium">Đã hoàn thành</p>
-              <h4 className="text-2xl font-bold text-slate-900">{stats.done} Tasks</h4>
+              <h4 className="text-2xl font-bold text-slate-900">{loadingProjectData ? '--' : doneTasks} Tasks</h4>
             </div>
           </div>
           <div className="bg-white p-6 rounded-2xl border border-slate-200 flex items-center gap-4 shadow-sm">

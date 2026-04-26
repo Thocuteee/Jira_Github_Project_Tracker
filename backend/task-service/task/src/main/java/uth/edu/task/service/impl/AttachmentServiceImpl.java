@@ -2,13 +2,12 @@ package uth.edu.task.service.impl;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import uth.edu.task.client.FileServiceClient;
-import uth.edu.task.dto.response.file.PresignedUrlResponse;
+import uth.edu.task.dto.response.file.FileRecordResponse;
 import uth.edu.task.config.UserContextHolder;
 import uth.edu.task.dto.request.AttachmentRequest;
-import uth.edu.task.dto.request.GenerateUrlRequest;
 import uth.edu.task.dto.response.AttachmentResponse;
 import uth.edu.task.mapper.AttachmentMapper;
 import uth.edu.task.model.Attachment;
@@ -17,11 +16,8 @@ import uth.edu.task.repository.AttachmentRepository;
 import uth.edu.task.repository.TaskRepository;
 import uth.edu.task.service.AttachmentService;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -37,34 +33,32 @@ public class AttachmentServiceImpl implements AttachmentService {
     private final AttachmentMapper attachmentMapper;
 
     @Override
-    public Map<String, String> generatePresignedUrl(UUID taskId, GenerateUrlRequest request) {
-        PresignedUrlResponse fileResponse = fileServiceClient.getUploadUrl(
-                request.getFileName(),
-                request.getContentType(),
-                "TASK",
-                taskId.toString()
-        );
-
-        Map<String, String> response = new HashMap<>();
-        response.put("presignedUrl", fileResponse.getUploadUrl());
-        response.put("fileKey", fileResponse.getFileKey());
-        response.put("fileUrl", fileResponse.getFileUrl());
-
-        return response;
-    }
-
-    @Override
     @Transactional
-    public AttachmentResponse saveAttachment(UUID taskId, AttachmentRequest request) {
+    public AttachmentResponse uploadAttachment(UUID taskId, MultipartFile file) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy Task!"));
-        Attachment attachment = attachmentMapper.toEntity(request);
-        attachment.setTask(task);
-        attachment.setUploadedBy(UserContextHolder.getUserId());
-        attachment.setUploadedAt(LocalDateTime.now());
+
+        if (file == null || file.isEmpty()) {
+            throw new RuntimeException("File đính kèm không được để trống!");
+        }
+
+        FileRecordResponse fileRecord = fileServiceClient.uploadFile(file, taskId.toString(), "TASK");
+        if (fileRecord == null || fileRecord.getFileUrl() == null || fileRecord.getFileUrl().isBlank()) {
+            throw new RuntimeException("file-service không trả về fileUrl hợp lệ.");
+        }
+
+        Attachment attachment = Attachment.builder()
+                .task(task)
+                .uploadedBy(UserContextHolder.getUserId())
+                .fileName(fileRecord.getFileName() != null && !fileRecord.getFileName().isBlank()
+                        ? fileRecord.getFileName()
+                        : file.getOriginalFilename())
+                .fileKey(fileRecord.getFileKey())
+                .fileUrl(fileRecord.getFileUrl())
+                .uploadedAt(LocalDateTime.now())
+                .build();
 
         Attachment saved = attachmentRepository.save(attachment);
-
         return attachmentMapper.toResponse(saved);
     }
 

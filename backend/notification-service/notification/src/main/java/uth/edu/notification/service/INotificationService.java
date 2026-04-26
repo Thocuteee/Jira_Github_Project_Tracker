@@ -14,5 +14,7 @@ public interface INotificationService {
 
     Notification updateReadStatus(UUID notificationId, Boolean isRead);
 
+    int markAllAsReadByUserId(UUID userId);
+
     void deleteNotification(UUID notificationId);
 }

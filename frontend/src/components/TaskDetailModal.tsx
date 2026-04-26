@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { X, MessageSquare, History, Info, Save, User, AlertCircle, Calendar, CheckCircle2, Clock, Circle, ArrowRight } from 'lucide-react';
-import type { Task, TaskComment, TaskHistory } from '../api/task.service';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, MessageSquare, History, Info, Save, User, AlertCircle, Calendar, CheckCircle2, Clock, Circle, ArrowRight, Paperclip, Upload, Trash2, Download } from 'lucide-react';
+import type { Task, TaskComment, TaskHistory, Attachment } from '../api/task.service';
 import taskService from '../api/task.service';
 import githubService from '../api/github.service';
 import requirementService from '../api/requirement.service';
 import authService from '../api/auth.service';
 import { ExternalLink, GitBranch } from 'lucide-react';
+import { getMemberRole } from '../utils/groupRole';
+import { formatUtc7DateTime, formatUtc7Time } from '../utils/datetime';
 
 interface TaskDetailModalProps {
   task: Task;
@@ -32,13 +34,24 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [editedTask, setEditedTask] = useState<Partial<Task>>({});
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [history, setHistory] = useState<TaskHistory[]>([]);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [localNames, setLocalNames] = useState<Record<string, string>>({});
   const [jiraUrl, setJiraUrl] = useState('');
   const [globalGithubRepo, setGlobalGithubRepo] = useState('');
   const [globalJiraKey, setGlobalJiraKey] = useState('');
+
+  const assignableMembers = useMemo(
+    () =>
+      groupMembers.filter((member) => {
+        const normalizedRole = getMemberRole(member);
+        return normalizedRole === 'LEADER' || normalizedRole === 'MEMBER';
+      }),
+    [groupMembers]
+  );
 
   useEffect(() => {
     if (isOpen) {
@@ -54,44 +67,78 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       });
       loadExtraData();
     }
-  }, [isOpen, task]);
+  }, [isOpen, task.taskId]);
 
   const loadExtraData = async () => {
     setLoading(true);
     try {
-      const [commentsData, historyData, globalSettings, mappingData, reqData] = await Promise.all([
+      // Core data for this modal: comments + history + attachments.
+      const [commentsResult, historyResult, attachmentsResult] = await Promise.allSettled([
         taskService.getTaskComments(task.taskId),
         taskService.getTaskHistory(task.taskId),
+        taskService.getTaskAttachments(task.taskId)
+      ]);
+
+      const commentsData =
+        commentsResult.status === 'fulfilled' ? (commentsResult.value || []) : [];
+      const historyData =
+        historyResult.status === 'fulfilled' ? (historyResult.value || []) : [];
+      const attachmentsData =
+        attachmentsResult.status === 'fulfilled' ? (attachmentsResult.value || []) : [];
+
+      if (commentsResult.status === 'rejected') {
+        console.warn('Không tải được comments:', commentsResult.reason);
+      }
+      if (historyResult.status === 'rejected') {
+        console.warn('Không tải được history:', historyResult.reason);
+      }
+      if (attachmentsResult.status === 'rejected') {
+        console.warn('Không tải được attachments:', attachmentsResult.reason);
+      }
+
+      setComments(commentsData);
+      setHistory(historyData);
+      setAttachments(attachmentsData);
+
+      // Fetch user names for comments and history
+      const allUserIds = new Set<string>();
+      commentsData.forEach((c: TaskComment) => allUserIds.add(c.userId));
+      historyData.forEach((h: TaskHistory) => allUserIds.add(h.changedBy));
+
+      if (allUserIds.size > 0) {
+        try {
+          const names = await authService.getUserNames(Array.from(allUserIds));
+          setLocalNames(names);
+        } catch (error) {
+          console.warn('Không tải được tên người dùng:', error);
+        }
+      }
+
+      // Non-critical metadata: should never block comments/history rendering.
+      const [globalSettingsResult, mappingResult, requirementResult] = await Promise.allSettled([
         githubService.getGlobalSettings(),
-        githubService.getAllMappings().then(mappings => 
+        githubService.getAllMappings().then(mappings =>
           (mappings || []).find((m: any) => m.groupId === task.groupId)
         ),
-        requirementService.getRequirementsByGroup(task.groupId).then((reqs: any) => 
+        requirementService.getRequirementsByGroup(task.groupId).then((reqs: any) =>
           (reqs as any || []).find((r: any) => r.requirementId === task.requirementId)
         )
       ]);
 
-      setComments(commentsData || []);
-      setHistory(historyData || []);
-      
+      const globalSettings = globalSettingsResult.status === 'fulfilled' ? globalSettingsResult.value : null;
+      const mappingData = mappingResult.status === 'fulfilled' ? mappingResult.value : null;
+      const reqData = requirementResult.status === 'fulfilled' ? requirementResult.value : null;
+
       if (globalSettings?.jiraUrl) setJiraUrl(globalSettings.jiraUrl);
-      if (mappingData?.githubRepo || mappingData?.githubRepoUrl) setGlobalGithubRepo(mappingData.githubRepo || mappingData.githubRepoUrl);
-      
-      // Prefer Requirement's own Epic key, otherwise fallback to the integration's project key
-      if (reqData?.jiraIssueKey) {
-          setGlobalJiraKey(reqData.jiraIssueKey);
-      } else if (mappingData?.jiraProjectKey) {
-          setGlobalJiraKey(mappingData.jiraProjectKey);
+      if (mappingData?.githubRepo || mappingData?.githubRepoUrl) {
+        setGlobalGithubRepo(mappingData.githubRepo || mappingData.githubRepoUrl);
       }
 
-      // Fetch user names for comments and history
-      const allUserIds = new Set<string>();
-      if (commentsData) commentsData.forEach((c: TaskComment) => allUserIds.add(c.userId));
-      if (historyData) historyData.forEach((h: TaskHistory) => allUserIds.add(h.changedBy));
-      
-      if (allUserIds.size > 0) {
-        const names = await authService.getUserNames(Array.from(allUserIds));
-        setLocalNames(names);
+      // Prefer Requirement's own Epic key, otherwise fallback to the integration's project key
+      if (reqData?.jiraIssueKey) {
+        setGlobalJiraKey(reqData.jiraIssueKey);
+      } else if (mappingData?.jiraProjectKey) {
+        setGlobalJiraKey(mappingData.jiraProjectKey);
       }
     } catch (error) {
       console.error('Lỗi khi tải dữ liệu bổ sung:', error);
@@ -135,7 +182,39 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     }
   };
 
+  const handleAttachmentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadingAttachment(true);
+    try {
+      await taskService.uploadAttachment(task.taskId, file);
+      const attachmentRows = await taskService.getTaskAttachments(task.taskId);
+      setAttachments(attachmentRows);
+    } catch (error) {
+      alert('Lỗi khi tải file đính kèm.');
+    } finally {
+      setUploadingAttachment(false);
+      event.target.value = '';
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    if (!window.confirm('Bạn có chắc muốn xóa tài liệu này?')) return;
+    try {
+      await taskService.deleteAttachment(task.taskId, attachmentId);
+      setAttachments(prev => prev.filter(item => item.attachmentId !== attachmentId));
+    } catch (error) {
+      alert('Không thể xóa tài liệu đính kèm.');
+    }
+  };
+
   if (!isOpen) return null;
+
+  const isCurrentUserAssignee =
+    Boolean(currentUserId && task.assignedTo && currentUserId === task.assignedTo);
+  const canEditStatus = role === 'LEADER' || isCurrentUserAssignee;
+  const canEditTaskDetails = role === 'LEADER' || isCurrentUserAssignee;
 
   const statusIcons: Record<string, any> = {
     DONE: <CheckCircle2 className="text-green-500" size={16} />,
@@ -200,7 +279,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                     <Info size={14} /> Mô tả công việc
                   </label>
-                  {role === 'LEADER' ? (
+                  {canEditTaskDetails ? (
                     <textarea
                       rows={8}
                       className="w-full px-6 py-5 bg-white border border-slate-200 rounded-[1.5rem] focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all resize-none shadow-sm text-slate-700 font-medium leading-relaxed"
@@ -211,6 +290,69 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   ) : (
                     <div className="text-slate-700 bg-white p-7 rounded-[1.5rem] border border-slate-100 shadow-sm min-h-[200px] leading-relaxed font-medium">
                       {task.description || 'Chưa có mô tả nào được thêm vào cho công việc này.'}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-4 pt-6 border-t border-slate-100">
+                  <div className="flex items-center justify-between gap-3">
+                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                      <Paperclip size={14} /> Tài liệu đính kèm
+                    </label>
+                    {canEditTaskDetails && (
+                      <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-50 text-blue-700 text-xs font-bold cursor-pointer hover:bg-blue-100 transition-colors">
+                        <Upload size={14} />
+                        {uploadingAttachment ? 'Đang tải...' : 'Upload File'}
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={handleAttachmentUpload}
+                          disabled={uploadingAttachment}
+                        />
+                      </label>
+                    )}
+                  </div>
+
+                  {attachments.length === 0 ? (
+                    <div className="text-sm text-slate-400 bg-white p-4 rounded-xl border border-dashed border-slate-200">
+                      Chưa có tài liệu đính kèm cho công việc này.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {attachments.map((attachment) => (
+                        <div
+                          key={attachment.attachmentId}
+                          className="flex items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-100 shadow-sm"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-slate-800 truncate">{attachment.fileName}</p>
+                            <p className="text-xs text-slate-400">
+                              {attachment.uploadedAt ? formatUtc7DateTime(attachment.uploadedAt) : ''}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={attachment.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200"
+                            >
+                              <Download size={13} />
+                              Mở
+                            </a>
+                            {canEditTaskDetails && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteAttachment(attachment.attachmentId)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-50 text-red-600 text-xs font-bold hover:bg-red-100"
+                              >
+                                <Trash2 size={13} />
+                                Xóa
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -293,7 +435,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Trạng thái</label>
                     <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
                       {statusIcons[editedTask.status || task.status]}
-                      {role === 'LEADER' ? (
+                      {canEditStatus ? (
                         <select 
                           value={editedTask.status} 
                           onChange={e => setEditedTask({...editedTask, status: e.target.value as any})}
@@ -322,7 +464,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                           onChange={e => setEditedTask({ ...editedTask, assignedTo: e.target.value })}
                         >
                           <option value="">Chưa giao</option>
-                          {groupMembers.map(m => (
+                          {assignableMembers.map(m => (
                             <option key={m.userId} value={m.userId}>
                               {m.userId === currentUserId ? 'Bạn' : (localNames[m.userId] || userNameMap[m.userId] || `User: ${m.userId.slice(0, 8)}...`)}
                             </option>
@@ -410,7 +552,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       <div className="flex-1 space-y-1">
                         <div className="flex items-center gap-3">
                           <span className="text-sm font-black text-slate-900">{c.userId === currentUserId ? 'Bạn' : (localNames[c.userId] || userNameMap[c.userId] || `User: ${c.userId.slice(0, 8)}`)}</span>
-                          <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{formatUtc7Time(c.createdAt)}</span>
                         </div>
                         <div className="bg-white px-5 py-4 rounded-[1.5rem] rounded-tl-none border border-slate-100 shadow-sm text-slate-600 text-[15px] font-medium leading-relaxed">
                           {c.content}
@@ -437,7 +579,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       <div className="space-y-1">
                         <div className="flex items-center gap-3">
                           <span className="text-xs font-black text-slate-900">{h.changedBy === currentUserId ? 'Bạn' : (localNames[h.changedBy] || userNameMap[h.changedBy] || `User: ${h.changedBy.slice(0, 8)}`)}</span>
-                          <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{new Date(h.changedAt).toLocaleString()}</span>
+                          <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{formatUtc7DateTime(h.changedAt)}</span>
                         </div>
                         <p className="text-sm text-slate-500 font-medium">
                           Đã cập nhật <span className="text-slate-900 font-black">{h.fieldChanged}</span> 
@@ -454,7 +596,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         </div>
 
         {/* Footer for Actions */}
-        {activeTab === 'details' && (
+        {activeTab === 'details' && canEditTaskDetails && (
           <div className="px-10 py-7 border-t border-slate-50 flex justify-end bg-white">
             <button
               onClick={handleSave}

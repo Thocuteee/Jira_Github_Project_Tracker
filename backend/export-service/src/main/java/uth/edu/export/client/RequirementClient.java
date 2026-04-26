@@ -8,11 +8,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import java.util.UUID;
 import java.util.List;
 
-@FeignClient(name = "requirement-service", url = "http://localhost:8083/api/requirements")
+@FeignClient(name = "requirement-service", url = "${app.requirement-service.url:http://requirement-service:8083}")
 public interface RequirementClient {
-    @GetMapping("/group/{groupId}")
+    @GetMapping("/api/requirements/group/{groupId}")
     String getRequirementsByGroupId(@PathVariable("groupId") UUID groupId);
 
-    @PostMapping("/list")
+    @PostMapping("/api/requirements/list")
     String getRequirementsByIds(@RequestBody List<UUID> ids);
 }

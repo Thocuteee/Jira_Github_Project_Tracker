@@ -5,13 +5,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import uth.edu.task.dto.request.AttachmentRequest;
-import uth.edu.task.dto.request.GenerateUrlRequest;
 import uth.edu.task.dto.response.AttachmentResponse;
 import uth.edu.task.service.AttachmentService;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -21,22 +20,11 @@ public class AttachmentController {
 
     private final AttachmentService attachmentService;
 
-
-    @PostMapping("/{taskId}/attachments/presigned-url")
-    public ResponseEntity<Map<String, String>> generatePresignedUrl(@PathVariable UUID taskId,
-                                                                    @Valid @RequestBody GenerateUrlRequest request) {
-        Map<String, String> response = attachmentService.generatePresignedUrl(taskId, request);
-
-        return ResponseEntity.ok(response);
-    }
-
-
-
-    @PostMapping("/{taskId}/attachments")
-    public ResponseEntity<AttachmentResponse> saveAttachmentMetadata(@PathVariable UUID taskId,
-                                                                     @Valid @RequestBody AttachmentRequest request) {
-        AttachmentResponse response = attachmentService.saveAttachment(taskId, request);
-
+    @PostMapping("/{taskId}/attachments/upload")
+    public ResponseEntity<AttachmentResponse> uploadAttachment(
+            @PathVariable UUID taskId,
+            @RequestParam("file") MultipartFile file) {
+        AttachmentResponse response = attachmentService.uploadAttachment(taskId, file);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
