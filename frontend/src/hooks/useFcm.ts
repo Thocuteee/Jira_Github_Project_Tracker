@@ -28,7 +28,7 @@ export function useFcm({ userId, onNotification }: UseFcmOptions) {
   const unsubRef = useRef<(() => void) | null>(null);
   const registeredTokenRef = useRef<string | null>(null);
 
-  const initFcm = useCallback(async () => {
+  const initFcm = useCallback(async (requirePrompt: boolean) => {
     if (!isFirebaseConfigured()) return;
     if (!userId) {
       console.debug('Skipping FCM token registration because userId is missing.');
@@ -40,7 +40,10 @@ export function useFcm({ userId, onNotification }: UseFcmOptions) {
       return;
     }
 
-    const permission = await requestNotificationPermission();
+    let permission = Notification.permission;
+    if (permission === 'default' && requirePrompt) {
+      permission = await requestNotificationPermission();
+    }
     setPermissionStatus(permission);
     if (permission !== 'granted') return;
 
@@ -60,7 +63,8 @@ export function useFcm({ userId, onNotification }: UseFcmOptions) {
   }, [userId]);
 
   useEffect(() => {
-    void initFcm();
+    // Avoid browser anti-spam behavior: only auto-init when permission is already granted.
+    void initFcm(false);
   }, [initFcm]);
 
   useEffect(() => {
@@ -91,5 +95,9 @@ export function useFcm({ userId, onNotification }: UseFcmOptions) {
     };
   }, [userId]);
 
-  return { token, permissionStatus, requestPermission: initFcm };
+  const requestPermission = useCallback(async () => {
+    await initFcm(true);
+  }, [initFcm]);
+
+  return { token, permissionStatus, requestPermission };
 }

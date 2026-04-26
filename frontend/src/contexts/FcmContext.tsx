@@ -1,6 +1,7 @@
 import { createContext, useContext, useCallback, useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { useFcm } from '../hooks/useFcm';
+import authService from '../api/auth.service';
 import notificationService, {
   type NotificationDto,
   type NotificationPreferenceDto,
@@ -87,6 +88,25 @@ export function FcmProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (userId || !isAuthedSession()) return;
+    let cancelled = false;
+    authService
+      .getProfile()
+      .then((profile) => {
+        if (cancelled || !profile?.userId) return;
+        localStorage.setItem('userId', profile.userId);
+        setUserId(profile.userId);
+        window.dispatchEvent(new Event('auth-changed'));
+      })
+      .catch((error) => {
+        console.warn('Could not hydrate userId for FCM registration:', error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  useEffect(() => {
     setUnreadCount(notifications.filter((item) => !item.isRead).length);
   }, [notifications]);
 
@@ -159,6 +179,14 @@ export function FcmProvider({ children }: { children: ReactNode }) {
       return;
     }
     void fetchNotifications();
+  }, [fetchNotifications, userId]);
+
+  useEffect(() => {
+    if (!userId || !isAuthedSession()) return;
+    const pollInterval = window.setInterval(() => {
+      void fetchNotifications();
+    }, 30000);
+    return () => window.clearInterval(pollInterval);
   }, [fetchNotifications, userId]);
 
   const handleNotification = useCallback(

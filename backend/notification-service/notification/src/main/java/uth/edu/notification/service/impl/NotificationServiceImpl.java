@@ -61,9 +61,12 @@ public class NotificationServiceImpl implements INotificationService {
         }
 
         if (Boolean.TRUE.equals(emailEnabled)) {
+            if (!StringUtils.hasText(request.getAuthToken())) {
+                log.warn("Email notification may be skipped due to missing auth token: userId={}", request.getUserId());
+            }
             userDirectoryService.findEmailByUserId(request.getUserId(), request.getAuthToken()).ifPresentOrElse(
                 email -> emailService.sendEmailAsync(email, saved.getTitle(), toHtmlBody(saved.getTitle(), saved.getMessage())),
-                () -> log.debug("Recipient email not found (or auth token missing/expired), skip email notification for userId={}", request.getUserId())
+                () -> log.warn("Recipient email not found (or auth token missing/expired), skip email notification for userId={}", request.getUserId())
             );
         } else {
             log.debug("Email notifications disabled for userId={}, skip email dispatch", request.getUserId());
