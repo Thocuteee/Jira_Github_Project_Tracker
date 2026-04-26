@@ -1,6 +1,7 @@
 package uth.edu.notification.service.impl;
 
 import java.time.LocalDateTime;
+import java.util.Locale;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -71,7 +72,7 @@ public class NotificationServiceImpl implements INotificationService {
                         .findDisplayNameByUserId(request.getUserId(), request.getAuthToken())
                         .orElse("bạn");
                     String htmlContent = buildEmailHtmlByActionType(
-                        request.getActionType(),
+                        request,
                         recipientName,
                         resolveTaskName(saved.getMessage()),
                         saved.getTitle(),
@@ -89,17 +90,26 @@ public class NotificationServiceImpl implements INotificationService {
     }
 
     private String buildEmailHtmlByActionType(
-        String actionType,
+        CreateNotificationRequest request,
         String recipientName,
         String taskName,
         String fallbackTitle,
         String fallbackMessage
     ) {
+        String actionType = request.getActionType();
         if ("TASK_ASSIGNED".equalsIgnoreCase(actionType)) {
             return notificationEmailTemplateBuilder.buildTaskAssignedEmail(recipientName, taskName);
         }
         if ("TASK_COMPLETED".equalsIgnoreCase(actionType)) {
             return notificationEmailTemplateBuilder.buildTaskCompletedEmail(recipientName, taskName);
+        }
+        if ("MEMBER_ADDED".equalsIgnoreCase(actionType)) {
+            String groupName = StringUtils.hasText(request.getGroupName()) ? request.getGroupName() : "N/A";
+            String role = StringUtils.hasText(request.getRoleInGroup()) ? request.getRoleInGroup().toUpperCase(Locale.ROOT) : "MEMBER";
+            String adderName = userDirectoryService
+                .findDisplayNameByUserId(request.getAdderUserId(), request.getAuthToken())
+                .orElse("quản trị viên hoặc Leader");
+            return notificationEmailTemplateBuilder.buildMemberAddedEmail(recipientName, groupName, role, adderName);
         }
         return toHtmlBody(fallbackTitle, fallbackMessage);
     }

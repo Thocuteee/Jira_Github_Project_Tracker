@@ -27,4 +27,9 @@ public class CreateNotificationRequest {
 
     // Optional: loại sự kiện nghiệp vụ (vd: TASK_ASSIGNED, TASK_COMPLETED) để render email template phù hợp.
     private String actionType;
+
+    // Optional: metadata cho email template MEMBER_ADDED.
+    private String groupName;
+    private String roleInGroup;
+    private UUID adderUserId;
 }

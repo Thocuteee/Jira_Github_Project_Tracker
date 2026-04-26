@@ -187,4 +187,33 @@ class NotificationServiceImplTest {
         verify(emailService, times(1))
             .sendEmailAsync("owner@example.com", "Công việc đã hoàn thành!", "<html>completed-template</html>");
     }
+
+    @Test
+    void createNotification_memberAdded_shouldSendProfessionalHtmlEmail() {
+        UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000006");
+        UUID adderId = UUID.fromString("00000000-0000-0000-0000-000000000007");
+        CreateNotificationRequest req = new CreateNotificationRequest();
+        req.setUserId(userId);
+        req.setTitle("Bạn đã được thêm vào nhóm dự án");
+        req.setMessage("Bạn đã được Leader thêm vào nhóm Demo với vai trò MEMBER.");
+        req.setActionType("MEMBER_ADDED");
+        req.setGroupName("Demo Group");
+        req.setRoleInGroup("MEMBER");
+        req.setAdderUserId(adderId);
+        req.setAuthToken("Bearer token-value");
+
+        when(notificationPreferenceService.getOrCreatePreference(userId)).thenReturn(emailOnlyPreference());
+        when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(userDirectoryService.findEmailByUserId(eq(userId), anyString())).thenReturn(java.util.Optional.of("member@example.com"));
+        when(userDirectoryService.findDisplayNameByUserId(eq(userId), anyString())).thenReturn(java.util.Optional.of("Le Thi C"));
+        when(userDirectoryService.findDisplayNameByUserId(eq(adderId), anyString())).thenReturn(java.util.Optional.of("Leader Tran"));
+        when(notificationEmailTemplateBuilder.buildMemberAddedEmail("Le Thi C", "Demo Group", "MEMBER", "Leader Tran"))
+            .thenReturn("<html>member-added-template</html>");
+
+        Notification created = service.createNotification(req);
+
+        assertNotNull(created);
+        verify(emailService, times(1))
+            .sendEmailAsync("member@example.com", "Bạn đã được thêm vào nhóm dự án", "<html>member-added-template</html>");
+    }
 }
