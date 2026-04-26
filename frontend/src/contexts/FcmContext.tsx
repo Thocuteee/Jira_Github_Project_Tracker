@@ -181,14 +181,6 @@ export function FcmProvider({ children }: { children: ReactNode }) {
     void fetchNotifications();
   }, [fetchNotifications, userId]);
 
-  useEffect(() => {
-    if (!userId || !isAuthedSession()) return;
-    const pollInterval = window.setInterval(() => {
-      void fetchNotifications();
-    }, 30000);
-    return () => window.clearInterval(pollInterval);
-  }, [fetchNotifications, userId]);
-
   const handleNotification = useCallback(
     (notification: { title: string; body: string; data?: Record<string, string> }) => {
       const id = ++toastIdCounter;

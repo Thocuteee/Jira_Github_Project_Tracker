@@ -15,6 +15,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    env:
+      ENV_FILE_CONTENT: ${{ secrets.ENV_FILE_CONTENT }}
 
     strategy:
       fail-fast: false
@@ -22,9 +24,7 @@ jobs:
         include:
           - service: frontend
             context: ./frontend
-            build-args: |
-              VITE_AUTH_SERVICE_URL=https://swp391.uth.today
-              VITE_API_GATEWAY_URL=https://swp391.uth.today
+
           - service: api-gateway
             context: ./backend/api-gateway/gateway
           - service: auth-service
@@ -62,7 +62,78 @@ jobs:
       - name: Lowercase image name
         run: echo "IMAGE_NAME_LOWER=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
-      - name: Build and push Docker image
+      - name: Load build env from ENV_FILE_CONTENT
+        if: matrix.service == 'frontend'
+        run: |
+          printf '%s' "$ENV_FILE_CONTENT" > .env.ci
+          python3 - <<'PY'
+          import os
+          import sys
+
+          env_file = ".env.ci"
+          github_env = os.environ["GITHUB_ENV"]
+          required = [
+              "VITE_API_GATEWAY_URL",
+              "VITE_AUTH_SERVICE_URL",
+              "VITE_FIREBASE_API_KEY",
+              "VITE_FIREBASE_AUTH_DOMAIN",
+              "VITE_FIREBASE_PROJECT_ID",
+              "VITE_FIREBASE_STORAGE_BUCKET",
+              "VITE_FIREBASE_MESSAGING_SENDER_ID",
+              "VITE_FIREBASE_APP_ID",
+              "VITE_FIREBASE_VAPID_KEY",
+          ]
+
+          parsed = {}
+          with open(env_file, "r", encoding="utf-8") as f:
+              for raw_line in f:
+                  line = raw_line.strip()
+                  if not line or line.startswith("#") or "=" not in line:
+                      continue
+                  key, value = line.split("=", 1)
+                  key = key.strip()
+                  value = value.strip()
+                  if (
+                      len(value) >= 2
+                      and value[0] == value[-1]
+                      and value[0] in ('"', "'")
+                  ):
+                      value = value[1:-1]
+                  parsed[key] = value
+
+          missing = [key for key in required if not parsed.get(key)]
+          if missing:
+              for key in missing:
+                  print(
+                      f"::error title=Missing ENV::{key} is missing in ENV_FILE_CONTENT"
+                  )
+              sys.exit(1)
+
+          with open(github_env, "a", encoding="utf-8") as out:
+              for key in required:
+                  out.write(f"{key}<<__ENV_EOF__\n{parsed[key]}\n__ENV_EOF__\n")
+          PY
+
+      - name: Build and push frontend image
+        if: matrix.service == 'frontend'
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          build-args: |
+            VITE_AUTH_SERVICE_URL=${{ env.VITE_AUTH_SERVICE_URL }}
+            VITE_API_GATEWAY_URL=${{ env.VITE_API_GATEWAY_URL }}
+            VITE_FIREBASE_API_KEY=${{ env.VITE_FIREBASE_API_KEY }}
+            VITE_FIREBASE_AUTH_DOMAIN=${{ env.VITE_FIREBASE_AUTH_DOMAIN }}
+            VITE_FIREBASE_PROJECT_ID=${{ env.VITE_FIREBASE_PROJECT_ID }}
+            VITE_FIREBASE_STORAGE_BUCKET=${{ env.VITE_FIREBASE_STORAGE_BUCKET }}
+            VITE_FIREBASE_MESSAGING_SENDER_ID=${{ env.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+            VITE_FIREBASE_APP_ID=${{ env.VITE_FIREBASE_APP_ID }}
+            VITE_FIREBASE_VAPID_KEY=${{ env.VITE_FIREBASE_VAPID_KEY }}
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}/${{ matrix.service }}:latest
+
+      - name: Build and push backend image
+        if: matrix.service != 'frontend'
         uses: docker/build-push-action@v5
         with:
           context: ${{ matrix.context }}
@@ -115,7 +186,7 @@ jobs:
             # Login and Deploy
             echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
             docker compose pull
-            docker compose up -d
+            docker compose up -d --no-build
 
             echo "Deployment successfully finalized!"
           EOF
