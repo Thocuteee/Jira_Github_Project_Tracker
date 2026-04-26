@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Globe, GitBranch, LogIn } from 'lucide-react'
 import authService from '@/api/auth.service'
+import { persistAccessToken } from '@/api/authClient'
 import { getPrimaryRole } from '@/utils/authDisplay'
 
 export default function Login() {
@@ -33,6 +34,7 @@ export default function Login() {
         localStorage.setItem('userName', response.email.split('@')[0] || response.email)
         localStorage.setItem('userSubtitle', getPrimaryRole(response.roles ?? []))
         localStorage.setItem('userRoles', JSON.stringify(response.roles ?? []))
+        persistAccessToken(response.token ?? null)
         if (profileUserId) {
           localStorage.setItem('userId', profileUserId);
         }
