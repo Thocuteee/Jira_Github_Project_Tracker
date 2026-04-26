@@ -21,7 +21,6 @@ const RequirementTable = () => {
     const [requirements, setRequirements] = useState<Requirement[]>([]);
     const [loading, setLoading] = useState(true);
     const [userRole, setUserRole] = useState<'Leader' | 'Member' | 'Lecturer' | 'Admin' | 'NoRole'>('NoRole');
-    const [isLeaderOfGroup, setIsLeaderOfGroup] = useState(false);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [groupMembers, setGroupMembers] = useState<{ userId: string; roleInGroup: string }[]>([]);
     const [userNameMap, setUserNameMap] = useState<Record<string, string>>({});
@@ -88,7 +87,6 @@ const RequirementTable = () => {
             const profile = await authService.getProfile();
             const currUid = String(profile.userId || '');
             setCurrentUserId(currUid);
-            setIsLeaderOfGroup(false);
 
             // Fetch group members - always do this if we have a gid
             const members = await groupService.getMembers(gid);
@@ -129,38 +127,14 @@ const RequirementTable = () => {
                 const roleUpper = String(member.roleInGroup || '').toUpperCase();
                 if (roleUpper === 'LEADER') {
                     setUserRole('Leader');
-                    setIsLeaderOfGroup(true);
                 } else {
-                    // Fallback check from backend source of truth (checkLeader endpoint)
-                    try {
-                        const leaderCheck = await groupService.checkLeader(gid);
-                        if (leaderCheck) {
-                            setUserRole('Leader');
-                            setIsLeaderOfGroup(true);
-                            return;
-                        }
-                    } catch {
-                        // ignore fallback errors and keep member role
-                    }
                     setUserRole('Member');
                 }
             } else {
-                // User might be leader immediately after group creation while membership list is stale
-                try {
-                    const leaderCheck = await groupService.checkLeader(gid);
-                    if (leaderCheck) {
-                        setUserRole('Leader');
-                        setIsLeaderOfGroup(true);
-                        return;
-                    }
-                } catch {
-                    // ignore fallback errors
-                }
                 setUserRole('NoRole');
             }
         } catch (error) {
             console.error("Lỗi kiểm tra quyền hạn:", error);
-            setIsLeaderOfGroup(false);
             setUserRole('NoRole'); 
         }
     };
@@ -237,7 +211,7 @@ const RequirementTable = () => {
         return 'bg-blue-100 text-blue-700 border-blue-200';
     };
 
-    const canManageSRS = userRole === 'Admin' || userRole === 'Leader' || isLeaderOfGroup;
+    const canManageSRS = userRole === 'Leader';
 
     const toggleExpand = (id: string) => {
         setExpandedReqId(expandedReqId === id ? null : id);
