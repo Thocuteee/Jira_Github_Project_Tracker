@@ -36,6 +36,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
         fetchNotifications,
         markNotificationRead,
         markAllNotificationsRead,
+        permissionStatus,
+        requestPermission,
     } = useFcmContext();
     const menuRef = useRef<HTMLDivElement | null>(null);
     const dropdownRef = useRef<HTMLDivElement | null>(null);
@@ -137,6 +139,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
         setIsNotificationOpen(false);
         navigate('/notifications?tab=settings');
     };
+
+    const showEnablePushBanner = authed && permissionStatus === 'default';
 
     const initials = userName
         .split(' ')
@@ -427,6 +431,23 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                         )}
                     </div>
                 </header>
+
+                {showEnablePushBanner && (
+                    <div className="border-b border-blue-100 bg-blue-50 px-6 py-2">
+                        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 text-sm">
+                            <p className="text-blue-900">
+                                Bật thông báo trình duyệt để nhận cập nhật realtime khi được thêm vào nhóm hoặc có thay đổi mới.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => void requestPermission()}
+                                className="shrink-0 rounded-md bg-blue-600 px-3 py-1.5 font-medium text-white hover:bg-blue-700"
+                            >
+                                Bật thông báo
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 <main className="min-h-0 flex-1 overflow-y-auto p-6 md:p-8">{children}</main>
             </div>

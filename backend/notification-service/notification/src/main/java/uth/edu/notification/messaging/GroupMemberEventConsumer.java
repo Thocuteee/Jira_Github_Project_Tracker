@@ -36,6 +36,10 @@ public class GroupMemberEventConsumer {
             request.setTitle("Bạn đã được thêm vào nhóm dự án");
             request.setMessage(buildMemberAddedMessage(event));
             request.setAuthToken(event.getAuthToken());
+            request.setActionType(eventType);
+            request.setGroupName(event.getGroupName());
+            request.setRoleInGroup(event.getRole());
+            request.setAdderUserId(event.getAdderId());
 
             notificationService.createNotification(request);
             log.info("Created group member notification: groupId={}, userId={}, role={}",
@@ -69,8 +73,8 @@ public class GroupMemberEventConsumer {
             return "quản trị viên";
         }
         if ("MEMBER".equals(role)) {
-            return "Leader";
+            return "trưởng nhóm";
         }
-        return "quản trị viên hoặc Leader";
+        return "quản trị viên hoặc trưởng nhóm";
     }
 }

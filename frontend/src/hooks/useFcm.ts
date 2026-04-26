@@ -28,10 +28,13 @@ export function useFcm({ userId, onNotification }: UseFcmOptions) {
   const unsubRef = useRef<(() => void) | null>(null);
   const registeredTokenRef = useRef<string | null>(null);
 
-  const initFcm = useCallback(async () => {
-    if (!isFirebaseConfigured()) return;
+  const initFcm = useCallback(async (requirePrompt: boolean) => {
+    if (!isFirebaseConfigured()) {
+      console.warn('[FCM_FLOW] Firebase is not configured. Skipping FCM init.');
+      return;
+    }
     if (!userId) {
-      console.debug('Skipping FCM token registration because userId is missing.');
+      console.debug('[FCM_FLOW] Skipping token registration because userId is missing.');
       return;
     }
 
@@ -40,27 +43,37 @@ export function useFcm({ userId, onNotification }: UseFcmOptions) {
       return;
     }
 
-    const permission = await requestNotificationPermission();
+    let permission = Notification.permission;
+    if (permission === 'default' && requirePrompt) {
+      permission = await requestNotificationPermission();
+    }
+    console.debug('[FCM_FLOW] Notification permission status:', permission, 'requirePrompt:', requirePrompt);
     setPermissionStatus(permission);
     if (permission !== 'granted') return;
 
     const registration = await registerFirebaseServiceWorker();
     const fcmToken = await getFcmToken(registration ?? undefined);
-    if (!fcmToken) return;
+    if (!fcmToken) {
+      console.warn('[FCM_FLOW] Could not acquire FCM token.');
+      return;
+    }
     setToken(fcmToken);
 
     if (registeredTokenRef.current !== fcmToken) {
       try {
+        console.debug('[FCM_FLOW] registerFcmToken called', { userId });
         await notificationService.registerFcmToken(userId, fcmToken);
         registeredTokenRef.current = fcmToken;
+        console.info('[FCM_FLOW] registerFcmToken success');
       } catch (err) {
-        console.error('Failed to register FCM token with backend:', err);
+        console.error('[FCM_FLOW] registerFcmToken failed:', err);
       }
     }
   }, [userId]);
 
   useEffect(() => {
-    void initFcm();
+    // Avoid browser anti-spam behavior: only auto-init when permission is already granted.
+    void initFcm(false);
   }, [initFcm]);
 
   useEffect(() => {
@@ -91,5 +104,9 @@ export function useFcm({ userId, onNotification }: UseFcmOptions) {
     };
   }, [userId]);
 
-  return { token, permissionStatus, requestPermission: initFcm };
+  const requestPermission = useCallback(async () => {
+    await initFcm(true);
+  }, [initFcm]);
+
+  return { token, permissionStatus, requestPermission };
 }

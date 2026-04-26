@@ -24,4 +24,12 @@ public class CreateNotificationRequest {
 
     // Optional: JWT của user phát sinh event, dùng cho service-to-service call cần bảo mật.
     private String authToken;
+
+    // Optional: loại sự kiện nghiệp vụ (vd: TASK_ASSIGNED, TASK_COMPLETED) để render email template phù hợp.
+    private String actionType;
+
+    // Optional: metadata cho email template MEMBER_ADDED.
+    private String groupName;
+    private String roleInGroup;
+    private UUID adderUserId;
 }

@@ -62,29 +62,65 @@ export default function TaskExecutionReport({ groupId }: TaskExecutionReportProp
                     }
                 }
 
-                const memberStats = filteredMembers.map((member: any) => {
-                    if (!member || typeof member !== 'object') return null;
-
-                    const userId = String(member.userId || member.id || '');
-                    if (!userId) return null;
-                    const memberTasks = tasks.filter((t: any) => t && String(t.assignedTo || '') === userId);
+                const validMemberMeta = new Map<string, { name: string; roleInGroup: string }>();
+                for (const member of filteredMembers) {
+                    if (!member || typeof member !== 'object') continue;
+                    const userId = String(member.userId || member.id || '').trim();
+                    if (!userId) continue;
                     const fullName =
                         member.fullName ||
                         member.userName ||
                         member.username ||
                         userNameMap[userId] ||
-                        `User ${userId.slice(0, 8)}`;
-
-                    return {
-                        userId,
+                        'Thành viên';
+                    validMemberMeta.set(userId, {
+                        name: String(fullName).trim() || 'Thành viên',
                         roleInGroup: String(member.roleInGroup || '').toUpperCase(),
-                        name: fullName,
-                        'Hoàn thành': memberTasks.filter((t: any) => t.status === 'DONE').length,
-                        'Đang làm': memberTasks.filter((t: any) => t.status === 'IN_PROGRESS').length,
-                        'Chưa làm': memberTasks.filter((t: any) => t.status === 'TODO').length,
-                        total: memberTasks.length
-                    };
-                }).filter(Boolean);
+                    });
+                }
+
+                const memberStatsMap = new Map<string, any>();
+                for (const task of tasks) {
+                    if (!task || typeof task !== 'object') continue;
+                    const assigneeId = String(task.assignedTo || '').trim();
+                    if (!assigneeId || !validMemberMeta.has(assigneeId)) continue;
+
+                    const meta = validMemberMeta.get(assigneeId)!;
+                    if (!memberStatsMap.has(assigneeId)) {
+                        memberStatsMap.set(assigneeId, {
+                            userId: assigneeId,
+                            roleInGroup: meta.roleInGroup,
+                            name: meta.name,
+                            'Hoàn thành': 0,
+                            'Đang làm': 0,
+                            'Chưa làm': 0,
+                            total: 0,
+                        });
+                    }
+
+                    const stat = memberStatsMap.get(assigneeId);
+                    stat.total += 1;
+                    if (task.status === 'DONE') stat['Hoàn thành'] += 1;
+                    else if (task.status === 'IN_PROGRESS') stat['Đang làm'] += 1;
+                    else if (task.status === 'TODO') stat['Chưa làm'] += 1;
+                }
+
+                // Include valid members with 0 task so dashboard can still show staffing gaps.
+                for (const [userId, meta] of validMemberMeta.entries()) {
+                    if (!memberStatsMap.has(userId)) {
+                        memberStatsMap.set(userId, {
+                            userId,
+                            roleInGroup: meta.roleInGroup,
+                            name: meta.name,
+                            'Hoàn thành': 0,
+                            'Đang làm': 0,
+                            'Chưa làm': 0,
+                            total: 0,
+                        });
+                    }
+                }
+
+                const memberStats = Array.from(memberStatsMap.values());
 
                 setData(memberStats);
             } catch (err: any) {

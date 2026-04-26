@@ -1,6 +1,7 @@
 package uth.edu.notification.service.impl;
 
 import java.time.LocalDateTime;
+import java.util.Locale;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +32,7 @@ public class NotificationServiceImpl implements INotificationService {
     private final INotificationPreferenceService notificationPreferenceService;
     private final IUserDirectoryService userDirectoryService;
     private final IEmailService emailService;
+    private final NotificationEmailTemplateBuilder notificationEmailTemplateBuilder;
 
     @Override
     public Notification createNotification(CreateNotificationRequest request) {
@@ -61,15 +63,69 @@ public class NotificationServiceImpl implements INotificationService {
         }
 
         if (Boolean.TRUE.equals(emailEnabled)) {
+            if (!StringUtils.hasText(request.getAuthToken())) {
+                log.warn("Email notification may be skipped due to missing auth token: userId={}", request.getUserId());
+            }
             userDirectoryService.findEmailByUserId(request.getUserId(), request.getAuthToken()).ifPresentOrElse(
-                email -> emailService.sendEmailAsync(email, saved.getTitle(), toHtmlBody(saved.getTitle(), saved.getMessage())),
-                () -> log.debug("Recipient email not found (or auth token missing/expired), skip email notification for userId={}", request.getUserId())
+                email -> {
+                    String recipientName = userDirectoryService
+                        .findDisplayNameByUserId(request.getUserId(), request.getAuthToken())
+                        .orElse("bạn");
+                    String htmlContent = buildEmailHtmlByActionType(
+                        request,
+                        recipientName,
+                        resolveTaskName(saved.getMessage()),
+                        saved.getTitle(),
+                        saved.getMessage()
+                    );
+                    emailService.sendEmailAsync(email, saved.getTitle(), htmlContent);
+                },
+                () -> log.warn("Recipient email not found (or auth token missing/expired), skip email notification for userId={}", request.getUserId())
             );
         } else {
             log.debug("Email notifications disabled for userId={}, skip email dispatch", request.getUserId());
         }
 
         return saved;
+    }
+
+    private String buildEmailHtmlByActionType(
+        CreateNotificationRequest request,
+        String recipientName,
+        String taskName,
+        String fallbackTitle,
+        String fallbackMessage
+    ) {
+        String actionType = request.getActionType();
+        if ("TASK_ASSIGNED".equalsIgnoreCase(actionType)) {
+            return notificationEmailTemplateBuilder.buildTaskAssignedEmail(recipientName, taskName);
+        }
+        if ("TASK_COMPLETED".equalsIgnoreCase(actionType)) {
+            return notificationEmailTemplateBuilder.buildTaskCompletedEmail(recipientName, taskName);
+        }
+        if ("MEMBER_ADDED".equalsIgnoreCase(actionType)) {
+            String groupName = StringUtils.hasText(request.getGroupName()) ? request.getGroupName() : "N/A";
+            String role = StringUtils.hasText(request.getRoleInGroup()) ? request.getRoleInGroup().toUpperCase(Locale.ROOT) : "MEMBER";
+            String adderName = userDirectoryService
+                .findDisplayNameByUserId(request.getAdderUserId(), request.getAuthToken())
+                .orElse("quản trị viên hoặc Leader");
+            return notificationEmailTemplateBuilder.buildMemberAddedEmail(recipientName, groupName, role, adderName);
+        }
+        return toHtmlBody(fallbackTitle, fallbackMessage);
+    }
+
+    private String resolveTaskName(String rawMessage) {
+        if (!StringUtils.hasText(rawMessage)) {
+            return "Untitled";
+        }
+        int markerIndex = rawMessage.lastIndexOf(':');
+        if (markerIndex >= 0 && markerIndex < rawMessage.length() - 1) {
+            String extracted = rawMessage.substring(markerIndex + 1).trim();
+            if (!extracted.isEmpty()) {
+                return extracted;
+            }
+        }
+        return rawMessage;
     }
 
     private void sendPushSafely(Notification saved, String token) {

@@ -25,6 +25,23 @@ public class UserDirectoryServiceImpl implements IUserDirectoryService {
 
     @Override
     public Optional<String> findEmailByUserId(UUID userId, String authToken) {
+        return fetchUserById(userId, authToken).flatMap(body -> getStringField(body, "email"));
+    }
+
+    @Override
+    public Optional<String> findDisplayNameByUserId(UUID userId, String authToken) {
+        Optional<Map> userBody = fetchUserById(userId, authToken);
+        if (userBody.isEmpty()) {
+            return Optional.empty();
+        }
+        Map body = userBody.get();
+        return getStringField(body, "fullName")
+            .or(() -> getStringField(body, "name"))
+            .or(() -> getStringField(body, "username"))
+            .or(() -> getStringField(body, "email"));
+    }
+
+    private Optional<Map> fetchUserById(UUID userId, String authToken) {
         if (userId == null || !StringUtils.hasText(authToken)) {
             return Optional.empty();
         }
@@ -42,15 +59,19 @@ public class UserDirectoryServiceImpl implements IUserDirectoryService {
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
                 return Optional.empty();
             }
-            Object emailObj = response.getBody().get("email");
-            if (emailObj instanceof String email && !email.isBlank()) {
-                return Optional.of(email);
-            }
-            return Optional.empty();
+            return Optional.of(response.getBody());
         } catch (Exception ex) {
-            log.warn("Failed to resolve recipient email from auth-service for userId={}: {}", userId, ex.getMessage());
+            log.warn("Failed to resolve user profile from auth-service for userId={}: {}", userId, ex.getMessage());
             return Optional.empty();
         }
+    }
+
+    private Optional<String> getStringField(Map body, String key) {
+        Object value = body.get(key);
+        if (value instanceof String stringValue && !stringValue.isBlank()) {
+            return Optional.of(stringValue);
+        }
+        return Optional.empty();
     }
 
     private String extractBearerToken(String authHeader) {

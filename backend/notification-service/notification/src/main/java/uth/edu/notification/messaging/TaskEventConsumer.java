@@ -40,6 +40,7 @@ public class TaskEventConsumer {
             request.setTitle(messageData.title());
             request.setMessage(messageData.message());
             request.setAuthToken(event.getAuthToken());
+            request.setActionType(eventType);
 
             notificationService.createNotification(request);
             log.info("Created notification for task event: type={}, taskId={}, userId={}",
