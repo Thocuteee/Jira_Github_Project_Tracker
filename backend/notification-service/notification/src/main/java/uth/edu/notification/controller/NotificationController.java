@@ -59,8 +59,27 @@ public class NotificationController {
         }
     }
 
+    @PostMapping("/{notificationId}/read")
+    public ResponseEntity<?> markReadByPost(@PathVariable UUID notificationId) {
+        try {
+            return ResponseEntity.ok(notificationService.updateReadStatus(notificationId, true));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
     @PutMapping("/users/{userId}/read-all")
     public ResponseEntity<?> markAllAsRead(@PathVariable UUID userId) {
+        try {
+            int updatedCount = notificationService.markAllAsReadByUserId(userId);
+            return ResponseEntity.ok(updatedCount);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/users/{userId}/read-all")
+    public ResponseEntity<?> markAllAsReadByPost(@PathVariable UUID userId) {
         try {
             int updatedCount = notificationService.markAllAsReadByUserId(userId);
             return ResponseEntity.ok(updatedCount);

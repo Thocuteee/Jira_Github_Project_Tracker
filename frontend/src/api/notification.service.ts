@@ -29,11 +29,11 @@ const notificationService = {
   },
 
   markAsRead(notificationId: string): Promise<NotificationDto> {
-    return axiosClient.put(`${NOTIFICATION_URL}/${notificationId}/read`, { isRead: true });
+    return axiosClient.post(`${NOTIFICATION_URL}/${notificationId}/read`);
   },
 
   markAllAsRead(userId: string): Promise<number> {
-    return axiosClient.put(`${NOTIFICATION_URL}/users/${userId}/read-all`);
+    return axiosClient.post(`${NOTIFICATION_URL}/users/${userId}/read-all`);
   },
 
   deleteNotification(notificationId: string): Promise<void> {
