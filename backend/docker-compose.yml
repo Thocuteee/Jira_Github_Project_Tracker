@@ -55,8 +55,6 @@ services:
     build: ./api-gateway/gateway
     container_name: api-gateway
     restart: always
-    ports:
-      - "${API_GATEWAY_PORT:-8080}:8080"
     environment:
       SERVER_PORT: 8080
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -71,8 +69,6 @@ services:
     build: ./auth-service/auth
     container_name: auth-service
     restart: always
-    ports:
-      - "${AUTH_SERVICE_PORT:-8081}:8081"
     environment:
       SERVER_PORT: 8081
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_AUTH}
@@ -103,8 +99,6 @@ services:
     build: ./group-service
     container_name: group-service
     restart: always
-    ports:
-      - "${GROUP_SERVICE_PORT:-8082}:8082"
     environment:
       SERVER_PORT: 8082
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -123,8 +117,6 @@ services:
     build: ./requirement-service/requirement
     container_name: requirement-service
     restart: always
-    ports:
-      - "${REQUIREMENT_SERVICE_PORT:-8083}:8083"
     environment:
       SERVER_PORT: 8083
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -143,8 +135,6 @@ services:
     build: ./task-service/task
     container_name: task-service
     restart: always
-    ports:
-      - "${TASK_SERVICE_PORT:-8084}:8084"
     environment:
       SERVER_PORT: 8084
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -163,8 +153,6 @@ services:
     build: ./report-service/report
     container_name: report-service
     restart: always
-    ports:
-      - "${REPORT_SERVICE_PORT:-8085}:8085"
     environment:
       SERVER_PORT: 8085
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -183,8 +171,6 @@ services:
     build: ./notification-service/notification
     container_name: notification-service
     restart: always
-    ports:
-      - "${NOTIFICATION_SERVICE_PORT:-8086}:8086"
     environment:
       SERVER_PORT: 8086
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -204,8 +190,6 @@ services:
     build: ./github-service/github
     container_name: github-service
     restart: always
-    ports:
-      - "${GITHUB_SERVICE_PORT:-8087}:8087"
     environment:
       SERVER_PORT: 8087
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -228,8 +212,6 @@ services:
     build: ./jira-service/jira
     container_name: jira-service
     restart: always
-    ports:
-      - "${JIRA_SERVICE_PORT:-8088}:8088"
     environment:
       SERVER_PORT: 8088
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -256,8 +238,6 @@ services:
     build: ./export-service/
     container_name: export-service
     restart: always
-    ports:
-      - "${EXPORT_SERVICE_PORT:-8089}:8089"
     environment:
       SERVER_PORT: 8089
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}
@@ -276,8 +256,6 @@ services:
     build: ./file-service
     container_name: file-service
     restart: always
-    ports:
-      - "${FILE_SERVICE_PORT:-8090}:8090"
     environment:
       SERVER_PORT: 8090
       JWT_SECRET_KEY: ${JWT_SECRET:-dev-secret-change-me}

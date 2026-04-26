@@ -45,6 +45,9 @@ cd backend
 docker compose --env-file .env up -d --build
 ```
 
+- Sau khi deploy production, chỉ mở public `80/443` cho reverse proxy.
+- Không mở public các cổng service nội bộ (`8080..8090`) để tránh request đi tắt bypass gateway/nginx và tránh TLS handshake sai cổng HTTP (Tomcat log `Invalid character found in method name [0x16 0x03 ...]`).
+
 docker-compose up --build -d
 docker compose -f docker-compose.yml -f docker-compose.dev.yml down -v
 docker compose restart
