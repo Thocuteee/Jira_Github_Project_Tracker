@@ -10,9 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@stomp/stompjs": "^7.3.0",
     "axios": "^1.14.0",
-    "firebase": "^12.12.0",
     "file-saver": "^2.0.5",
+    "firebase": "^12.12.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.7",
     "jszip": "^3.10.1",
     "lucide-react": "^1.7.0",
     "react": "^19.2.4",

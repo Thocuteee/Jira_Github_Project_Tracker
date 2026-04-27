@@ -14,6 +14,7 @@ import {
 import githubService from '@/api/github.service';
 import groupService from '@/api/group.service';
 import authService from '@/api/auth.service';
+import { Client } from '@stomp/stompjs';
 
 export default function Integrations() {
     // 1. Auth & Permissions
@@ -43,7 +44,8 @@ export default function Integrations() {
 
     const [groups, setGroups] = useState<any[]>([]);
     const [mappings, setMappings] = useState<any[]>([]);
-    const commits: any[] = []; // Placeholder for now
+    const [commits, setCommits] = useState<any[]>([]);
+    const [isConnected, setIsConnected] = useState(false);
 
     // State for Mapping Form
     const [showMappingForm, setShowMappingForm] = useState(false);
@@ -86,6 +88,42 @@ export default function Integrations() {
 
     useEffect(() => {
         fetchData();
+
+        // Establish WebSocket connection
+        const gatewayUrl = import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:8080';
+        const wsUrl = gatewayUrl.replace('http', 'ws') + '/api/v1/notifications/ws';
+
+        const client = new Client({
+            brokerURL: wsUrl,
+            reconnectDelay: 5000,
+            onConnect: () => {
+                console.log('Connected to WebSocket for Sync Monitoring');
+                setIsConnected(true);
+                
+                client.subscribe('/topic/sync-monitor', (message) => {
+                    try {
+                        const payload = JSON.parse(message.body);
+                        setCommits(prev => [payload, ...prev].slice(0, 50)); // Keep latest 50
+                    } catch (e) {
+                        console.error('Error parsing WebSocket message:', e);
+                    }
+                });
+            },
+            onDisconnect: () => {
+                console.log('Disconnected from WebSocket');
+                setIsConnected(false);
+            },
+            onWebSocketError: (error) => {
+                console.error('WebSocket Error:', error);
+                setIsConnected(false);
+            }
+        });
+
+        client.activate();
+
+        return () => {
+            client.deactivate();
+        };
     }, []);
 
     // 4. Handlers
@@ -400,12 +438,18 @@ export default function Integrations() {
                                     </div>
                                     <div className="text-xs font-semibold text-emerald-800 truncate">{globalSettings.jiraUrl || 'Chưa cấu hình'}</div>
                                 </div>
-                                <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-lg">
+                                <div className={`p-3 border rounded-lg ${isConnected ? 'bg-indigo-50 border-indigo-100' : 'bg-slate-50 border-slate-200'}`}>
                                     <div className="flex items-center justify-between mb-1">
-                                        <span className="text-[10px] font-bold text-indigo-700 uppercase">Message Broker</span>
-                                        <Activity className="w-3 h-3 text-indigo-500 animate-pulse" />
+                                        <span className={`text-[10px] font-bold uppercase ${isConnected ? 'text-indigo-700' : 'text-slate-500'}`}>Message Broker</span>
+                                        {isConnected ? (
+                                            <Activity className="w-3 h-3 text-indigo-500 animate-pulse" />
+                                        ) : (
+                                            <RefreshCw className="w-3 h-3 text-slate-400 animate-spin" />
+                                        )}
                                     </div>
-                                    <div className="text-xs font-semibold text-indigo-800">RabbitMQ Connected</div>
+                                    <div className={`text-xs font-semibold ${isConnected ? 'text-indigo-800' : 'text-slate-600'}`}>
+                                        {isConnected ? 'RabbitMQ Connected' : 'Connecting...'}
+                                    </div>
                                 </div>
                             </div>
 
