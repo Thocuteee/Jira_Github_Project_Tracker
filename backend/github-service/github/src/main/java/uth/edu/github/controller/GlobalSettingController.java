@@ -12,6 +12,7 @@ import uth.edu.github.repository.GlobalSettingRepo;
 public class GlobalSettingController {
 
     private final GlobalSettingRepo repo;
+    private final uth.edu.github.service.GithubMessagePublisher publisher;
 
     @GetMapping
     public ResponseEntity<?> getSettings() {
@@ -24,6 +25,19 @@ public class GlobalSettingController {
         if (existing != null) {
             settings.setId(existing.getId());
         }
-        return ResponseEntity.ok(repo.save(settings));
+        GlobalSetting saved = repo.save(settings);
+        
+        // Gửi một thông báo giả qua RabbitMQ để test giao diện Real-time
+        try {
+            java.util.Map<String, Object> msg = new java.util.HashMap<>();
+            msg.put("jiraKey", "SYSTEM");
+            msg.put("message", "Đã cập nhật cấu hình hệ thống Jira/GitHub");
+            msg.put("url", "#");
+            publisher.sendCommitSync(msg);
+        } catch (Exception e) {
+            System.err.println("Failed to publish system setting event to RabbitMQ");
+        }
+        
+        return ResponseEntity.ok(saved);
     }
 }
