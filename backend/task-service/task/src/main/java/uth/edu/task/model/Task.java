@@ -57,4 +57,7 @@ public class Task {
     @Column(name = "created_by")
     private UUID createdBy;
 
+    @Column(name = "jira_issue_key", length = 50)
+    private String jiraIssueKey;
+
 }

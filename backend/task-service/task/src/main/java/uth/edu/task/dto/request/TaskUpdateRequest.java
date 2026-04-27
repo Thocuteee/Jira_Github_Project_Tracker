@@ -13,4 +13,5 @@ public class TaskUpdateRequest {
     private String description;
     private ETaskPriority priority;
     private LocalDate dueDate;
+    private String jiraIssueKey;
 }
