@@ -23,6 +23,8 @@ import java.util.HashSet;
 import java.util.UUID;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.nio.charset.StandardCharsets;
+import java.net.URLEncoder;
 
 @Service
 public class AuthServiceImpl implements IAuthService {
@@ -117,6 +119,15 @@ public class AuthServiceImpl implements IAuthService {
         // 2. Thiết lập thời gian
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
+        if (user.getAvatarUrl() == null || user.getAvatarUrl().trim().isEmpty()) {
+            String displayName = user.getName();
+            if (displayName == null || displayName.trim().isEmpty()) {
+                displayName = normalizedEmail.contains("@") ? normalizedEmail.substring(0, normalizedEmail.indexOf('@')) : normalizedEmail;
+            }
+            user.setAvatarUrl("https://ui-avatars.com/api/?name="
+                    + URLEncoder.encode(displayName.trim(), StandardCharsets.UTF_8)
+                    + "&background=random");
+        }
 
         // 3. Xử lý quyền (Role)
         ERole eRole = ERole.ROLE_TEAM_MEMBER; // Gán mặc định là MEMBER nếu không truyền gì

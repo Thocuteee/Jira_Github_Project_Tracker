@@ -18,6 +18,7 @@ import authService from '@/api/auth.service';
 import { getPrimaryRole } from '@/utils/authDisplay';
 import { useFcmContext } from '@/contexts/FcmContext';
 import { formatUtc7DateTime } from '@/utils/datetime';
+import { hydrateSessionProfileFromApi } from '@/utils/sessionProfile';
 
 import { useGroup } from '@/contexts/GroupContext';
 
@@ -27,6 +28,13 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     const { selectedGroup, setSelectedGroup, myGroups, loading } = useGroup();
     const [menuOpen, setMenuOpen] = useState(false);
     const [groupDropdownOpen, setGroupDropdownOpen] = useState(false);
+    const [userAvatarUrl, setUserAvatarUrl] = useState<string>(() => {
+        try {
+            return localStorage.getItem('userAvatarUrl') || '';
+        } catch {
+            return '';
+        }
+    });
     const {
         unreadCount,
         notifications,
@@ -97,6 +105,43 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     }, [groupDropdownOpen, isNotificationOpen, menuOpen, setIsNotificationOpen]);
 
     useEffect(() => {
+        const syncAuthDerivedState = () => {
+            try {
+                setUserAvatarUrl(localStorage.getItem('userAvatarUrl') || '');
+            } catch {
+                setUserAvatarUrl('');
+            }
+        };
+        window.addEventListener('auth-changed', syncAuthDerivedState);
+        window.addEventListener('storage', syncAuthDerivedState);
+        return () => {
+            window.removeEventListener('auth-changed', syncAuthDerivedState);
+            window.removeEventListener('storage', syncAuthDerivedState);
+        };
+    }, []);
+
+    useEffect(() => {
+        const missingAvatar = authed && !userAvatarUrl;
+        if (!missingAvatar) {
+            return;
+        }
+        let cancelled = false;
+        hydrateSessionProfileFromApi()
+            .then(() => {
+                if (!cancelled) {
+                    setUserAvatarUrl(localStorage.getItem('userAvatarUrl') || '');
+                    window.dispatchEvent(new Event('auth-changed'));
+                }
+            })
+            .catch(() => {
+                // keep initials fallback
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [authed, userAvatarUrl]);
+
+    useEffect(() => {
         if (isNotificationOpen) {
             void fetchNotifications();
         }
@@ -115,6 +160,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
             localStorage.removeItem('userRoles');
             localStorage.removeItem('userId');
             localStorage.removeItem('selectedGroupId');
+            localStorage.removeItem('userAvatarUrl');
             window.dispatchEvent(new Event('auth-changed'));
             navigate('/login', { replace: true });
         }
@@ -128,7 +174,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
 
     const handleUserInfo = () => {
         setMenuOpen(false);
-        navigate('/dashboard');
+        navigate('/profile');
     };
 
     const toggleNotifications = () => {
@@ -266,7 +312,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                         <div className="flex flex-col gap-0.5">
                             <NavItem icon={<RefreshCw size={18} />} label="Trung tâm Tích hợp" to="/settings/integrations" active={location.pathname === '/settings/integrations' || location.pathname === '/settings/github' || location.pathname === '/settings/jira'} />
                             <NavItem icon={<Bell size={18} />} label="Thông báo" to="/notifications" active={location.pathname === '/notifications'} />
-                            <NavItem icon={<Settings size={18} />} label="Hồ sơ cá nhân" active={location.pathname === '/profile'} />
+                            <NavItem icon={<Settings size={18} />} label="Hồ sơ cá nhân" to="/profile" active={location.pathname === '/profile'} />
                             {(() => {
                                 try {
                                     const rawRoles = localStorage.getItem('userRoles');
@@ -395,10 +441,14 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                                 <button
                                     type="button"
                                     onClick={() => setMenuOpen((prev) => !prev)}
-                                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white transition hover:bg-blue-700"
+                                    className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-600 text-sm font-semibold text-white transition hover:bg-blue-700"
                                     aria-label="Mở menu người dùng"
                                 >
-                                    {initials || 'U'}
+                                    {userAvatarUrl ? (
+                                        <img src={userAvatarUrl} alt="user avatar" className="h-full w-full object-cover" />
+                                    ) : (
+                                        initials || 'U'
+                                    )}
                                 </button>
                                 {menuOpen ? (
                                     <div className="absolute right-0 top-12 z-20 w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">

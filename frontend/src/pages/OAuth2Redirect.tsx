@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import authService from '@/api/auth.service'
 import { getPrimaryRole } from '@/utils/authDisplay'
+import { hydrateSessionProfileFromApi } from '@/utils/sessionProfile'
 
 export default function OAuth2Redirect() {
   const [searchParams] = useSearchParams()
@@ -9,6 +9,8 @@ export default function OAuth2Redirect() {
 
   useEffect(() => {
     const email = searchParams.get('email') ?? ''
+    const oauthError = searchParams.get('error') ?? ''
+    const oauthMessage = searchParams.get('message') ?? ''
     const name = searchParams.get('name') ?? ''
     const rolesRaw = searchParams.get('roles') ?? ''
     const roles = rolesRaw
@@ -21,20 +23,22 @@ export default function OAuth2Redirect() {
       localStorage.setItem('userName', name || email.split('@')[0] || email)
       localStorage.setItem('userRoles', JSON.stringify(roles))
       localStorage.setItem('userSubtitle', getPrimaryRole(roles))
-      authService.getProfile()
-        .then((profile) => {
-          if (profile?.userId) {
-            localStorage.setItem('userId', profile.userId);
-          }
-        })
+      hydrateSessionProfileFromApi()
         .catch((err) => {
-          console.warn('Could not fetch profile after OAuth redirect, FCM token registration may be skipped.', err);
+          console.warn('Could not hydrate profile after OAuth redirect, avatar may fallback to initials.', err);
         })
         .finally(() => {
           window.dispatchEvent(new Event('auth-changed'))
           navigate('/dashboard', { replace: true })
         })
       return
+    }
+
+    if (oauthError || oauthMessage) {
+      const userMessage = oauthMessage
+        ? `Đăng nhập Google thất bại: ${oauthMessage}`
+        : `Đăng nhập Google thất bại (${oauthError || 'oauth_error'})`;
+      sessionStorage.setItem('oauth_error_message', userMessage);
     }
 
     navigate('/login', { replace: true })

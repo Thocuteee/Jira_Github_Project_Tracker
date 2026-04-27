@@ -19,6 +19,7 @@ import TaskTable from './pages/TaskTable';
 import FilesPage from './pages/FilesPage';
 import ReportsDashboard from './pages/ReportsDashboard';
 import NotificationsPage from './pages/NotificationsPage';
+import Profile from './pages/Profile';
 
 function isMockAuthed() {
   try {
@@ -79,6 +80,7 @@ export default function App() {
         <Route path="/workspace/:groupId/reports" element={authed ? <ReportsDashboard /> : <Navigate to="/login" replace />} />
         <Route path="/files" element={authed ? <FilesPage /> : <Navigate to="/login" replace />} />
         <Route path="/notifications" element={authed ? <NotificationsPage /> : <Navigate to="/login" replace />} />
+        <Route path="/profile" element={authed ? <Profile /> : <Navigate to="/login" replace />} />
 
           <Route path="*" element={<Navigate to={authed ? '/dashboard' : '/login'} replace />} />
         </Routes>

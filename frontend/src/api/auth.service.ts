@@ -22,9 +22,23 @@ export interface AuthResponse {
 
 export interface UserProfile {
     userId: string;
+    fullName: string;
     name: string;
     email: string;
     roles: string[];
+    avatarUrl?: string | null;
+    createdAt?: string;
+    googleAccount?: boolean;
+}
+
+export interface UpdateProfileRequest {
+    avatarUrl?: string | null;
+}
+
+export interface ChangePasswordRequest {
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword: string;
 }
 
 const authService = {
@@ -55,6 +69,14 @@ const authService = {
 
     getProfile: (): Promise<UserProfile> => {
         return axiosClient.get('/api/users/me');
+    },
+
+    updateProfile: (data: UpdateProfileRequest): Promise<UserProfile> => {
+        return axiosClient.put('/api/users/me', data);
+    },
+
+    changePassword: (data: ChangePasswordRequest): Promise<{ message: string }> => {
+        return axiosClient.put('/api/users/me/password', data);
     },
 
     getUserNames: (userIds: string[]): Promise<Record<string, string>> => {

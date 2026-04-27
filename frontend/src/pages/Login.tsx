@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Globe, GitBranch, LogIn } from 'lucide-react'
 import authService from '@/api/auth.service'
 import { getPrimaryRole } from '@/utils/authDisplay'
+import { hydrateSessionProfileFromApi } from '@/utils/sessionProfile'
 
 export default function Login() {
     const [email, setEmail] = useState('')
@@ -13,6 +14,11 @@ export default function Login() {
 
     useEffect(() => {
         document.title = 'Login | Project Tracker'
+        const oauthError = sessionStorage.getItem('oauth_error_message')
+        if (oauthError) {
+            setError(oauthError)
+            sessionStorage.removeItem('oauth_error_message')
+        }
     }, [])
 
     const handleLogin = async (e: React.FormEvent) => {
@@ -21,20 +27,15 @@ export default function Login() {
         setSubmitting(true)
         try {
         const response = await authService.login({ email: email.trim(), password })
-        let profileUserId: string | null = null;
-        try {
-          const profile = await authService.getProfile();
-          profileUserId = profile?.userId ?? null;
-        } catch (profileErr) {
-          console.warn('Could not fetch profile after login, FCM token registration may be skipped.', profileErr);
-        }
 
         localStorage.setItem('userEmail', response.email)
         localStorage.setItem('userName', response.email.split('@')[0] || response.email)
         localStorage.setItem('userSubtitle', getPrimaryRole(response.roles ?? []))
         localStorage.setItem('userRoles', JSON.stringify(response.roles ?? []))
-        if (profileUserId) {
-          localStorage.setItem('userId', profileUserId);
+        try {
+          await hydrateSessionProfileFromApi()
+        } catch (profileErr) {
+          console.warn('Could not hydrate profile after login, avatar may fallback to initials.', profileErr);
         }
         window.dispatchEvent(new Event('auth-changed'))
 
@@ -57,12 +58,16 @@ export default function Login() {
 
     const handleOAuth = (provider: string) => {
         const authBaseUrl = import.meta.env.VITE_AUTH_SERVICE_URL || window.location.origin
+        const normalizedBase = String(authBaseUrl).replace(/\/+$/, '')
+        const oauthBase = normalizedBase.endsWith('/api/auth')
+          ? normalizedBase
+          : `${normalizedBase}/api/auth`
         if (provider === 'google') {
-            window.location.href = `${authBaseUrl}/api/auth/oauth2/authorization/google`
+            window.location.href = `${oauthBase}/oauth2/authorization/google`
             return
         }
         if (provider === 'github') {
-            window.location.href = `${authBaseUrl}/api/auth/oauth2/authorization/github`
+            window.location.href = `${oauthBase}/oauth2/authorization/github`
             return
         }
         alert(`OAuth (${provider}) chưa tích hợp vào BE hiện tại.`)

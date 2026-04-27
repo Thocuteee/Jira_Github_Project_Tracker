@@ -7,6 +7,8 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationFailureHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URLEncoder;
@@ -14,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 
 @Component
 public class OAuth2AuthenticationFailureHandler extends SimpleUrlAuthenticationFailureHandler {
+    private static final Logger log = LoggerFactory.getLogger(OAuth2AuthenticationFailureHandler.class);
 
     @Value("${app.oauth2.redirectUri:http://localhost:5173/oauth2/redirect}")
     private String oauth2RedirectBaseUrl;
@@ -27,6 +30,7 @@ public class OAuth2AuthenticationFailureHandler extends SimpleUrlAuthenticationF
         String redirectBase = normalizeRedirectBaseUrl(request, oauth2RedirectBaseUrl);
         String error = exception == null ? "oauth2_error" : exception.getClass().getSimpleName();
         String message = exception == null ? "" : exception.getMessage();
+        log.warn("OAuth2 authentication failed: error={}, message={}", error, message);
 
         String targetUrl = redirectBase
                 + "?error=" + encode(error)

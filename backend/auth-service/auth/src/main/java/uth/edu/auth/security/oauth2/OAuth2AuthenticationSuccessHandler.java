@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
@@ -25,8 +26,12 @@ import uth.edu.auth.service.RefreshTokenService;
 
 @Component
 public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
+    public static final String GOOGLE_MARKER_PASSWORD = "oauth2-google-user";
+    public static final String GITHUB_MARKER_PASSWORD = "oauth2-github-user";
+
     private static final String ACCESS_TOKEN_COOKIE = "accessToken";
     private static final String REFRESH_TOKEN_COOKIE = "refreshToken";
+    private final BCryptPasswordEncoder oauthPasswordEncoder = new BCryptPasswordEncoder();
 
     @Value("${jwt.expiration}")
     private long accessTokenDurationMs;
@@ -52,9 +57,12 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException {
         OAuth2User oauth2User = (OAuth2User) authentication.getPrincipal();
+        String provider = resolveProvider(authentication);
         String normalizedEmail = resolveOAuth2Email(oauth2User);
         User user = userRepository.findByEmail(normalizedEmail)
-                .orElseGet(() -> createOAuthUser(oauth2User, normalizedEmail));
+                .orElseGet(() -> createOAuthUser(oauth2User, normalizedEmail, provider));
+
+        syncOAuthProfile(user, oauth2User, provider);
 
         String accessToken = jwtProvider.generateJwtToken(user);
         String refreshToken = refreshTokenService.createRefreshToken(user.getUserId()).getToken();
@@ -91,7 +99,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         throw new RuntimeException("OAuth2 login không lấy được email hoặc login từ provider.");
     }
 
-    private User createOAuthUser(OAuth2User oauth2User, String normalizedEmail) {
+    private User createOAuthUser(OAuth2User oauth2User, String normalizedEmail, String provider) {
         String name = oauth2User.getAttribute("name");
         if (!StringUtils.hasText(name)) {
             name = oauth2User.getAttribute("login");
@@ -105,12 +113,56 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         User user = new User();
         user.setEmail(normalizedEmail);
         user.setName(name);
-        user.setPassword(new BCryptPasswordEncoder().encode("oauth2-user"));
+        user.setPassword(oauthPasswordEncoder.encode(providerPasswordMarker(provider)));
+        user.setAvatarUrl(resolveProviderAvatar(oauth2User, provider));
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
         user.setRoles(new HashSet<>());
         user.getRoles().add(memberRole);
         return userRepository.save(user);
+    }
+
+    private void syncOAuthProfile(User user, OAuth2User oauth2User, String provider) {
+        boolean changed = false;
+        if ("google".equalsIgnoreCase(provider)) {
+            String googlePicture = oauth2User.getAttribute("picture");
+            if (StringUtils.hasText(googlePicture) && !googlePicture.equals(user.getAvatarUrl())) {
+                user.setAvatarUrl(googlePicture);
+                changed = true;
+            }
+        }
+        if (changed) {
+            user.setUpdatedAt(LocalDateTime.now());
+            userRepository.save(user);
+        }
+    }
+
+    private String resolveProvider(Authentication authentication) {
+        if (authentication instanceof OAuth2AuthenticationToken token) {
+            return token.getAuthorizedClientRegistrationId();
+        }
+        return "oauth2";
+    }
+
+    private String providerPasswordMarker(String provider) {
+        if ("google".equalsIgnoreCase(provider)) {
+            return GOOGLE_MARKER_PASSWORD;
+        }
+        if ("github".equalsIgnoreCase(provider)) {
+            return GITHUB_MARKER_PASSWORD;
+        }
+        return "oauth2-user";
+    }
+
+    private String resolveProviderAvatar(OAuth2User oauth2User, String provider) {
+        if ("google".equalsIgnoreCase(provider)) {
+            String picture = oauth2User.getAttribute("picture");
+            if (StringUtils.hasText(picture)) {
+                return picture;
+            }
+        }
+        String avatar = oauth2User.getAttribute("avatar_url");
+        return StringUtils.hasText(avatar) ? avatar : null;
     }
 
     private String encode(String value) {
