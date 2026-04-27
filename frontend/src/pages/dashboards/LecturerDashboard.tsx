@@ -112,7 +112,7 @@ export default function LecturerDashboard() {
     const overdue = tasks.filter(isOverdue).length;
     const commitsWeekly = groupCommitsByWeek(commits);
     const commitsWithoutKey = commits.filter((c) => !parseJiraKey(c.message)).length;
-    const tasksWithoutCode = tasks.filter((t) => t.jiraTaskKey).filter((t) => !commits.some((c) => parseJiraKey(c.message) === t.jiraTaskKey)).length;
+    const tasksWithoutCode = tasks.filter((t) => t.jiraIssueKey).filter((t) => !commits.some((c) => parseJiraKey(c.message) === t.jiraIssueKey)).length;
     const memberCount = selectedGroupId ? stats[selectedGroupId]?.memberCount ?? members.length : members.length;
     return { totalTasks, done, overdue, commitsWeekly, commitsWithoutKey, tasksWithoutCode, memberCount };
   }, [commits, members.length, selectedGroupId, stats, tasks]);

@@ -5,7 +5,7 @@ import taskService from '../api/task.service';
 import githubService from '../api/github.service';
 import requirementService from '../api/requirement.service';
 import authService from '../api/auth.service';
-import { ExternalLink, GitBranch } from 'lucide-react';
+import { ExternalLink, GitBranch, Hash } from 'lucide-react';
 import { getMemberRole } from '../utils/groupRole';
 import { formatUtc7DateTime, formatUtc7Time } from '../utils/datetime';
 
@@ -62,7 +62,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         status: task.status,
         assignedTo: task.assignedTo,
         dueDate: task.dueDate,
-        jiraTaskKey: task.jiraTaskKey || '',
+        jiraIssueKey: task.jiraIssueKey || '',
         githubCommitUrl: task.githubCommitUrl || ''
       });
       loadExtraData();
@@ -117,9 +117,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       // Non-critical metadata: should never block comments/history rendering.
       const [globalSettingsResult, mappingResult, requirementResult] = await Promise.allSettled([
         githubService.getGlobalSettings(),
-        githubService.getAllMappings().then(mappings =>
-          (mappings || []).find((m: any) => m.groupId === task.groupId)
-        ),
+        githubService.getMappingByGroup(task.groupId),
         requirementService.getRequirementsByGroup(task.groupId).then((reqs: any) =>
           (reqs as any || []).find((r: any) => r.requirementId === task.requirementId)
         )
@@ -375,15 +373,15 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                               </div>
                           </div>
                           
-                          {globalJiraKey ? (
-                             <div className="text-sm font-bold text-blue-700 bg-white border border-blue-100 px-3 py-2 rounded-xl">Project: {globalJiraKey}</div>
+                          {editedTask.jiraIssueKey || globalJiraKey ? (
+                             <div className="text-sm font-bold text-blue-700 bg-white border border-blue-100 px-3 py-2 rounded-xl">Project: {editedTask.jiraIssueKey || globalJiraKey}</div>
                           ) : (
                              <div className="text-sm font-bold text-slate-400 bg-white border border-slate-100 px-3 py-2 rounded-xl">Chưa liên kết Jira</div>
                           )}
 
-                          {globalJiraKey && jiraUrl && (
+                          {(editedTask.jiraIssueKey || globalJiraKey) && jiraUrl && (
                               <a 
-                                  href={`${jiraUrl}/browse/${globalJiraKey}`}
+                                  href={`${jiraUrl}/browse/${editedTask.jiraIssueKey || globalJiraKey}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="text-[11px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 mt-1 uppercase tracking-wider bg-white/50 w-fit px-3 py-1.5 rounded-lg border border-blue-200/50 hover:bg-white transition-colors shadow-sm"
@@ -508,6 +506,24 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                         />
                       ) : (
                         <span>{task.dueDate || 'Chưa định ngày'}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pt-4 border-t border-slate-50">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Jira Issue Key</label>
+                    <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                      <Hash size={14} className="text-slate-400" />
+                      {canEditTaskDetails ? (
+                        <input 
+                          type="text"
+                          placeholder="VD: KAN-1"
+                          className="bg-transparent outline-none border-b border-slate-200 w-full text-blue-600 font-mono"
+                          value={editedTask.jiraIssueKey || ''}
+                          onChange={e => setEditedTask({...editedTask, jiraIssueKey: e.target.value.toUpperCase()})}
+                        />
+                      ) : (
+                        <span className="font-mono text-blue-600">{task.jiraIssueKey || 'Trống'}</span>
                       )}
                     </div>
                   </div>

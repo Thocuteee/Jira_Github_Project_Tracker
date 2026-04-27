@@ -360,6 +360,11 @@ const TaskTable = () => {
                                   >
                                     {task.title}
                                   </span>
+                                  {task.jiraIssueKey && (
+                                    <span title={`Jira Key: ${task.jiraIssueKey}`} className="flex items-center justify-center p-1 bg-blue-100 text-blue-600 rounded-md">
+                                      <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24"><path d="M11.53 2c0 2.4-1.97 4.38-4.38 4.38h-.77V2h5.15zm-5.15 5.15c2.4 0 4.38 1.97 4.38 4.38v.77h-5.15V7.15zm5.15 5.15c0 2.4-1.97 4.38-4.38 4.38h-.77v-4.38h5.15zM22 17.45c0 2.4-1.97 4.38-4.38 4.38h-.77v-4.38H22v4.38zm-5.15-5.15c2.4 0 4.38 1.97 4.38 4.38v.77h-5.15v-5.15zm5.15-5.15c0 2.4-1.97 4.38-4.38 4.38h-.77V7.15H22v4.38z"/></svg>
+                                    </span>
+                                  )}
                                   {task.assignedTo === currentUserId && (
                                     <span className="inline-flex items-center gap-1 rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white">
                                       <BadgeCheck size={11} />

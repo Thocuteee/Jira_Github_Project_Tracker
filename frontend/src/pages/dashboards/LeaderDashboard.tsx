@@ -106,7 +106,7 @@ export default function LeaderDashboard() {
 
   const tasksWithoutCode = useMemo(() => {
     const linkedKeys = new Set(commits.map((c) => parseJiraKey(c.message)).filter(Boolean) as string[]);
-    return tasks.filter((t) => t.jiraTaskKey).filter((t) => !linkedKeys.has(String(t.jiraTaskKey)));
+    return tasks.filter((t) => t.jiraIssueKey).filter((t) => !linkedKeys.has(String(t.jiraIssueKey)));
   }, [commits, tasks]);
 
   return (
@@ -188,7 +188,7 @@ export default function LeaderDashboard() {
                       {tasks.filter((t) => t.status === st).slice(0, 5).map((t) => (
                         <div key={t.taskId} className="rounded-lg border border-slate-200 bg-white p-2">
                           <div className="font-medium text-slate-900 line-clamp-2">{t.title}</div>
-                          <div className="mt-1 text-[11px] text-slate-500">Jira: {t.jiraTaskKey || '—'}</div>
+                          <div className="mt-1 text-[11px] text-slate-500">Jira: {t.jiraIssueKey || '—'}</div>
                         </div>
                       ))}
                       {tasks.filter((t) => t.status === st).length === 0 ? (

@@ -139,7 +139,7 @@ export default function MemberDashboard() {
                       </div>
                     </div>
                     <div className="mt-2 text-xs text-slate-500">
-                      Jira: <span className="font-medium text-slate-700">{t.jiraTaskKey || '—'}</span>
+                      Jira: <span className="font-medium text-slate-700">{t.jiraIssueKey || '—'}</span>
                     </div>
                   </div>
                 );
@@ -157,14 +157,14 @@ export default function MemberDashboard() {
         <ChartCard title="Tasks without code (quick check)" subtitle="Task có Jira key nhưng chưa thấy commit match key">
           <div className="space-y-3">
             {myTasks
-              .filter((t) => t.jiraTaskKey)
-              .filter((t) => !myCommits.some((c) => parseJiraKey(c.message) === t.jiraTaskKey))
+              .filter((t) => t.jiraIssueKey)
+              .filter((t) => !myCommits.some((c) => parseJiraKey(c.message) === t.jiraIssueKey))
               .slice(0, 8)
               .map((t) => (
                 <div key={t.taskId} className="rounded-xl border border-slate-200 bg-white p-4">
                   <div className="font-semibold text-slate-900 line-clamp-2">{t.title}</div>
                   <div className="mt-1 text-xs text-slate-500">
-                    Jira: <span className="font-medium text-slate-700">{t.jiraTaskKey}</span> · Status: {t.status}
+                    Jira: <span className="font-medium text-slate-700">{t.jiraIssueKey}</span> · Status: {t.status}
                   </div>
                 </div>
               ))}
