@@ -15,6 +15,10 @@ class GithubService {
     return await authClient.get(`${API_URL}/integrations/all`) as any;
   }
 
+  async getMappingByGroup(groupId: string) {
+    return await authClient.get(`${API_URL}/integrations/group/${groupId}`) as any;
+  }
+
   async upsertMapping(data: { groupId: string; jiraProjectKey: string; githubRepo: string; githubToken?: string }) {
     try {
       const existing = await authClient.get(`${API_URL}/integrations/group/${data.groupId}`) as any;
@@ -36,6 +40,14 @@ class GithubService {
 
   async getCommitsByGroup(groupId: string) {
     return await authClient.get(`${API_URL}/commits/group/${groupId}`) as any;
+  }
+
+  async getCommitsByUser(userId: string) {
+    return await authClient.get(`${API_URL}/commits/user/${userId}`) as any;
+  }
+
+  async getRepositoriesByGroup(groupId: string) {
+    return await authClient.get(`${API_URL}/repositories/group/${groupId}`) as any;
   }
 }
 

@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 export default function Header() {
     const navigate = useNavigate();
     const { unreadCount } = useFcmContext();
-    const username = localStorage.getItem('username') || localStorage.getItem('userName') || 'User';
+    const username = localStorage.getItem('userName') || localStorage.getItem('userEmail') || 'User';
 
     return (
         <header className="h-16 border-b border-slate-200 flex items-center justify-between px-6 bg-slate-50">
