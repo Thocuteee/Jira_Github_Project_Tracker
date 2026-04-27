@@ -13,7 +13,7 @@ import java.util.UUID;
 public class GithubCommit {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "commit_id")
     private UUID commitId;
 
