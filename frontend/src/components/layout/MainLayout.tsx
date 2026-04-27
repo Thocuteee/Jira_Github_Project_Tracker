@@ -282,6 +282,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                                             Admin Control
                                         </h3>
                                         <NavItem icon={<Users size={18} />} label="Quản lý Lecturer" to="/admin/lecturers" />
+                                        <NavItem icon={<Users size={18} />} label="Quản lý Member" to="/admin/members" />
                                         <NavItem icon={<Briefcase size={18} />} label="Quản lý Workspace" to="/admin/workspace" />
                                     </div>
                                 </>

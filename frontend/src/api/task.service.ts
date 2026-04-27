@@ -51,6 +51,19 @@ class TaskService {
     return (await axiosClient.get(`${BASE_PATH}/group/${groupId}?role=${role}`)) as Task[];
   }
 
+  async getMyAssignedTasks(): Promise<Task[]> {
+    return (await axiosClient.get(`${BASE_PATH}/my-tasks`)) as Task[];
+  }
+
+  async getMyAssignedTasksSummary(): Promise<{ total: number; open: number; done: number; overdue: number }> {
+    return (await axiosClient.get(`${BASE_PATH}/my-tasks/summary`)) as {
+      total: number;
+      open: number;
+      done: number;
+      overdue: number;
+    };
+  }
+
   async getTasksByRequirementId(requirementId: string): Promise<Task[]> {
     return (await axiosClient.get(`${BASE_PATH}/requirement/${requirementId}`)) as Task[];
   }

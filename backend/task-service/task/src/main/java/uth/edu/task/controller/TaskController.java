@@ -13,9 +13,15 @@ import uth.edu.task.dto.request.TaskUpdateRequest;
 import uth.edu.task.dto.response.TaskResponse;
 import uth.edu.task.service.TaskService;
 import uth.edu.task.config.UserContextHolder;
+import uth.edu.task.dto.response.MyTaskSummaryResponse;
+import uth.edu.task.model.Task;
+import uth.edu.task.model.ETaskStatus;
+import uth.edu.task.repository.TaskRepository;
+import uth.edu.task.mapper.TaskMapper;
 
 import java.util.List;
 import java.util.UUID;
+import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/tasks")
@@ -23,6 +29,8 @@ import java.util.UUID;
 public class TaskController {
 
     private final TaskService taskService;
+    private final TaskRepository taskRepository;
+    private final TaskMapper taskMapper;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'LECTURER', 'TEAM_LEADER', 'TEAM_MEMBER', 'STUDENT')")
@@ -63,6 +71,51 @@ public class TaskController {
         UUID userId = UserContextHolder.getUserId();
         List<TaskResponse> responses = taskService.getTasksForUserInGroup(groupId, userId);
         return ResponseEntity.ok(responses);
+    }
+
+    /**
+     * Member dashboard: toàn bộ task được assigned cho user hiện tại trên mọi group.
+     */
+    @GetMapping("/my-tasks")
+    @PreAuthorize("hasAnyRole('ADMIN', 'LECTURER', 'TEAM_LEADER', 'TEAM_MEMBER', 'STUDENT')")
+    public ResponseEntity<List<TaskResponse>> getMyAssignedTasks() {
+        UUID userId = UserContextHolder.getUserId();
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        List<TaskResponse> responses = taskRepository.findByAssignedTo(userId).stream()
+                .map(taskMapper::toResponse)
+                .toList();
+        return ResponseEntity.ok(responses);
+    }
+
+    /**
+     * Member dashboard: summary thống kê nhanh (open/done/overdue/total).
+     */
+    @GetMapping("/my-tasks/summary")
+    @PreAuthorize("hasAnyRole('ADMIN', 'LECTURER', 'TEAM_LEADER', 'TEAM_MEMBER', 'STUDENT')")
+    public ResponseEntity<MyTaskSummaryResponse> getMyAssignedTasksSummary() {
+        UUID userId = UserContextHolder.getUserId();
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        List<Task> tasks = taskRepository.findByAssignedTo(userId);
+        long total = tasks.size();
+        long done = tasks.stream().filter(t -> t.getStatus() == ETaskStatus.DONE).count();
+        long open = tasks.stream().filter(t -> t.getStatus() != ETaskStatus.DONE).count();
+        LocalDate today = LocalDate.now();
+        long overdue = tasks.stream()
+                .filter(t -> t.getStatus() != ETaskStatus.DONE)
+                .filter(t -> t.getDueDate() != null && t.getDueDate().isBefore(today))
+                .count();
+
+        MyTaskSummaryResponse res = new MyTaskSummaryResponse();
+        res.setTotal(total);
+        res.setDone(done);
+        res.setOpen(open);
+        res.setOverdue(overdue);
+        return ResponseEntity.ok(res);
     }
 
 

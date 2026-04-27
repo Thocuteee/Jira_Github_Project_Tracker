@@ -63,6 +63,14 @@ class GroupService {
     return await authClient.get(`${API_URL}/my-groups`) as any;
   }
 
+  async getManagedByMe() {
+    return await authClient.get(`${API_URL}/managed-by/me`) as any;
+  }
+
+  async getManagedByMeStats() {
+    return await authClient.get(`${API_URL}/managed-by/me/stats`) as any;
+  }
+
   async checkLeader(groupId: string) {
     return await authClient.get(`${API_URL}/${groupId}/checkLeader`) as any;
   }

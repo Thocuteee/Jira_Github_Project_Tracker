@@ -13,7 +13,9 @@ import groupService from '@/api/group.service';
 import taskService from '@/api/task.service';
 import authService from '@/api/auth.service';
 import { getPrimaryRole } from '@/utils/authDisplay';
-import { Users, Filter, AlertCircle } from 'lucide-react';
+import { Users, Filter, AlertCircle, Download, FileText } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface TaskExecutionReportProps {
     groupId: string;
@@ -134,6 +136,76 @@ export default function TaskExecutionReport({ groupId }: TaskExecutionReportProp
         fetchData();
     }, [groupId]);
 
+    const handleExportCSV = () => {
+        if (!data || data.length === 0) return;
+        
+        const headers = ['Họ và tên', 'Tổng Task', 'Hoàn thành', 'Đang làm', 'Chưa làm', 'Tỉ lệ (%)'];
+        
+        const rows = data.map(member => {
+            const rate = member.total > 0 ? Math.round((member['Hoàn thành'] / member.total) * 100) : 0;
+            return [
+                `"${member.name}"`, 
+                member.total, 
+                member['Hoàn thành'], 
+                member['Đang làm'], 
+                member['Chưa làm'], 
+                `${rate}%`
+            ].join(',');
+        });
+        
+        const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `bao_cao_hieu_suat_${groupId}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleExportPDF = () => {
+        if (!data || data.length === 0) return;
+        
+        const doc = new jsPDF();
+        
+        doc.setFontSize(16);
+        doc.text("Bao cao hieu suat thanh vien", 14, 20);
+        doc.setFontSize(11);
+        doc.text(`Group ID: ${groupId}`, 14, 28);
+        doc.text(`Ngay xuat: ${new Date().toLocaleDateString('vi-VN')}`, 14, 34);
+        
+        const tableColumn = ["Ho va ten", "Tong Task", "Hoan thanh", "Dang lam", "Chua lam", "Ti le (%)"];
+        const tableRows: any[] = [];
+
+        data.forEach(member => {
+            const rate = member.total > 0 ? Math.round((member['Hoàn thành'] / member.total) * 100) : 0;
+            // Xóa dấu tiếng Việt vì jsPDF mặc định không hỗ trợ font unicode
+            const unaccentedName = member.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D");
+            const memberData = [
+                unaccentedName,
+                member.total,
+                member['Hoàn thành'],
+                member['Đang làm'],
+                member['Chưa làm'],
+                `${rate}%`
+            ];
+            tableRows.push(memberData);
+        });
+
+        autoTable(doc, {
+            head: [tableColumn],
+            body: tableRows,
+            startY: 40,
+            theme: 'grid',
+            styles: { fontSize: 10 },
+            headStyles: { fillColor: [37, 99, 235] } // Tailwind blue-600
+        });
+
+        doc.save(`bao_cao_hieu_suat_${groupId}.pdf`);
+    };
+
     if (loading) {
         return (
             <div className="flex h-96 items-center justify-center">
@@ -162,6 +234,20 @@ export default function TaskExecutionReport({ groupId }: TaskExecutionReportProp
                             Phân bổ công việc theo thành viên
                         </h3>
                         <p className="text-xs font-medium text-slate-500 mt-1">Chi tiết khối lượng công việc và tình trạng thực hiện của từng cá nhân</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button 
+                            onClick={handleExportCSV}
+                            className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 px-4 py-2 text-sm font-bold hover:bg-emerald-100 transition-all"
+                        >
+                            <FileText size={16} /> Xuất Excel
+                        </button>
+                        <button 
+                            onClick={handleExportPDF}
+                            className="inline-flex items-center gap-2 rounded-lg bg-red-50 text-red-700 border border-red-200 px-4 py-2 text-sm font-bold hover:bg-red-100 transition-all"
+                        >
+                            <Download size={16} /> Xuất PDF
+                        </button>
                     </div>
                 </div>
                 

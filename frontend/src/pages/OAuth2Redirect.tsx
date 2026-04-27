@@ -26,6 +26,9 @@ export default function OAuth2Redirect() {
           if (profile?.userId) {
             localStorage.setItem('userId', profile.userId);
           }
+          if (profile?.name) {
+            localStorage.setItem('userName', profile.name);
+          }
         })
         .catch((err) => {
           console.warn('Could not fetch profile after OAuth redirect, FCM token registration may be skipped.', err);

@@ -15,10 +15,24 @@ import java.util.UUID;
 public class IntegrationController {
 
     private final IIntegrationService service;
+    private final uth.edu.github.service.GithubMessagePublisher publisher;
 
     @PostMapping
     public ResponseEntity<?> create(@Valid @RequestBody IntegrationRequest request) {
-        return new ResponseEntity<>(service.create(request), HttpStatus.CREATED);
+        Object result = service.create(request);
+        
+        // Gửi một thông báo giả qua RabbitMQ để test giao diện Real-time
+        try {
+            java.util.Map<String, Object> msg = new java.util.HashMap<>();
+            msg.put("jiraKey", "SYSTEM");
+            msg.put("message", "Đã thêm mới một bản ánh xạ Integration (Nhóm - Jira - GitHub)");
+            msg.put("url", "#");
+            publisher.sendCommitSync(msg);
+        } catch (Exception e) {
+            System.err.println("Failed to publish integration event to RabbitMQ");
+        }
+        
+        return new ResponseEntity<>(result, HttpStatus.CREATED);
     }
 
     @GetMapping("/all")

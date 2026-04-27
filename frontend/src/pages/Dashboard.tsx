@@ -1,23 +1,29 @@
-import MainLayout from '@/components/layout/MainLayout';
-import { ArrowRight, Clock3, Users, FileText, GitBranch, RefreshCw } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toDisplayRole } from '@/utils/authDisplay';
 import { useGroupContext } from '@/contexts/GroupContext';
 import groupService from '@/api/group.service';
+import AdminDashboard from '@/pages/dashboards/AdminDashboard';
+import LecturerDashboard from '@/pages/dashboards/LecturerDashboard';
+import LeaderDashboard from '@/pages/dashboards/LeaderDashboard';
+import MemberDashboard from '@/pages/dashboards/MemberDashboard';
 
-const summaryStats = [
-    { label: 'Active Groups', value: '5', icon: Users, iconBg: 'bg-blue-100 text-blue-600' },
-    { label: 'Total Jira Tasks', value: '124', icon: FileText, iconBg: 'bg-sky-100 text-sky-600' },
-    { label: 'Total GitHub Commits', value: '850', icon: GitBranch, iconBg: 'bg-emerald-100 text-emerald-600' },
-    { label: 'Last Synced', value: 'Just now', icon: RefreshCw, iconBg: 'bg-amber-100 text-amber-600' },
-];
+type GlobalRole = 'ROLE_ADMIN' | 'ROLE_LECTURER' | 'ROLE_MEMBER' | string;
+type DerivedRole = 'Admin' | 'Lecturer' | 'Member' | 'Teamleader';
 
-const mockGroupProgress = [
-    { id: 1, name: 'Nhóm 1 - Module Auth', progress: 85, recentTask: 'Tick xong Refresh Token' },
-    { id: 2, name: 'Nhóm 2 - Module Group', progress: 60, recentTask: 'Đang làm API Get Members' },
-    { id: 3, name: 'Nhóm 3 - Module Task', progress: 30, recentTask: 'Mới xong Entity Task' },
-];
+function safeParseRoles(raw: string | null): GlobalRole[] {
+    try {
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed.map(String) : [];
+    } catch {
+        return [];
+    }
+}
+
+function rolePriority(roles: DerivedRole[]): DerivedRole[] {
+    const order: DerivedRole[] = ['Admin', 'Lecturer', 'Teamleader', 'Member'];
+    return [...new Set(roles)].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+}
 
 export default function Dashboard() {
     const navigate = useNavigate();
@@ -46,119 +52,44 @@ export default function Dashboard() {
         navigate('/dashboard', { replace: true });
     }, [navigate]);
 
-    const [roles, setRoles] = useState<string[]>([]);
     const { selectedGroup } = useGroupContext();
+    const [derivedRoles, setDerivedRoles] = useState<DerivedRole[]>([]);
 
     useEffect(() => {
-        const fetchRole = async () => {
-            const raw = localStorage.getItem('userRoles');
-            const parsed = raw ? JSON.parse(raw) : [];
-            const globalRoles = Array.isArray(parsed) ? parsed.map(String) : [];
+        let cancelled = false;
+        const run = async () => {
+            const globalRoles = safeParseRoles(localStorage.getItem('userRoles'));
+            const base: DerivedRole[] = [];
+            if (globalRoles.includes('ROLE_ADMIN')) base.push('Admin');
+            if (globalRoles.includes('ROLE_LECTURER')) base.push('Lecturer');
+            if (!base.length) base.push('Member');
 
-            if (selectedGroup) {
+            if (selectedGroup?.groupId) {
                 try {
                     const isLeader = await groupService.checkLeader(selectedGroup.groupId);
-                    if (isLeader) {
-                        setRoles(['Teamleader']);
-                        return;
-                    }
-                } catch (err) {
+                    if (isLeader) base.push('Teamleader');
+                } catch {
                     // ignore
                 }
             }
 
-            if (globalRoles.includes('ROLE_ADMIN') || globalRoles.includes('ROLE_LECTURER')) {
-                setRoles(['Lecture']);
-            } else {
-                setRoles(['Member']);
-            }
+            if (!cancelled) setDerivedRoles(rolePriority(base));
         };
-        fetchRole();
+        void run();
+        return () => {
+            cancelled = true;
+        };
     }, [selectedGroup]);
 
-    const userName = useMemo(() => {
-        try {
-            return localStorage.getItem('userName') || localStorage.getItem('userEmail') || 'User';
-        } catch {
-            return 'User';
-        }
-    }, []);
+    const primaryDerivedRole: DerivedRole = useMemo(() => derivedRoles[0] || 'Member', [derivedRoles]);
 
-    return (
-        <MainLayout>
-            <div className="mb-8">
-                <div className="flex flex-wrap items-end justify-between gap-4">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Overview</h1>
-                        <p className="mt-1 text-slate-600">
-                            Welcome, <span className="font-semibold text-slate-800">{userName}</span>
-                        </p>
-                    </div>
-                </div>
+    const globalRoles = useMemo(() => safeParseRoles(localStorage.getItem('userRoles')), []);
+    const isAdmin = globalRoles.includes('ROLE_ADMIN');
+    const isLecturer = globalRoles.includes('ROLE_LECTURER');
 
-                <div className="mt-4 flex flex-wrap items-center gap-2">
-                    <span className="text-sm text-slate-500 mr-1">Roles:</span>
-                    {roles.map((r) => (
-                        <span
-                            key={r}
-                            className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700"
-                        >
-                            {toDisplayRole(r)}
-                        </span>
-                    ))}
-                </div>
-            </div>
-
-            <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {summaryStats.map(({ label, value, icon: Icon, iconBg }) => (
-                    <div
-                        key={label}
-                        className="flex items-center gap-4 rounded-xl border border-slate-200/80 bg-white p-5 shadow-sm"
-                    >
-                        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${iconBg}`}>
-                            <Icon size={22} strokeWidth={2} />
-                        </div>
-                        <div>
-                            <div className="text-2xl font-bold tabular-nums text-slate-900">{value}</div>
-                            <div className="text-sm text-slate-500">{label}</div>
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            <h2 className="mb-4 text-lg font-semibold text-slate-900">Team progress</h2>
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-                {mockGroupProgress.map((group) => (
-                    <div
-                        key={group.id}
-                        className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
-                    >
-                        <div className="mb-3 flex items-center justify-between gap-2">
-                            <h3 className="font-semibold text-slate-900">{group.name}</h3>
-                            <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
-                                Active
-                            </span>
-                        </div>
-                        <div className="mb-1.5 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
-                            <div
-                                className="h-full rounded-full bg-blue-600 transition-all"
-                                style={{ width: `${group.progress}%` }}
-                            />
-                        </div>
-                        <div className="mb-4 text-right text-sm font-medium text-slate-600">
-                            {group.progress}% Completed
-                        </div>
-                        <div className="flex items-center gap-2 border-t border-slate-100 pt-3 text-xs text-slate-500">
-                            <Clock3 className="h-3.5 w-3.5 shrink-0" />
-                            <span>
-                                Recent:{' '}
-                                <span className="font-medium text-slate-700">{group.recentTask}</span>
-                            </span>
-                            <ArrowRight className="ml-auto h-3.5 w-3.5 shrink-0 text-slate-400" />
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </MainLayout>
-    );
+    // Team Leader is role-in-group based (leaderId), so we only switch to LeaderDashboard when a group is selected and checkLeader passed
+    if (isAdmin) return <AdminDashboard />;
+    if (isLecturer) return <LecturerDashboard />;
+    if (primaryDerivedRole === 'Teamleader') return <LeaderDashboard />;
+    return <MemberDashboard />;
 }
