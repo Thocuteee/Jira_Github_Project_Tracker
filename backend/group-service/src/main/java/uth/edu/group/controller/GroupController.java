@@ -36,6 +36,22 @@ public class GroupController {
         return ResponseEntity.ok(groupService.getMyGroups(userId));
     }
 
+    /**
+     * Lecturer: lấy danh sách nhóm được phân công theo dõi (roleInGroup = LECTURER).
+     */
+    @GetMapping("/managed-by/me")
+    public ResponseEntity<List<GroupResponse>> getManagedByMe(@RequestHeader("X-User-Id") UUID userId) {
+        return ResponseEntity.ok(groupService.getManagedGroups(userId));
+    }
+
+    /**
+     * Lecturer: thống kê nhẹ cho các nhóm managed-by (hiện chỉ gồm memberCount).
+     */
+    @GetMapping("/managed-by/me/stats")
+    public ResponseEntity<List<GroupStatsResponse>> getManagedByMeStats(@RequestHeader("X-User-Id") UUID userId) {
+        return ResponseEntity.ok(groupService.getManagedGroupStats(userId));
+    }
+
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<GroupResponse>> getGroupsByUserId(@PathVariable UUID userId) {
         return ResponseEntity.ok(groupService.getMyGroups(userId));
