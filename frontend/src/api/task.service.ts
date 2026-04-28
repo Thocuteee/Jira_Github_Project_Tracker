@@ -14,7 +14,7 @@ export interface Task {
   dueDate: string;
   createdAt?: string;
   createdBy?: string;
-  jiraTaskKey?: string;
+  jiraIssueKey?: string;
   githubCommitUrl?: string;
 }
 
@@ -51,11 +51,24 @@ class TaskService {
     return (await axiosClient.get(`${BASE_PATH}/group/${groupId}?role=${role}`)) as Task[];
   }
 
+  async getMyAssignedTasks(): Promise<Task[]> {
+    return (await axiosClient.get(`${BASE_PATH}/my-tasks`)) as Task[];
+  }
+
+  async getMyAssignedTasksSummary(): Promise<{ total: number; open: number; done: number; overdue: number }> {
+    return (await axiosClient.get(`${BASE_PATH}/my-tasks/summary`)) as {
+      total: number;
+      open: number;
+      done: number;
+      overdue: number;
+    };
+  }
+
   async getTasksByRequirementId(requirementId: string): Promise<Task[]> {
     return (await axiosClient.get(`${BASE_PATH}/requirement/${requirementId}`)) as Task[];
   }
 
-  async createTask(data: { requirementId: string; groupId: string; title: string; description?: string; priority: string; assignedTo?: string; dueDate?: string }): Promise<Task> {
+  async createTask(data: { requirementId: string; groupId: string; title: string; description?: string; priority: string; assignedTo?: string; dueDate?: string; jiraIssueKey?: string }): Promise<Task> {
     return (await axiosClient.post(BASE_PATH, data)) as Task;
   }
 
@@ -67,7 +80,7 @@ class TaskService {
     return (await axiosClient.patch(`${BASE_PATH}/${taskId}/assign`, { assignedTo })) as Task;
   }
 
-  async updateTask(taskId: string, data: { title?: string; description?: string; priority?: string; dueDate?: string; jiraTaskKey?: string; githubCommitUrl?: string }): Promise<Task> {
+  async updateTask(taskId: string, data: { title?: string; description?: string; priority?: string; dueDate?: string; jiraIssueKey?: string; githubCommitUrl?: string }): Promise<Task> {
     return (await axiosClient.patch(`${BASE_PATH}/${taskId}`, data)) as Task;
   }
 
@@ -92,9 +105,7 @@ class TaskService {
   async uploadAttachment(taskId: string, file: File): Promise<Attachment> {
     const formData = new FormData();
     formData.append('file', file);
-    return (await axiosClient.post(`${BASE_PATH}/${taskId}/attachments/upload`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })) as Attachment;
+    return (await axiosClient.postForm(`${BASE_PATH}/${taskId}/attachments/upload`, formData)) as Attachment;
   }
 
   async getTaskAttachments(taskId: string): Promise<Attachment[]> {

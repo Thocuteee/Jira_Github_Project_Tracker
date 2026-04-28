@@ -32,6 +32,7 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [requirementId, setRequirementId] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [jiraIssueKey, setJiraIssueKey] = useState('');
   const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -86,7 +87,8 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         description,
         priority,
         assignedTo: assignedTo || undefined,
-        dueDate: dueDate || undefined
+        dueDate: dueDate || undefined,
+        jiraIssueKey: jiraIssueKey || undefined
       });
       onCreated();
       handleClose();
@@ -103,6 +105,7 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     setPriority('MEDIUM');
     setAssignedTo('');
     setDueDate('');
+    setJiraIssueKey('');
     setError('');
     onClose();
   };
@@ -214,6 +217,19 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-slate-700"
                 value={dueDate}
                 onChange={e => setDueDate(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                <Hash size={14} /> Jira Issue Key (Tùy chọn)
+              </label>
+              <input
+                type="text"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono text-slate-700 placeholder:text-slate-400"
+                placeholder="Ví dụ: KAN-1"
+                value={jiraIssueKey}
+                onChange={e => setJiraIssueKey(e.target.value.toUpperCase())}
               />
             </div>
 

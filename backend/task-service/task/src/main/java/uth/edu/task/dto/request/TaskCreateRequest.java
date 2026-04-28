@@ -34,4 +34,6 @@ public class TaskCreateRequest {
 
     private LocalDate dueDate;
 
+    private String jiraIssueKey;
+
 }

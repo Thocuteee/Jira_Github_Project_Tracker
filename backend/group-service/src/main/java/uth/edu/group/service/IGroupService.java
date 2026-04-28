@@ -9,6 +9,15 @@ public interface IGroupService {
     GroupResponse createGroup(GroupRequest request, UUID creatorId);
     List<GroupResponse> getAllGroups();
     List<GroupResponse> getMyGroups(UUID userId);
+    /**
+     * Nhóm mà user hiện tại đang "phụ trách" theo role trong group (roleInGroup = LECTURER).
+     */
+    List<GroupResponse> getManagedGroups(UUID lecturerId);
+
+    /**
+     * Thống kê nhẹ cho các nhóm managed-by lecturer (memberCount).
+     */
+    List<GroupStatsResponse> getManagedGroupStats(UUID lecturerId);
     GroupResponse getGroupById(UUID id);
     GroupResponse updateGroup(UUID id, GroupRequest request);
     void deleteGroup(UUID id);

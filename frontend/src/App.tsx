@@ -12,6 +12,7 @@ import WorkspaceList from './pages/WorkspaceList';
 import WorkspaceDashboard from './pages/WorkspaceDashboard';
 import AdminWorkspace from './pages/AdminWorkspace';
 import LecturerManagement from './pages/LecturerManagement';
+import MemberManagement from './pages/MemberManagement';
 import GroupMembers from './pages/GroupMembers';
 import Integrations from './pages/Integrations';
 import RequirementTable from './pages/RequirementTable';
@@ -70,6 +71,7 @@ export default function App() {
         <Route path="/workspace/:groupId" element={<WorkspaceDashboard />} />
         <Route path="/admin/workspace" element={<AdminWorkspace />} />
         <Route path="/admin/lecturers" element={<LecturerManagement />} />
+        <Route path="/admin/members" element={<MemberManagement />} />
         <Route path="/members/:groupId" element={<GroupMembers />} />
         <Route path="/members" element={<GroupMembers />} />
         <Route path="/settings/integrations" element={<Integrations />} />

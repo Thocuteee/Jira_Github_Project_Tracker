@@ -27,4 +27,5 @@ public class TaskResponse {
     private LocalDate dueDate;
     private LocalDateTime createdAt;
     private UUID createdBy;
+    private String jiraIssueKey;
 }

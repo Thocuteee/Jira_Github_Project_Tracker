@@ -61,8 +61,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         String normalizedEmail = resolveOAuth2Email(oauth2User);
         User user = userRepository.findByEmail(normalizedEmail)
                 .orElseGet(() -> createOAuthUser(oauth2User, normalizedEmail, provider));
-
-        syncOAuthProfile(user, oauth2User, provider);
+        syncOAuthProfileIfDefaultAvatar(user, oauth2User, provider);
 
         String accessToken = jwtProvider.generateJwtToken(user);
         String refreshToken = refreshTokenService.createRefreshToken(user.getUserId()).getToken();
@@ -122,19 +121,27 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         return userRepository.save(user);
     }
 
-    private void syncOAuthProfile(User user, OAuth2User oauth2User, String provider) {
-        boolean changed = false;
-        if ("google".equalsIgnoreCase(provider)) {
-            String googlePicture = oauth2User.getAttribute("picture");
-            if (StringUtils.hasText(googlePicture) && !googlePicture.equals(user.getAvatarUrl())) {
-                user.setAvatarUrl(googlePicture);
-                changed = true;
-            }
+    private void syncOAuthProfileIfDefaultAvatar(User user, OAuth2User oauth2User, String provider) {
+        String providerAvatar = resolveProviderAvatar(oauth2User, provider);
+        if (!StringUtils.hasText(providerAvatar)) {
+            return;
         }
-        if (changed) {
-            user.setUpdatedAt(LocalDateTime.now());
-            userRepository.save(user);
+        String currentAvatar = user.getAvatarUrl();
+        boolean shouldSync = !StringUtils.hasText(currentAvatar) || isDefaultGeneratedAvatar(currentAvatar);
+        if (!shouldSync || providerAvatar.equals(currentAvatar)) {
+            return;
         }
+
+        user.setAvatarUrl(providerAvatar);
+        user.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(user);
+    }
+
+    private boolean isDefaultGeneratedAvatar(String avatarUrl) {
+        if (!StringUtils.hasText(avatarUrl)) {
+            return false;
+        }
+        return avatarUrl.contains("ui-avatars.com/api/");
     }
 
     private String resolveProvider(Authentication authentication) {

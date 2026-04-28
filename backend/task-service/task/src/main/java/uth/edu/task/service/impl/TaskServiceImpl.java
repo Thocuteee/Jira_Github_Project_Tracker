@@ -205,6 +205,11 @@ public class TaskServiceImpl implements TaskService {
             saveTaskHistory(existingTask, currentUserId, "DUE_DATE", oldDate, request.getDueDate().toString());
         }
 
+        if (request.getJiraIssueKey() != null && !request.getJiraIssueKey().equals(existingTask.getJiraIssueKey())) {
+            String oldVal = existingTask.getJiraIssueKey() != null ? existingTask.getJiraIssueKey() : "null";
+            saveTaskHistory(existingTask, currentUserId, "JIRA_KEY", oldVal, request.getJiraIssueKey());
+        }
+
         taskMapper.updateEntityFromRequest(request, existingTask);
 
         Task updatedTask = taskRepository.save(existingTask);
@@ -355,14 +360,16 @@ public class TaskServiceImpl implements TaskService {
     }
 
     private void publishTaskEvent(Task task, String eventType) {
-        String jiraIssueKey = null;
-        try {
-            RequirementResponse reqResponse = requirementClient.getRequirementById(task.getRequirementId());
-            if (reqResponse != null) {
-                jiraIssueKey = reqResponse.getJiraIssueKey();
+        String jiraIssueKey = task.getJiraIssueKey();
+        if (jiraIssueKey == null || jiraIssueKey.trim().isEmpty()) {
+            try {
+                RequirementResponse reqResponse = requirementClient.getRequirementById(task.getRequirementId());
+                if (reqResponse != null) {
+                    jiraIssueKey = reqResponse.getJiraIssueKey();
+                }
+            } catch (Exception e) {
+                log.warn("Không thể lấy chi tiết requirement cho việc đồng bộ Jira: {}", e.getMessage());
             }
-        } catch (Exception e) {
-            log.warn("Không thể lấy chi tiết requirement cho việc đồng bộ Jira: {}", e.getMessage());
         }
 
         TaskEvent event = TaskEvent.builder()

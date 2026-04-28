@@ -35,6 +35,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
             return '';
         }
     });
+    const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
     const {
         unreadCount,
         notifications,
@@ -107,9 +108,12 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     useEffect(() => {
         const syncAuthDerivedState = () => {
             try {
-                setUserAvatarUrl(localStorage.getItem('userAvatarUrl') || '');
+                const next = localStorage.getItem('userAvatarUrl') || '';
+                setUserAvatarUrl(next);
+                setAvatarLoadFailed(false);
             } catch {
                 setUserAvatarUrl('');
+                setAvatarLoadFailed(false);
             }
         };
         window.addEventListener('auth-changed', syncAuthDerivedState);
@@ -328,6 +332,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                                             Admin Control
                                         </h3>
                                         <NavItem icon={<Users size={18} />} label="Quản lý Lecturer" to="/admin/lecturers" />
+                                        <NavItem icon={<Users size={18} />} label="Quản lý Member" to="/admin/members" />
                                         <NavItem icon={<Briefcase size={18} />} label="Quản lý Workspace" to="/admin/workspace" />
                                     </div>
                                 </>
@@ -444,8 +449,13 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                                     className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-600 text-sm font-semibold text-white transition hover:bg-blue-700"
                                     aria-label="Mở menu người dùng"
                                 >
-                                    {userAvatarUrl ? (
-                                        <img src={userAvatarUrl} alt="user avatar" className="h-full w-full object-cover" />
+                                    {userAvatarUrl && !avatarLoadFailed ? (
+                                        <img
+                                            src={userAvatarUrl}
+                                            alt="user avatar"
+                                            className="h-full w-full object-cover"
+                                            onError={() => setAvatarLoadFailed(true)}
+                                        />
                                     ) : (
                                         initials || 'U'
                                     )}

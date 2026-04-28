@@ -14,7 +14,9 @@ import {
 } from 'recharts';
 import groupService from '@/api/group.service';
 import githubService from '@/api/github.service';
-import { GitCommit, TrendingUp, Users, AlertCircle } from 'lucide-react';
+import { GitCommit, TrendingUp, Users, AlertCircle, Download, FileText, History, ExternalLink } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface CommitStatisticsReportProps {
     groupId: string;
@@ -26,7 +28,8 @@ export default function CommitStatisticsReport({ groupId }: CommitStatisticsRepo
     const [stats, setStats] = useState<any>({
         totalCommits: 0,
         timelineData: [],
-        memberData: []
+        memberData: [],
+        allCommits: []
     });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -82,10 +85,25 @@ export default function CommitStatisticsReport({ groupId }: CommitStatisticsRepo
                     value
                 }));
 
+                // Process all commits for history table
+                const processedCommits = commits.map((c: any) => ({
+                    id: c.commitHash || c.id || Math.random().toString(),
+                    author: memberMap[c.userId] || 'GitHub Author',
+                    message: c.message || 'No message',
+                    date: c.committedAt ? new Date(c.committedAt).toLocaleString('vi-VN') : 'Unknown',
+                    hash: c.commitHash ? c.commitHash.substring(0, 7) : '',
+                    url: c.commitHash ? `https://github.com/commit/${c.commitHash}` : '#'
+                })).sort((a, b) => {
+                    const dateA = a.date !== 'Unknown' ? new Date(a.date.split(' ')[1].split('/').reverse().join('-') + 'T' + a.date.split(' ')[0]).getTime() : 0;
+                    const dateB = b.date !== 'Unknown' ? new Date(b.date.split(' ')[1].split('/').reverse().join('-') + 'T' + b.date.split(' ')[0]).getTime() : 0;
+                    return dateB - dateA;
+                });
+
                 setStats({
                     totalCommits,
                     timelineData,
-                    memberData
+                    memberData,
+                    allCommits: processedCommits
                 });
             } catch (err) {
                 console.error("Error fetching commit statistics:", err);
@@ -97,6 +115,99 @@ export default function CommitStatisticsReport({ groupId }: CommitStatisticsRepo
 
         fetchData();
     }, [groupId]);
+
+    const handleExportCSV = () => {
+        if (!stats.memberData.length && !stats.allCommits.length) return;
+        
+        const rankingHeaders = ['Hạng', 'Họ và tên', 'Tổng Commit'];
+        const rankingRows = [...stats.memberData]
+            .sort((a: any, b: any) => b.value - a.value)
+            .map((member: any, idx: number) => [
+                idx + 1,
+                `"${member.name}"`,
+                member.value
+            ].join(','));
+            
+        const historyHeaders = ['Thời gian', 'Họ và tên', 'Mã Commit', 'Nội dung'];
+        const historyRows = stats.allCommits.map((c: any) => [
+            `"${c.date}"`,
+            `"${c.author}"`,
+            c.hash,
+            `"${c.message.replace(/"/g, '""')}"`
+        ].join(','));
+        
+        const csvContent = '\uFEFF' + 
+            'BẢNG XẾP HẠNG HOẠT ĐỘNG\n' +
+            [rankingHeaders.join(','), ...rankingRows].join('\n') + '\n\n' +
+            'LỊCH SỬ COMMIT CHI TIẾT\n' +
+            [historyHeaders.join(','), ...historyRows].join('\n');
+            
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `bao_cao_github_${groupId}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleExportPDF = () => {
+        if (!stats.memberData.length && !stats.allCommits.length) return;
+        
+        const doc = new jsPDF();
+        
+        doc.setFontSize(16);
+        doc.text("Bao cao danh gia hoat dong GitHub", 14, 20);
+        doc.setFontSize(11);
+        doc.text(`Group ID: ${groupId}`, 14, 28);
+        doc.text(`Ngay xuat: ${new Date().toLocaleDateString('vi-VN')}`, 14, 34);
+        
+        // Bảng 1: Xếp hạng
+        doc.setFontSize(12);
+        doc.text("1. Bang xep hang dong gop", 14, 45);
+        
+        const rankingCol = ["Hang", "Ho va ten", "Tong Commit"];
+        const rankingRows = [...stats.memberData]
+            .sort((a: any, b: any) => b.value - a.value)
+            .map((member: any, idx: number) => {
+                const unaccentedName = member.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D");
+                return [idx + 1, unaccentedName, member.value];
+            });
+
+        autoTable(doc, {
+            head: [rankingCol],
+            body: rankingRows,
+            startY: 50,
+            theme: 'grid',
+            styles: { fontSize: 10 },
+            headStyles: { fillColor: [59, 130, 246] }
+        });
+
+        // Bảng 2: Lịch sử commit
+        const finalY = (doc as any).lastAutoTable.finalY || 50;
+        doc.text("2. Lich su commit chi tiet", 14, finalY + 15);
+        
+        const historyCol = ["Thoi gian", "Ho va ten", "Ma Commit", "Noi dung"];
+        const historyRows = stats.allCommits.map((c: any) => {
+            const unaccentedName = c.author.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D");
+            const unaccentedMsg = c.message.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D");
+            return [c.date, unaccentedName, c.hash, unaccentedMsg];
+        });
+
+        autoTable(doc, {
+            head: [historyCol],
+            body: historyRows,
+            startY: finalY + 20,
+            theme: 'grid',
+            styles: { fontSize: 9 },
+            headStyles: { fillColor: [59, 130, 246] },
+            columnStyles: { 3: { cellWidth: 80 } }
+        });
+
+        doc.save(`bao_cao_github_${groupId}.pdf`);
+    };
 
     if (loading) {
         return (
@@ -117,6 +228,24 @@ export default function CommitStatisticsReport({ groupId }: CommitStatisticsRepo
 
     return (
         <div className="space-y-8 animate-in fade-in duration-700">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div /> {/* Spacer */}
+                <div className="flex items-center gap-2">
+                    <button 
+                        onClick={handleExportCSV}
+                        className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 px-4 py-2 text-sm font-bold hover:bg-emerald-100 transition-all shadow-sm"
+                    >
+                        <FileText size={16} /> Xuất Excel
+                    </button>
+                    <button 
+                        onClick={handleExportPDF}
+                        className="inline-flex items-center gap-2 rounded-lg bg-red-50 text-red-700 border border-red-200 px-4 py-2 text-sm font-bold hover:bg-red-100 transition-all shadow-sm"
+                    >
+                        <Download size={16} /> Xuất PDF
+                    </button>
+                </div>
+            </div>
+
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -244,6 +373,69 @@ export default function CommitStatisticsReport({ groupId }: CommitStatisticsRepo
                             </div>
                         )}
                     </div>
+                </div>
+            </div>
+
+            {/* Commit History Table */}
+            <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
+                    <div>
+                        <h3 className="font-bold text-slate-900 flex items-center gap-2 text-base">
+                            <History size={18} className="text-blue-600" />
+                            Lịch sử Commit chi tiết
+                        </h3>
+                        <p className="text-xs font-medium text-slate-500 mt-1">
+                            Phục vụ đánh giá chất lượng mã nguồn (thời gian, nội dung commit)
+                        </p>
+                    </div>
+                </div>
+                <div className="max-h-[500px] overflow-y-auto">
+                    <table className="w-full text-left text-sm">
+                        <thead className="sticky top-0 bg-slate-50/95 backdrop-blur-sm shadow-sm">
+                            <tr className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">
+                                <th className="px-6 py-4">Thời gian</th>
+                                <th className="px-6 py-4">Tác giả</th>
+                                <th className="px-6 py-4">Commit Hash</th>
+                                <th className="px-6 py-4">Nội dung (Message)</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {stats.allCommits.length > 0 ? (
+                                stats.allCommits.map((commit: any) => (
+                                    <tr key={commit.id} className="group hover:bg-blue-50/30 transition-all">
+                                        <td className="px-6 py-4 text-xs font-semibold text-slate-500 whitespace-nowrap">
+                                            {commit.date}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 font-bold text-xs">
+                                                {commit.author}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <a 
+                                                href={commit.url} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center gap-1 font-mono text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline bg-blue-50 px-2 py-0.5 rounded"
+                                            >
+                                                {commit.hash}
+                                                <ExternalLink size={10} />
+                                            </a>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-slate-700 max-w-md break-words">
+                                            {commit.message}
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={4} className="px-6 py-8 text-center text-slate-400 italic">
+                                        Không có dữ liệu lịch sử commit
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>

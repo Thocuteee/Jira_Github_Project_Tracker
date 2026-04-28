@@ -208,6 +208,35 @@ public class GroupServiceImpl implements IGroupService {
     }
 
     @Override
+    public List<GroupResponse> getManagedGroups(UUID lecturerId) {
+        if (lecturerId == null) {
+            return List.of();
+        }
+        Map<UUID, Group> groupsById = new LinkedHashMap<>();
+        memberRepo.findByUserIdAndRoleInGroupIgnoreCase(lecturerId, "LECTURER")
+                .stream()
+                .filter(Objects::nonNull)
+                .map(GroupMember::getGroup)
+                .filter(Objects::nonNull)
+                .forEach(group -> groupsById.put(group.getGroupId(), group));
+        return groupsById.values().stream()
+                .map(groupMapper::toResponse)
+                .toList();
+    }
+
+    @Override
+    public List<GroupStatsResponse> getManagedGroupStats(UUID lecturerId) {
+        List<GroupResponse> managed = getManagedGroups(lecturerId);
+        return managed.stream().map(g -> {
+            GroupStatsResponse stat = new GroupStatsResponse();
+            stat.setGroupId(g.getGroupId());
+            stat.setGroupName(g.getGroupName());
+            stat.setMemberCount(memberRepo.countByGroupGroupId(g.getGroupId()));
+            return stat;
+        }).toList();
+    }
+
+    @Override
     public boolean checkLeader(UUID groupId, UUID userId) {
         Group group = groupRepo.findById(groupId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy nhóm!"));
