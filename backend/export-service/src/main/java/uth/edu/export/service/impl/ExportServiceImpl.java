@@ -42,6 +42,14 @@ public class ExportServiceImpl implements IExportService {
     }
 
     private ExportResponse toResponse(ExportSRS export) {
+        String normalizedStatus = null;
+        if (export.getStatus() != null) {
+            normalizedStatus = export.getStatus().name();
+            if (ExportStatus.DONE.name().equals(normalizedStatus)) {
+                normalizedStatus = ExportStatus.COMPLETED.name();
+            }
+        }
+
         return ExportResponse.builder()
                 .exportId(export.getExportId())
                 .groupId(export.getGroupId())
@@ -49,7 +57,7 @@ public class ExportServiceImpl implements IExportService {
                 .fileName(export.getFileName())
                 .fileUrl(export.getFileUrl())
                 .fileType(export.getFileType() != null ? export.getFileType().name() : null)
-                .status(export.getStatus() != null ? export.getStatus().name() : null)
+                .status(normalizedStatus)
                 .generatedBy(export.getGeneratedBy() != null ? export.getGeneratedBy().toString() : null)
                 .createdAt(export.getCreatedAt())
                 .completedAt(export.getCompletedAt())

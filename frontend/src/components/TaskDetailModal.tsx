@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, MessageSquare, History, Info, Save, User, AlertCircle, Calendar, CheckCircle2, Clock, Circle, ArrowRight, Paperclip, Upload, Trash2, Download } from 'lucide-react';
+import { X, MessageSquare, History, Info, Save, User, AlertCircle, Calendar, CheckCircle2, Clock, Circle, ArrowRight, Paperclip, Upload, Trash2, Download, Pencil } from 'lucide-react';
 import type { Task, TaskComment, TaskHistory, Attachment } from '../api/task.service';
 import taskService from '../api/task.service';
 import githubService from '../api/github.service';
@@ -20,6 +20,14 @@ interface TaskDetailModalProps {
   userNameMap: Record<string, string>;
 }
 
+interface AvatarCacheEntry {
+  avatarUrl: string;
+  cachedAt: number;
+}
+
+const COMMENT_AVATAR_CACHE_TTL_MS = 10 * 60 * 1000;
+const commentAvatarMemoryCache: Record<string, AvatarCacheEntry> = {};
+
 const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   task,
   isOpen,
@@ -36,10 +44,15 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [history, setHistory] = useState<TaskHistory[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [newComment, setNewComment] = useState('');
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentContent, setEditingCommentContent] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [commentActionLoadingId, setCommentActionLoadingId] = useState<string | null>(null);
   const [localNames, setLocalNames] = useState<Record<string, string>>({});
+  const [commentAvatarMap, setCommentAvatarMap] = useState<Record<string, string>>({});
+  const [commentAvatarLoadErrorMap, setCommentAvatarLoadErrorMap] = useState<Record<string, boolean>>({});
   const [jiraUrl, setJiraUrl] = useState('');
   const [globalGithubRepo, setGlobalGithubRepo] = useState('');
   const [globalJiraKey, setGlobalJiraKey] = useState('');
@@ -99,6 +112,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       setComments(commentsData);
       setHistory(historyData);
       setAttachments(attachmentsData);
+      await loadCommentAvatars(commentsData);
 
       // Fetch user names for comments and history
       const allUserIds = new Set<string>();
@@ -145,6 +159,72 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     }
   };
 
+  const loadCommentAvatars = async (commentRows: TaskComment[]) => {
+    const commentUserIds = Array.from(new Set(commentRows.map((c) => c.userId)));
+    if (commentUserIds.length === 0) return;
+
+    const now = Date.now();
+    const cachedAvatarMap: Record<string, string> = {};
+    const userIdsToFetch: string[] = [];
+
+    commentUserIds.forEach((userId) => {
+      const entry = commentAvatarMemoryCache[userId];
+      if (entry && now - entry.cachedAt < COMMENT_AVATAR_CACHE_TTL_MS) {
+        if (entry.avatarUrl) {
+          cachedAvatarMap[userId] = entry.avatarUrl;
+        }
+        return;
+      }
+      userIdsToFetch.push(userId);
+    });
+
+    if (Object.keys(cachedAvatarMap).length > 0) {
+      setCommentAvatarMap((prev) => ({ ...prev, ...cachedAvatarMap }));
+    }
+
+    if (userIdsToFetch.length === 0) return;
+
+    const avatarEntries = await Promise.all(
+      userIdsToFetch.map(async (userId) => {
+        try {
+          const user = await authService.getUserById(userId);
+          return [userId, user?.avatarUrl || ''] as const;
+        } catch {
+          return [userId, ''] as const;
+        }
+      })
+    );
+
+    const fetchedAvatarMap: Record<string, string> = {};
+    avatarEntries.forEach(([uid, avatarUrl]) => {
+      commentAvatarMemoryCache[uid] = {
+        avatarUrl,
+        cachedAt: now,
+      };
+      if (avatarUrl) {
+        fetchedAvatarMap[uid] = avatarUrl;
+      }
+    });
+
+    if (Object.keys(fetchedAvatarMap).length > 0) {
+      setCommentAvatarMap((prev) => ({ ...prev, ...fetchedAvatarMap }));
+    }
+  };
+
+  const handleCommentAvatarLoadError = (userId: string) => {
+    setCommentAvatarLoadErrorMap((prev) => ({ ...prev, [userId]: true }));
+    delete commentAvatarMemoryCache[userId];
+  };
+
+  const handleCommentAvatarLoadSuccess = (userId: string) => {
+    setCommentAvatarLoadErrorMap((prev) => {
+      if (!prev[userId]) return prev;
+      const next = { ...prev };
+      delete next[userId];
+      return next;
+    });
+  };
+
   const handleSave = async () => {
     if (!window.confirm('Xác nhận lưu mọi thay đổi cho công việc này?')) return;
 
@@ -166,17 +246,65 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     }
   };
 
+  const refreshComments = async () => {
+    const commentsData = await taskService.getTaskComments(task.taskId);
+    setComments(commentsData);
+    await loadCommentAvatars(commentsData);
+  };
+
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim()) return;
 
     try {
-      await taskService.addComment(task.taskId, newComment);
+      await taskService.addComment(task.taskId, newComment.trim());
       setNewComment('');
-      const commentsData = await taskService.getTaskComments(task.taskId);
-      setComments(commentsData);
+      await refreshComments();
     } catch (error) {
       alert('Lỗi khi gửi bình luận.');
+    }
+  };
+
+  const handleStartEditComment = (comment: TaskComment) => {
+    setEditingCommentId(comment.commentId);
+    setEditingCommentContent(comment.content);
+  };
+
+  const handleCancelEditComment = () => {
+    setEditingCommentId(null);
+    setEditingCommentContent('');
+  };
+
+  const handleUpdateComment = async (commentId: string) => {
+    if (!editingCommentContent.trim()) {
+      alert('Nội dung bình luận không được để trống.');
+      return;
+    }
+    setCommentActionLoadingId(commentId);
+    try {
+      await taskService.updateComment(task.taskId, commentId, editingCommentContent.trim());
+      await refreshComments();
+      handleCancelEditComment();
+    } catch {
+      alert('Không thể cập nhật bình luận.');
+    } finally {
+      setCommentActionLoadingId(null);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!window.confirm('Bạn có chắc muốn xóa bình luận này?')) return;
+    setCommentActionLoadingId(commentId);
+    try {
+      await taskService.deleteComment(task.taskId, commentId);
+      await refreshComments();
+      if (editingCommentId === commentId) {
+        handleCancelEditComment();
+      }
+    } catch {
+      alert('Bạn không có quyền xóa bình luận này hoặc đã có lỗi xảy ra.');
+    } finally {
+      setCommentActionLoadingId(null);
     }
   };
 
@@ -213,6 +341,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     Boolean(currentUserId && task.assignedTo && currentUserId === task.assignedTo);
   const canEditStatus = role === 'LEADER' || isCurrentUserAssignee;
   const canEditTaskDetails = role === 'LEADER' || isCurrentUserAssignee;
+  const canEditJiraIssueKey = role === 'LEADER';
 
   const statusIcons: Record<string, any> = {
     DONE: <CheckCircle2 className="text-green-500" size={16} />,
@@ -514,7 +643,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Jira Issue Key</label>
                     <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
                       <Hash size={14} className="text-slate-400" />
-                      {canEditTaskDetails ? (
+                      {canEditJiraIssueKey ? (
                         <input 
                           type="text"
                           placeholder="VD: KAN-1"
@@ -562,17 +691,90 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 ) : (
                   comments.map((c: TaskComment) => (
                     <div key={c.commentId} className="flex gap-4 group">
-                      <div className={`h-11 w-11 rounded-2xl ${getAvatarColor(c.userId)} flex-shrink-0 flex items-center justify-center text-white font-black text-sm shadow-lg`}>
-                        {c.userId === currentUserId ? 'ME' : <User size={20} />}
-                      </div>
+                      {commentAvatarMap[c.userId] && !commentAvatarLoadErrorMap[c.userId] ? (
+                        <img
+                          src={commentAvatarMap[c.userId]}
+                          alt={localNames[c.userId] || userNameMap[c.userId] || 'Comment user avatar'}
+                          className="h-11 w-11 rounded-2xl object-cover flex-shrink-0 shadow-lg"
+                          onLoad={() => handleCommentAvatarLoadSuccess(c.userId)}
+                          onError={() => handleCommentAvatarLoadError(c.userId)}
+                        />
+                      ) : (
+                        <div className={`h-11 w-11 rounded-2xl ${getAvatarColor(c.userId)} flex-shrink-0 flex items-center justify-center text-white font-black text-sm shadow-lg`}>
+                          {c.userId === currentUserId
+                            ? getInitials(localNames[c.userId] || userNameMap[c.userId] || 'Bạn')
+                            : (localNames[c.userId] || userNameMap[c.userId]
+                              ? getInitials(localNames[c.userId] || userNameMap[c.userId])
+                              : <User size={20} />)}
+                        </div>
+                      )}
                       <div className="flex-1 space-y-1">
                         <div className="flex items-center gap-3">
                           <span className="text-sm font-black text-slate-900">{c.userId === currentUserId ? 'Bạn' : (localNames[c.userId] || userNameMap[c.userId] || `User: ${c.userId.slice(0, 8)}`)}</span>
                           <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{formatUtc7Time(c.createdAt)}</span>
+                          <div className="ml-auto flex items-center gap-2">
+                            {c.userId === currentUserId && (
+                              <>
+                                {editingCommentId === c.commentId ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateComment(c.commentId)}
+                                      disabled={commentActionLoadingId === c.commentId}
+                                      title="Lưu bình luận"
+                                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-50"
+                                    >
+                                      <Save size={14} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={handleCancelEditComment}
+                                      disabled={commentActionLoadingId === c.commentId}
+                                      title="Hủy chỉnh sửa"
+                                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50"
+                                    >
+                                      <X size={14} />
+                                    </button>
+                                  </>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStartEditComment(c)}
+                                    title="Sửa bình luận"
+                                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                                  >
+                                    <Pencil size={14} />
+                                  </button>
+                                )}
+                              </>
+                            )}
+                            {(c.userId === currentUserId || role === 'LEADER') && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteComment(c.commentId)}
+                                disabled={commentActionLoadingId === c.commentId}
+                                title="Xóa bình luận"
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-red-500 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <div className="bg-white px-5 py-4 rounded-[1.5rem] rounded-tl-none border border-slate-100 shadow-sm text-slate-600 text-[15px] font-medium leading-relaxed">
-                          {c.content}
-                        </div>
+                        {editingCommentId === c.commentId && c.userId === currentUserId ? (
+                          <div className="bg-white px-5 py-4 rounded-[1.5rem] rounded-tl-none border border-slate-100 shadow-sm">
+                            <textarea
+                              rows={3}
+                              className="w-full resize-none bg-transparent outline-none text-slate-700 text-[15px] font-medium leading-relaxed"
+                              value={editingCommentContent}
+                              onChange={(e) => setEditingCommentContent(e.target.value)}
+                            />
+                          </div>
+                        ) : (
+                          <div className="bg-white px-5 py-4 rounded-[1.5rem] rounded-tl-none border border-slate-100 shadow-sm text-slate-600 text-[15px] font-medium leading-relaxed">
+                            {c.content}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))
@@ -632,6 +834,14 @@ const getAvatarColor = (userId: string) => {
   const colors = ['bg-rose-500', 'bg-indigo-500', 'bg-emerald-500', 'bg-amber-500', 'bg-sky-500', 'bg-violet-500', 'bg-cyan-500'];
   const index = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
   return colors[index % colors.length];
+};
+
+const getInitials = (name?: string) => {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 };
 
 export default TaskDetailModal;

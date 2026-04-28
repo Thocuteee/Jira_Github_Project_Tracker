@@ -104,6 +104,10 @@ public class TaskCommentServiceImpl implements TaskCommentService {
         return !"NONE".equalsIgnoreCase(role);
     }
 
+    private boolean isLeaderInGroup(UUID groupId, UUID userId) {
+        return "LEADER".equalsIgnoreCase(getUserRoleString(groupId, userId));
+    }
+
     private boolean isAdmin() {
         return SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
@@ -135,16 +139,16 @@ public class TaskCommentServiceImpl implements TaskCommentService {
     @Override
     public void deleteComment(UUID commentId) {
         UUID currentUserId = UserContextHolder.getUserId();
-        String role = UserContextHolder.getUserRole();
 
         TaskComment existingComment = taskCommentRepository.findById(commentId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy bình luận!"));
 
-        // Người tạo hoặc Team Leader mới được xóa
+        UUID groupId = existingComment.getTask().getGroupId();
         boolean isOwner = existingComment.getUserId().equals(currentUserId);
-        boolean isLeader = "TEAM_LEADER".equals(role);
+        boolean isLeader = isLeaderInGroup(groupId, currentUserId);
+        boolean isAdmin = isAdmin();
 
-        if (!isOwner && !isLeader) {
+        if (!isOwner && !isLeader && !isAdmin) {
             throw new RuntimeException("Bạn không có quyền xóa bình luận này!");
         }
 

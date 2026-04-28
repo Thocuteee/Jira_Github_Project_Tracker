@@ -205,7 +205,13 @@ public class TaskServiceImpl implements TaskService {
             saveTaskHistory(existingTask, currentUserId, "DUE_DATE", oldDate, request.getDueDate().toString());
         }
 
-        if (request.getJiraIssueKey() != null && !request.getJiraIssueKey().equals(existingTask.getJiraIssueKey())) {
+        boolean isUpdatingJiraIssueKey = request.getJiraIssueKey() != null
+                && !request.getJiraIssueKey().equals(existingTask.getJiraIssueKey());
+        if (isUpdatingJiraIssueKey && !isLeader && !isAdmin()) {
+            throw new RuntimeException("Chỉ Nhóm trưởng hoặc Admin mới có quyền cập nhật Jira Issue Key!");
+        }
+
+        if (isUpdatingJiraIssueKey) {
             String oldVal = existingTask.getJiraIssueKey() != null ? existingTask.getJiraIssueKey() : "null";
             saveTaskHistory(existingTask, currentUserId, "JIRA_KEY", oldVal, request.getJiraIssueKey());
         }

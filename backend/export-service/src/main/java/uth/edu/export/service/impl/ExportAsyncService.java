@@ -449,7 +449,7 @@ public class ExportAsyncService {
     protected void markCompleted(UUID exportId, String requirementSnapshot, String fileUrl) {
         exportRepository.findById(exportId).ifPresent(export -> {
             export.setRequirementSnapshot(requirementSnapshot);
-            export.setStatus(ExportStatus.DONE);
+            export.setStatus(ExportStatus.COMPLETED);
             export.setFileUrl(fileUrl);
             export.setCompletedAt(LocalDateTime.now());
             export.setNote("Tài liệu đã được tạo thành công.");

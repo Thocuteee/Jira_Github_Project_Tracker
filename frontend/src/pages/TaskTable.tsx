@@ -31,6 +31,22 @@ interface GroupMemberRow {
   roleInGroup: string;
 }
 
+interface AvatarCacheEntry {
+  avatarUrl: string;
+  cachedAt: number;
+}
+
+const AVATAR_CACHE_TTL_MS = 10 * 60 * 1000;
+const avatarMemoryCache: Record<string, AvatarCacheEntry> = {};
+
+const getInitials = (name?: string) => {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+};
+
 const TaskTable = () => {
   const { selectedGroup, loading: groupLoading } = useGroupContext();
   const groupId = selectedGroup?.groupId;
@@ -53,6 +69,8 @@ const TaskTable = () => {
   const [groupMembers, setGroupMembers] = useState<GroupMemberRow[]>([]);
   const [assigningTaskId, setAssigningTaskId] = useState<string | null>(null);
   const [userNameMap, setUserNameMap] = useState<Record<string, string>>({});
+  const [userAvatarMap, setUserAvatarMap] = useState<Record<string, string>>({});
+  const [avatarLoadErrorMap, setAvatarLoadErrorMap] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (groupId) {
@@ -101,6 +119,53 @@ const TaskTable = () => {
       if (allUserIds.size > 0) {
         const names = await authService.getUserNames(Array.from(allUserIds));
         setUserNameMap(prev => ({ ...prev, ...names }));
+
+        const now = Date.now();
+        const cachedAvatarMap: Record<string, string> = {};
+        const userIdsToFetch: string[] = [];
+
+        Array.from(allUserIds).forEach((userId) => {
+          const entry = avatarMemoryCache[userId];
+          if (entry && now - entry.cachedAt < AVATAR_CACHE_TTL_MS) {
+            if (entry.avatarUrl) {
+              cachedAvatarMap[userId] = entry.avatarUrl;
+            }
+            return;
+          }
+          userIdsToFetch.push(userId);
+        });
+
+        if (Object.keys(cachedAvatarMap).length > 0) {
+          setUserAvatarMap((prev) => ({ ...prev, ...cachedAvatarMap }));
+        }
+
+        if (userIdsToFetch.length > 0) {
+          const avatarEntries = await Promise.all(
+            userIdsToFetch.map(async (userId) => {
+              try {
+                const user = await authService.getUserById(userId);
+                return [userId, user?.avatarUrl || ''] as const;
+              } catch {
+                return [userId, ''] as const;
+              }
+            })
+          );
+
+          const fetchedAvatarMap: Record<string, string> = {};
+          avatarEntries.forEach(([uid, avatarUrl]) => {
+            avatarMemoryCache[uid] = {
+              avatarUrl,
+              cachedAt: now,
+            };
+            if (avatarUrl) {
+              fetchedAvatarMap[uid] = avatarUrl;
+            }
+          });
+
+          if (Object.keys(fetchedAvatarMap).length > 0) {
+            setUserAvatarMap((prev) => ({ ...prev, ...fetchedAvatarMap }));
+          }
+        }
       }
     } finally {
       setLoading(false);
@@ -198,6 +263,20 @@ const TaskTable = () => {
     const colors = ['bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-orange-500', 'bg-pink-500', 'bg-teal-500'];
     const index = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     return colors[index % colors.length];
+  };
+
+  const handleAvatarLoadError = (userId: string) => {
+    setAvatarLoadErrorMap((prev) => ({ ...prev, [userId]: true }));
+    delete avatarMemoryCache[userId];
+  };
+
+  const handleAvatarLoadSuccess = (userId: string) => {
+    setAvatarLoadErrorMap((prev) => {
+      if (!prev[userId]) return prev;
+      const next = { ...prev };
+      delete next[userId];
+      return next;
+    });
   };
 
   return (
@@ -399,26 +478,55 @@ const TaskTable = () => {
 
                             <td className="py-5 px-6">
                               {role === 'LEADER' ? (
-                                <select 
-                                  disabled={assigningTaskId === task.taskId || assignableMembers.length === 0}
-                                  value={task.assignedTo || ''}
-                                  onChange={(e) => handleAssignTask(task.taskId, e.target.value)}
-                                  className="bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all disabled:opacity-50"
-                                >
-                                  <option value="">Chưa giao</option>
-                                  {assignableMembers.map(m => (
-                                    <option key={m.userId} value={m.userId}>
-                                      {m.userId === currentUserId ? 'Bạn' : (userNameMap[m.userId] || `Member: ${m.userId.slice(0, 8)}...`)}
-                                    </option>
-                                  ))}
-                                </select>
+                                <div className="flex items-center gap-2">
+                                  {task.assignedTo && userAvatarMap[task.assignedTo] && !avatarLoadErrorMap[task.assignedTo] ? (
+                                    <img
+                                      src={userAvatarMap[task.assignedTo]}
+                                      alt={userNameMap[task.assignedTo] || 'Assignee avatar'}
+                                      className="w-8 h-8 rounded-xl object-cover ring-2 ring-white shadow-md"
+                                      onLoad={() => handleAvatarLoadSuccess(task.assignedTo!)}
+                                      onError={() => handleAvatarLoadError(task.assignedTo!)}
+                                    />
+                                  ) : (
+                                    <div className={`w-8 h-8 rounded-xl ${task.assignedTo ? getAvatarColor(task.assignedTo) : 'bg-slate-200'} flex items-center justify-center text-white font-bold text-xs ring-2 ring-white shadow-md`}>
+                                      {task.assignedTo ? getInitials(userNameMap[task.assignedTo] || 'User') : <UserIcon size={14} />}
+                                    </div>
+                                  )}
+                                  <select
+                                    disabled={assigningTaskId === task.taskId || assignableMembers.length === 0}
+                                    value={task.assignedTo || ''}
+                                    onChange={(e) => handleAssignTask(task.taskId, e.target.value)}
+                                    className="bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all disabled:opacity-50"
+                                  >
+                                    <option value="">Chưa giao</option>
+                                    {assignableMembers.map(m => (
+                                      <option key={m.userId} value={m.userId}>
+                                        {m.userId === currentUserId ? 'Bạn' : (userNameMap[m.userId] || `Member: ${m.userId.slice(0, 8)}...`)}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
                               ) : (
                                 <div className="flex items-center gap-2">
                                   {task.assignedTo ? (
                                     <>
-                                      <div className={`w-8 h-8 rounded-xl ${getAvatarColor(task.assignedTo)} flex items-center justify-center text-white font-bold text-xs ring-2 ring-white shadow-md`}>
-                                        {task.assignedTo === currentUserId ? 'YOU' : <UserIcon size={14} />}
-                                      </div>
+                                      {userAvatarMap[task.assignedTo] && !avatarLoadErrorMap[task.assignedTo] ? (
+                                        <img
+                                          src={userAvatarMap[task.assignedTo]}
+                                          alt={userNameMap[task.assignedTo] || 'Assignee avatar'}
+                                          className="w-8 h-8 rounded-xl object-cover ring-2 ring-white shadow-md"
+                                          onLoad={() => handleAvatarLoadSuccess(task.assignedTo!)}
+                                          onError={() => handleAvatarLoadError(task.assignedTo!)}
+                                        />
+                                      ) : (
+                                        <div className={`w-8 h-8 rounded-xl ${getAvatarColor(task.assignedTo)} flex items-center justify-center text-white font-bold text-xs ring-2 ring-white shadow-md`}>
+                                          {task.assignedTo === currentUserId
+                                            ? getInitials(userNameMap[task.assignedTo] || 'Bạn')
+                                            : (userNameMap[task.assignedTo]
+                                              ? getInitials(userNameMap[task.assignedTo])
+                                              : <UserIcon size={14} />)}
+                                        </div>
+                                      )}
                                       <span className="text-xs font-bold text-slate-600">
                                         {task.assignedTo === currentUserId ? 'Của bạn' : (userNameMap[task.assignedTo] || `User ${task.assignedTo.slice(0, 4)}`)}
                                       </span>

@@ -96,6 +96,14 @@ class TaskService {
     return (await axiosClient.post(`${BASE_PATH}/${taskId}/comments`, { content })) as TaskComment;
   }
 
+  async updateComment(taskId: string, commentId: string, content: string): Promise<TaskComment> {
+    return (await axiosClient.patch(`${BASE_PATH}/${taskId}/comments/${commentId}`, { content })) as TaskComment;
+  }
+
+  async deleteComment(taskId: string, commentId: string): Promise<void> {
+    await axiosClient.delete(`${BASE_PATH}/${taskId}/comments/${commentId}`);
+  }
+
   async getTaskHistory(taskId: string): Promise<TaskHistory[]> {
     return (await axiosClient.get(`${BASE_PATH}/${taskId}/history`)) as TaskHistory[];
   }

@@ -31,6 +31,13 @@ export interface UserProfile {
     googleAccount?: boolean;
 }
 
+export interface BasicUserProfile {
+    userId: string;
+    name: string;
+    email?: string;
+    avatarUrl?: string | null;
+}
+
 export interface UpdateProfileRequest {
     avatarUrl?: string | null;
 }
@@ -81,6 +88,10 @@ const authService = {
 
     getUserNames: (userIds: string[]): Promise<Record<string, string>> => {
         return axiosClient.post('/api/users/names', userIds);
+    },
+
+    getUserById: (userId: string): Promise<BasicUserProfile> => {
+        return axiosClient.get(`/api/auth/users/${userId}`);
     }
 };
 
