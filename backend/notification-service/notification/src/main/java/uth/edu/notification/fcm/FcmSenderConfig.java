@@ -4,6 +4,8 @@ import com.google.auth.oauth2.GoogleCredentials;
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Base64;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -65,7 +67,17 @@ public class FcmSenderConfig {
         }
 
         if (StringUtils.hasText(firebaseCredentialsPath)) {
-            try (FileInputStream fis = new FileInputStream(firebaseCredentialsPath)) {
+            Path credentialPath = Path.of(firebaseCredentialsPath);
+            if (!Files.exists(credentialPath)) {
+                log.warn("FCM credential file does not exist at path: {}", firebaseCredentialsPath);
+                return new NoOpFcmSender();
+            }
+            if (!Files.isRegularFile(credentialPath)) {
+                log.warn("FCM credential path is not a regular file: {}", firebaseCredentialsPath);
+                return new NoOpFcmSender();
+            }
+
+            try (FileInputStream fis = new FileInputStream(credentialPath.toFile())) {
                 GoogleCredentials credentials = GoogleCredentials.fromStream(fis);
                 return new FirebaseAdminFcmSender(credentials, fcmTokenService);
             } catch (Exception ex) {
