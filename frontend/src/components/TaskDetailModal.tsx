@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, MessageSquare, History, Info, Save, User, AlertCircle, Calendar, CheckCircle2, Clock, Circle, ArrowRight, Paperclip, Upload, Trash2, Download, Pencil } from 'lucide-react';
+import { X, MessageSquare, History as LucideHistory, Info, Save, User, AlertCircle, Calendar, CheckCircle2, Clock, Circle, ArrowRight, Paperclip, Upload, Trash2, Download, Pencil, ExternalLink, GitBranch, Hash } from 'lucide-react';
 import type { Task, TaskComment, TaskHistory, Attachment } from '../api/task.service';
 import taskService from '../api/task.service';
 import githubService from '../api/github.service';
 import requirementService from '../api/requirement.service';
 import authService from '../api/auth.service';
-import { ExternalLink, GitBranch, Hash } from 'lucide-react';
 import { getMemberRole } from '../utils/groupRole';
 import { formatUtc7DateTime, formatUtc7Time } from '../utils/datetime';
 
@@ -76,6 +75,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         assignedTo: task.assignedTo,
         dueDate: task.dueDate,
         jiraIssueKey: task.jiraIssueKey || '',
+        jiraTaskKey: task.jiraTaskKey || '',
         githubCommitUrl: task.githubCommitUrl || ''
       });
       loadExtraData();
@@ -380,7 +380,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           {[
             { id: 'details', icon: <Info size={18} />, label: 'Chi tiết' },
             { id: 'comments', icon: <MessageSquare size={18} />, label: `Thảo luận (${comments.length})` },
-            { id: 'history', icon: <History size={18} />, label: 'Lịch sử' },
+            { id: 'history', icon: <LucideHistory size={18} />, label: 'Lịch sử' },
           ].map((tab) => (
             <button
               key={tab.id}

@@ -49,6 +49,10 @@ class GithubService {
   async getRepositoriesByGroup(groupId: string) {
     return await authClient.get(`${API_URL}/repositories/group/${groupId}`) as any;
   }
+
+  async syncCommits(groupId: string): Promise<{ synced: number; message: string }> {
+    return await authClient.post(`${API_URL}/sync/${groupId}`, {}) as any;
+  }
 }
 
 export default new GithubService();

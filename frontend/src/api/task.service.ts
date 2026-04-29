@@ -15,6 +15,7 @@ export interface Task {
   createdAt?: string;
   createdBy?: string;
   jiraIssueKey?: string;
+  jiraTaskKey?: string;
   githubCommitUrl?: string;
 }
 

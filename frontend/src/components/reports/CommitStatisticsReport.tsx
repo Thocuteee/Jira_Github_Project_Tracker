@@ -14,7 +14,7 @@ import {
 } from 'recharts';
 import groupService from '@/api/group.service';
 import githubService from '@/api/github.service';
-import { GitCommit, TrendingUp, Users, AlertCircle, Download, FileText, History, ExternalLink } from 'lucide-react';
+import { GitCommit, TrendingUp, Users, AlertCircle, Download, FileText, RefreshCw, History as LucideHistory, ExternalLink } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -32,6 +32,8 @@ export default function CommitStatisticsReport({ groupId }: CommitStatisticsRepo
         allCommits: []
     });
     const [loading, setLoading] = useState(true);
+    const [syncing, setSyncing] = useState(false);
+    const [syncMsg, setSyncMsg] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -69,9 +71,9 @@ export default function CommitStatisticsReport({ groupId }: CommitStatisticsRepo
                         } catch (e) { /* ignore invalid dates */ }
                     }
 
-                    // Member aggregation
-                    const userName = memberMap[c.userId] || 'GitHub Author';
-                    contribAgg[userName] = (contribAgg[userName] || 0) + 1;
+                    // Member aggregation — ưu tiên authorName (tên GitHub thực tế)
+                    const authorLabel = c.authorName || c.commitFile || 'Unknown Author';
+                    contribAgg[authorLabel] = (contribAgg[authorLabel] || 0) + 1;
                 });
 
                 // Format for charts
@@ -85,15 +87,15 @@ export default function CommitStatisticsReport({ groupId }: CommitStatisticsRepo
                     value
                 }));
 
-                // Process all commits for history table
+                // Process all commits for history table — hiển thị authorName (tên GitHub)
                 const processedCommits = commits.map((c: any) => ({
                     id: c.commitHash || c.id || Math.random().toString(),
-                    author: memberMap[c.userId] || 'GitHub Author',
+                    author: c.authorName || c.commitFile || 'Unknown Author',
                     message: c.message || 'No message',
                     date: c.committedAt ? new Date(c.committedAt).toLocaleString('vi-VN') : 'Unknown',
                     hash: c.commitHash ? c.commitHash.substring(0, 7) : '',
                     url: c.commitHash ? `https://github.com/commit/${c.commitHash}` : '#'
-                })).sort((a, b) => {
+                })).sort((a: any, b: any) => {
                     const dateA = a.date !== 'Unknown' ? new Date(a.date.split(' ')[1].split('/').reverse().join('-') + 'T' + a.date.split(' ')[0]).getTime() : 0;
                     const dateB = b.date !== 'Unknown' ? new Date(b.date.split(' ')[1].split('/').reverse().join('-') + 'T' + b.date.split(' ')[0]).getTime() : 0;
                     return dateB - dateA;
@@ -115,6 +117,46 @@ export default function CommitStatisticsReport({ groupId }: CommitStatisticsRepo
 
         fetchData();
     }, [groupId]);
+
+    const handleSync = async () => {
+        setSyncing(true);
+        setSyncMsg(null);
+        try {
+            const result = await githubService.syncCommits(groupId);
+            setSyncMsg(result.message);
+            // Reload dữ liệu sau khi sync
+            const rawCommits = await githubService.getCommitsByGroup(groupId);
+            const commits = Array.isArray(rawCommits) ? rawCommits : [];
+            const dailyAgg: Record<string, number> = {};
+            const contribAgg: Record<string, number> = {};
+            commits.forEach((c: any) => {
+                if (!c) return;
+                if (c.committedAt) {
+                    try {
+                        const date = new Date(c.committedAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+                        dailyAgg[date] = (dailyAgg[date] || 0) + 1;
+                    } catch (_) {}
+                }
+                const authorLabel = c.authorName || c.commitFile || 'Unknown Author';
+                contribAgg[authorLabel] = (contribAgg[authorLabel] || 0) + 1;
+            });
+            const timelineData = Object.entries(dailyAgg).map(([date, count]) => ({ date, commits: count })).sort((a, b) => a.date.localeCompare(b.date));
+            const memberData = Object.entries(contribAgg).map(([name, value]) => ({ name, value }));
+            const processedCommits = commits.map((c: any) => ({
+                id: c.commitHash || Math.random().toString(),
+                author: c.authorName || c.commitFile || 'Unknown Author',
+                message: c.message || 'No message',
+                date: c.committedAt ? new Date(c.committedAt).toLocaleString('vi-VN') : 'Unknown',
+                hash: c.commitHash ? c.commitHash.substring(0, 7) : '',
+                url: c.commitHash ? `https://github.com/commit/${c.commitHash}` : '#'
+            }));
+            setStats({ totalCommits: commits.length, timelineData, memberData, allCommits: processedCommits });
+        } catch (err: any) {
+            setSyncMsg('Lỗi khi đồng bộ: ' + (err?.message || 'Không xác định'));
+        } finally {
+            setSyncing(false);
+        }
+    };
 
     const handleExportCSV = () => {
         if (!stats.memberData.length && !stats.allCommits.length) return;
@@ -229,8 +271,24 @@ export default function CommitStatisticsReport({ groupId }: CommitStatisticsRepo
     return (
         <div className="space-y-8 animate-in fade-in duration-700">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div /> {/* Spacer */}
+                <div>
+                    {syncMsg && (
+                        <div className={`text-sm font-medium px-4 py-2 rounded-lg border ${
+                            syncMsg.startsWith('Lỗi') ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        }`}>
+                            {syncMsg}
+                        </div>
+                    )}
+                </div>
                 <div className="flex items-center gap-2">
+                    <button
+                        onClick={handleSync}
+                        disabled={syncing}
+                        className="inline-flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-bold hover:bg-blue-700 transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                        <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} />
+                        {syncing ? 'Đang đồng bộ...' : '🔄 Đồng bộ GitHub'}
+                    </button>
                     <button 
                         onClick={handleExportCSV}
                         className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 px-4 py-2 text-sm font-bold hover:bg-emerald-100 transition-all shadow-sm"
@@ -381,7 +439,7 @@ export default function CommitStatisticsReport({ groupId }: CommitStatisticsRepo
                 <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
                     <div>
                         <h3 className="font-bold text-slate-900 flex items-center gap-2 text-base">
-                            <History size={18} className="text-blue-600" />
+                            <LucideHistory size={18} className="text-blue-600" />
                             Lịch sử Commit chi tiết
                         </h3>
                         <p className="text-xs font-medium text-slate-500 mt-1">
