@@ -7,6 +7,12 @@ import java.util.UUID;
 
 public interface GithubCommitRepo extends JpaRepository<GithubCommit, UUID> {
     List<GithubCommit> findByRepo_RepoId(UUID repoId);
+
     List<GithubCommit> findByGroupId(UUID groupId);
+
     List<GithubCommit> findByUserId(UUID userId);
+
+    boolean existsByCommitSha(String commitSha);
+
+    boolean existsByCommitShaAndGroupId(String commitSha, UUID groupId);
 }

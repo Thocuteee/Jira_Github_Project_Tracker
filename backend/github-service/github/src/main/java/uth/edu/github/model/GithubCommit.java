@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "github_commits")
+@Table(name = "github_sync_commits", uniqueConstraints = {@UniqueConstraint(columnNames = {"commit_sha", "group_id"})})
 @Getter @Setter
 @NoArgsConstructor @AllArgsConstructor
 @Builder
@@ -27,14 +27,17 @@ public class GithubCommit {
     @Column(name = "user_id", nullable = false)
     private UUID userId;
 
-    @Column(name = "commit_hash", nullable = false, unique = true)
-    private String commitHash;
+    @Column(name = "commit_sha", nullable = false)
+    private String commitSha;
 
     @Column(name = "message", columnDefinition = "TEXT")
     private String message;
 
     @Column(name = "commit_file")
     private String commitFile;
+
+    @Column(name = "author_name")
+    private String authorName;
 
     @Column(name = "committed_at")
     private LocalDateTime committedAt;
@@ -48,8 +51,8 @@ public class GithubCommit {
 
     public String getUrl() {
         if (this.repo != null && this.repo.getRepoUrl() != null) {
-            return this.repo.getRepoUrl() + "/commit/" + this.commitHash;
+            return this.repo.getRepoUrl() + "/commit/" + this.commitSha;
         }
-        return "https://github.com/commit/" + this.commitHash;
+        return "https://github.com/commit/" + this.commitSha;
     }
 }

@@ -27,7 +27,6 @@ public class GlobalSettingController {
         }
         GlobalSetting saved = repo.save(settings);
         
-        // Gửi một thông báo giả qua RabbitMQ để test giao diện Real-time
         try {
             java.util.Map<String, Object> msg = new java.util.HashMap<>();
             msg.put("jiraKey", "SYSTEM");

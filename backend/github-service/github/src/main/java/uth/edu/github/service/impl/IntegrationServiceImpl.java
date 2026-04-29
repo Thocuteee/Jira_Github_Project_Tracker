@@ -22,11 +22,15 @@ public class IntegrationServiceImpl implements IIntegrationService {
 
     @Override
     public IntegrationResponse create(IntegrationRequest request) {
-        // Mỗi group chỉ có 1 integration
-        integrationRepo.findByGroupId(request.getGroupId()).ifPresent(i -> {
-            throw new RuntimeException("Group này đã có Integration rồi, hãy dùng update!");
-        });
-        return mapper.toResponse(integrationRepo.save(mapper.toEntity(request)));
+        // Upsert logic: Nếu đã có thì cập nhật, chưa có thì tạo mới
+        return integrationRepo.findFirstByGroupId(request.getGroupId())
+                .map(existing -> {
+                    existing.setGithubToken(request.getGithubToken());
+                    existing.setGithubRepo(request.getGithubRepo());
+                    existing.setJiraProjectKey(request.getJiraProjectKey());
+                    return mapper.toResponse(integrationRepo.save(existing));
+                })
+                .orElseGet(() -> mapper.toResponse(integrationRepo.save(mapper.toEntity(request))));
     }
 
     @Override
@@ -37,7 +41,7 @@ public class IntegrationServiceImpl implements IIntegrationService {
 
     @Override
     public IntegrationResponse getByGroupId(UUID groupId) {
-        return integrationRepo.findByGroupId(groupId)
+        return integrationRepo.findFirstByGroupId(groupId)
                 .map(mapper::toResponse)
                 .orElse(null);
     }

@@ -11,12 +11,13 @@ public class GithubCommitMapper {
         GithubCommitResponse res = new GithubCommitResponse();
         res.setCommitId(entity.getCommitId());
         res.setGroupId(entity.getGroupId());
-        res.setRepoId(entity.getRepo().getRepoId());
-        res.setRepoName(entity.getRepo().getRepoName());
+        res.setRepoId(entity.getRepo() != null ? entity.getRepo().getRepoId() : null);
+        res.setRepoName(entity.getRepo() != null ? entity.getRepo().getRepoName() : "N/A");
         res.setUserId(entity.getUserId());
-        res.setCommitHash(entity.getCommitHash());
+        res.setCommitHash(entity.getCommitSha());
         res.setMessage(entity.getMessage());
         res.setCommitFile(entity.getCommitFile());
+        res.setAuthorName(entity.getAuthorName());
         res.setCommittedAt(entity.getCommittedAt());
         return res;
     }

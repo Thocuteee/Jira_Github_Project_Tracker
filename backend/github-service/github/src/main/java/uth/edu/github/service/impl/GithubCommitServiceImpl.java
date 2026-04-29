@@ -40,7 +40,7 @@ public class GithubCommitServiceImpl implements IGithubCommitService {
                 .groupId(request.getGroupId())
                 .repo(repo)
                 .userId(request.getUserId())
-                .commitHash(request.getCommitHash())
+                .commitSha(request.getCommitHash())
                 .message(request.getMessage())
                 .commitFile(request.getCommitFile())
                 .build();
@@ -50,7 +50,7 @@ public class GithubCommitServiceImpl implements IGithubCommitService {
         try {
             saveCommit(savedCommit);
         } catch (Exception e) {
-            System.err.println("❌ Lỗi gửi message sang RabbitMQ: " + e.getMessage());
+            System.err.println("Lỗi gửi message sang RabbitMQ: " + e.getMessage());
         }
 
         return mapper.toResponse(savedCommit);

@@ -19,8 +19,7 @@ public class FeignConfig {
     @Bean
     public Encoder multipartFormEncoder() {
         return new SpringFormEncoder(new SpringEncoder(
-                () -> new HttpMessageConverters(new RestTemplate().getMessageConverters())
-        ));
+                () -> new HttpMessageConverters(new RestTemplate().getMessageConverters())));
     }
 
     @Bean
@@ -34,7 +33,7 @@ public class FeignConfig {
                 if (userId != null) {
                     template.header("X-User-Id", userId.toString());
                 }
-                
+
                 if (role != null) {
                     template.header("X-User-Role", role);
                 }

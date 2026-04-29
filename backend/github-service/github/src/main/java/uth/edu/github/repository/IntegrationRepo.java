@@ -6,5 +6,5 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface IntegrationRepo extends JpaRepository<Integration, UUID> {
-    Optional<Integration> findByGroupId(UUID groupId);
+    Optional<Integration> findFirstByGroupId(UUID groupId);
 }

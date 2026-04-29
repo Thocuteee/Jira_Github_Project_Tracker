@@ -14,5 +14,6 @@ public class GithubCommitResponse {
     private String commitHash;
     private String message;
     private String commitFile;
+    private String authorName;
     private LocalDateTime committedAt;
 }
