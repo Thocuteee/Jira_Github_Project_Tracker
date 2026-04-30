@@ -151,8 +151,10 @@ export default function Profile() {
                 <Lock className="h-5 w-5" />
                 Bảo mật
               </h2>
-              {profile.googleAccount ? (
-                <p className="text-sm text-slate-600">Tài khoản Google không thể đổi mật khẩu tại đây.</p>
+              {profile.oauthAccount ? (
+                <p className="text-sm text-slate-600">
+                  Tài khoản đăng nhập bằng Google hoặc GitHub không thể đổi mật khẩu tại đây.
+                </p>
               ) : (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   <input

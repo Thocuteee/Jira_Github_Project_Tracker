@@ -17,5 +17,6 @@ public class ProfileResponse {
     private Set<String> roles;
     private String avatarUrl;
     private LocalDateTime createdAt;
-    private boolean googleAccount;
+    /** true nếu user dùng mật khẩu marker OAuth (Google/GitHub), không đổi mật khẩu local tại đây */
+    private boolean oauthAccount;
 }

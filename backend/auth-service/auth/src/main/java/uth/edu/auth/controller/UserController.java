@@ -48,7 +48,7 @@ public class UserController {
                     .collect(Collectors.toSet()),
                 user.getAvatarUrl(),
                 user.getCreatedAt(),
-                isGoogleAccount(user)
+                isOAuthAccount(user)
         );
 
         return ResponseEntity.ok(response);
@@ -80,7 +80,7 @@ public class UserController {
                 savedUser.getRoles().stream().map(role -> role.getName().name()).collect(Collectors.toSet()),
                 savedUser.getAvatarUrl(),
                 savedUser.getCreatedAt(),
-                isGoogleAccount(savedUser)
+                isOAuthAccount(savedUser)
         );
         return ResponseEntity.ok(response);
     }
@@ -92,9 +92,9 @@ public class UserController {
         String email = userDetails.getUsername();
         User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng!"));
 
-        if (isGoogleAccount(user)) {
+        if (isOAuthAccount(user)) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("message", "Tài khoản Google không thể đổi mật khẩu tại đây"));
+                    .body(Map.of("message", "Tài khoản đăng nhập OAuth (Google/GitHub) không thể đổi mật khẩu tại đây"));
         }
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
             return ResponseEntity.badRequest().body(Map.of("message", "Mật khẩu mới và xác nhận mật khẩu không khớp"));
@@ -119,12 +119,13 @@ public class UserController {
         return ResponseEntity.ok(nameMap);
     }
 
-    private boolean isGoogleAccount(User user) {
+    private boolean isOAuthAccount(User user) {
         String passwordHash = user.getPassword();
         if (passwordHash == null || passwordHash.isBlank()) {
             return false;
         }
         return passwordEncoder.matches(OAuth2AuthenticationSuccessHandler.GOOGLE_MARKER_PASSWORD, passwordHash)
+                || passwordEncoder.matches(OAuth2AuthenticationSuccessHandler.GITHUB_MARKER_PASSWORD, passwordHash)
                 || passwordEncoder.matches("oauth2-user", passwordHash);
     }
 
