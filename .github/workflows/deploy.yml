@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "KAN-33-Build-CI-CD" ]
 
 env:
   REGISTRY: ghcr.io
@@ -172,7 +172,7 @@ jobs:
             else
               git remote set-url origin https://github.com/$GH_REPO.git
             fi
-            git fetch origin main
+            git fetch origin KAN-33-Build-CI-CD
             git reset --hard FETCH_HEAD
 
             cd backend

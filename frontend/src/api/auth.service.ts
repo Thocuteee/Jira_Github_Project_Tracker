@@ -28,7 +28,7 @@ export interface UserProfile {
     roles: string[];
     avatarUrl?: string | null;
     createdAt?: string;
-    googleAccount?: boolean;
+    oauthAccount?: boolean;
 }
 
 export interface BasicUserProfile {
